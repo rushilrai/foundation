@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["astro/client"]
+  },
+  "include": ["src", "astro.config.mjs", "env.d.ts", "tailwind.config.ts"],
+  "exclude": ["node_modules"]
+}
+
+

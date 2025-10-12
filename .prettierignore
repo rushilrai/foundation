@@ -1,0 +1,17 @@
+node_modules
+dist
+build
+.next
+.out
+.turbo
+.coverage
+apps/**/.next
+apps/**/dist
+apps/**/build
+packages/**/dist
+packages/**/build
+coverage
+.vercel
+apps/**/.expo
+apps/**/ios
+apps/**/android
