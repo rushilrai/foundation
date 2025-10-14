@@ -1,0 +1,17 @@
+---
+import CommonLayout from "../modules/common/components/CommonLayout.astro";
+---
+
+<CommonLayout>
+    <button id="sample-button" class="btn">Button</button>
+</CommonLayout>
+
+<script>
+    const button = document.getElementById("sample-button");
+    
+    if (button) {
+    button.addEventListener("click", () => {
+            window.alert("Button clicked");
+        });
+    }
+</script>
