@@ -1,0 +1,85 @@
+---
+import { Image } from "astro:assets";
+import { MoveUpRightIcon } from "@lucide/astro";
+
+import WavyUnderline from "../../../assets/images/common/wavy-underline.svg";
+import ExperienceItem from "./ExperienceItem.astro";
+
+const EXPERIENCE_ITEMS = [
+  {
+    title: "Co-Founder",
+    org: "Ulookup",
+    term: "2025 - Present",
+    uri: "https://www.ulookup.ai",
+  },
+  {
+    title: "Senior Full Stack Software Engineer",
+    org: "Ipseity Network",
+    term: "2024 - 2025",
+    uri: "https://www.ipseity.network",
+  },
+  {
+    title: "Full Stack Software Engineer",
+    org: "Ipseity Network",
+    term: "2022 - 2024",
+    uri: "https://www.ipseity.network",
+  },
+  {
+    title: "Co-Founder & CTO",
+    org: "Skrate",
+    term: "2021 - 2022",
+    uri: "https://skrate-web-app.vercel.app",
+  },
+  {
+    title: "Founder",
+    org: "RR Solutions",
+    term: "2021 - 2025",
+    uri: "#",
+  },
+];
+---
+
+<section
+  id="experience"
+  class="flex h-full w-full max-w-5xl flex-col items-start gap-4 rounded-2xl p-4"
+>
+  <div class="flex w-full flex-col gap-4 sm:flex-row">
+    <div class="flex w-full flex-col gap-3 sm:gap-5">
+      <h2 class="font-heading text-5xl font-medium">Experience</h2>
+
+      <a
+        href="https://drive.google.com/file/d/1hPgQFr3rRbUDFf-kPWeNbv8IPVQl6-vd/view?usp=sharing"
+        target="_blank"
+        class="btn w-40 btn-md">View Resume <MoveUpRightIcon size={18} /></a
+      >
+    </div>
+
+    <div class="flex flex-col items-start gap-2 sm:items-end">
+      <p class="max-w-sm text-left font-body text-lg sm:text-right">
+        A brief summary of Rushil's Software Development journey over the years.
+      </p>
+
+      <Image
+        src={WavyUnderline}
+        alt="underline for the heading"
+        width={180}
+        height={20}
+        densities={[1, 2]}
+      />
+    </div>
+  </div>
+
+  <ul class="mt-4 w-full">
+    {
+      EXPERIENCE_ITEMS.map((item, index) => (
+        <ExperienceItem
+          key={index}
+          title={item.title}
+          org={item.org}
+          term={item.term}
+          uri={item.uri}
+        />
+      ))
+    }
+  </ul>
+</section>

@@ -3,11 +3,12 @@ import "@fontsource-variable/merriweather";
 import "@fontsource-variable/outfit";
 
 import "../../../index.css";
+import Header from "./Header.astro";
 
 console.log("galleria");
 ---
 
-<html lang="en">
+<html data-theme="rr-theme" lang="en" class="scroll-smooth">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -101,6 +102,7 @@ console.log("galleria");
   </head>
 
   <body class="flex min-h-screen w-full flex-col items-center bg-base-200">
+    <Header />
     <slot />
   </body>
 </html>

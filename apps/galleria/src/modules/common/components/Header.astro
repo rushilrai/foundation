@@ -1,0 +1,45 @@
+---
+import { Image } from "astro:assets";
+
+import LogoLightBg from "../../../assets/images/logo/logo-light-bg.png";
+---
+
+<header class="flex w-full max-w-5xl flex-row items-center justify-between p-4">
+  <Image
+    loading="eager"
+    id="header-logo"
+    src={LogoLightBg}
+    alt="logo with the initials RR"
+    width={60}
+    height={60}
+    densities={[1, 2]}
+    class="opacity-0"
+  />
+
+  <nav id="header-nav" class="menu menu-horizontal gap-1 menu-lg font-heading">
+    <li class="opacity-0"><a href="#hero">About</a></li>
+    <li class="opacity-0"><a href="#experience">Work</a></li>
+  </nav>
+</header>
+
+<script>
+  import { animate, stagger } from "motion";
+
+  const logo = document.getElementById("header-logo") as HTMLImageElement;
+
+  if (logo) {
+    animate(logo, { opacity: [0, 1] }, { duration: 1 });
+  }
+
+  const nav = document.getElementById("header-nav") as HTMLUListElement;
+
+  if (nav) {
+    const navChildren = Array.from(nav.children);
+
+    animate(
+      navChildren,
+      { y: [10, 0], opacity: [0, 1] },
+      { delay: stagger(0.2), duration: 1 },
+    );
+  }
+</script>

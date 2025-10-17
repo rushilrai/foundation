@@ -13,12 +13,13 @@
   "dependencies": {
     "@fontsource-variable/merriweather": "^5.2.6",
     "@fontsource-variable/outfit": "^5.2.8",
+    "@lucide/astro": "^0.546.0",
     "astro": "^5.14.5",
-    "basecoat-css": "^0.3.2",
-    "lucide": "^0.545.0"
+    "motion": "^12.23.24"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.14",
+    "daisyui": "^5.3.7",
     "tailwindcss": "^4.1.14"
   }
 }

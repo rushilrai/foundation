@@ -1,17 +1,18 @@
 ---
 import CommonLayout from "../modules/common/components/CommonLayout.astro";
+import Experience from "../modules/landing/components/Experience.astro";
+import Hero from "../modules/landing/components/Hero.astro";
+import Showcase from "../modules/landing/components/Showcase.astro";
 ---
 
 <CommonLayout>
-    <button id="sample-button" class="btn">Button</button>
-</CommonLayout>
+  <div class="h-4 lg:h-12"></div>
 
-<script>
-    const button = document.getElementById("sample-button");
-    
-    if (button) {
-    button.addEventListener("click", () => {
-            window.alert("Button clicked");
-        });
-    }
-</script>
+  <Hero />
+
+  <div class="h-12 lg:h-24"></div>
+
+  <Experience />
+
+  <div class="h-24"></div>
+</CommonLayout>

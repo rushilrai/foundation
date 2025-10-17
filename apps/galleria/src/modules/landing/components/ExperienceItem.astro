@@ -1,0 +1,64 @@
+---
+const { title, org, term, uri } = Astro.props;
+---
+
+<a href={uri} target="_blank">
+  <li
+    class="experience-item-card flex w-full max-w-5xl flex-col justify-between rounded-md py-5 sm:flex-row"
+  >
+    <div class="flex flex-col gap-1">
+      <h2 class="font-body text-xl font-semibold">
+        {title}
+      </h2>
+      <h3 class="font-body text-lg">{org}</h3>
+    </div>
+
+    <span class="text-lg font-medium sm:text-2xl">{term}</span>
+  </li>
+</a>
+
+<script>
+  import { hover, animate, press } from "motion";
+
+  import { getCSSVariable, isTouchDevice } from "../../common/utils";
+
+  const experienceItem = document.querySelectorAll(
+    ".experience-item-card",
+  ) as NodeListOf<HTMLDivElement>;
+
+  if (experienceItem) {
+    hover(experienceItem, (element) => {
+      animate(element, {
+        backgroundColor: getCSSVariable("--color-base-300"),
+        paddingLeft: "1rem",
+        paddingRight: "1rem",
+      });
+
+      return () => {
+        animate(element, {
+          backgroundColor: getCSSVariable("--color-base-200"),
+          paddingLeft: "0",
+          paddingRight: "0",
+        });
+      };
+    });
+
+    if (isTouchDevice()) {
+      press(experienceItem, (element) => {
+        animate(element, {
+          backgroundColor: getCSSVariable("--color-base-300"),
+          paddingLeft: "0.5rem",
+          paddingRight: "0.5rem",
+        });
+
+        return () => {
+          animate(element, {
+            backgroundColor: getCSSVariable("--color-base-200"),
+            paddingLeft: "0",
+            paddingRight: "0",
+          });
+        };
+      });
+    }
+  }
+</script>
