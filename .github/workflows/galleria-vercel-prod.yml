@@ -28,9 +28,6 @@ jobs:
           node-version: 22
           cache: 'pnpm'
 
-      - name: Approve build scripts
-        run: pnpm -w approve-builds sharp esbuild @tailwindcss/oxide
-
       - name: Install dependencies (workspace root)
         run: pnpm install --frozen-lockfile
 
