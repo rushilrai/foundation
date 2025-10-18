@@ -1,5 +1,5 @@
 {
-  "name": "@fullstack/db",
+  "name": "@foundation/db",
   "version": "0.0.0",
   "private": true,
   "type": "module",
