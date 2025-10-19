@@ -36,6 +36,10 @@ jobs:
         working-directory: .
         run: pnpm -w install --frozen-lockfile
 
+      - name: Install db package deps
+        working-directory: .
+        run: pnpm --filter @foundation/db install --frozen-lockfile
+
       - name: Build db package
         working-directory: .
         run: pnpm --filter @foundation/db build
