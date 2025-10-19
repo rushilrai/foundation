@@ -38,15 +38,19 @@ jobs:
 
       - name: Install db package deps
         working-directory: .
-        run: pnpm --filter @foundation/db install --frozen-lockfile
+        run: pnpm --filter @foundation/db --workspace-root=false install --frozen-lockfile
 
       - name: Build db package
         working-directory: .
-        run: pnpm --filter @foundation/db build
+        run: pnpm --filter @foundation/db --workspace-root=false build
+
+      - name: Install keystone deps
+        working-directory: .
+        run: pnpm --filter @foundation/keystone --workspace-root=false install --frozen-lockfile
 
       - name: Build
         working-directory: .
-        run: pnpm --filter @foundation/keystone build
+        run: pnpm --filter @foundation/keystone --workspace-root=false build
 
       - name: Package production build
         run: |

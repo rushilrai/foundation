@@ -11,7 +11,7 @@ async function main() {
     await setupDbConnection();
     await setupServer();
 
-    console.log("done");
+    console.log("not done");
 }
 
 main().catch((error) => {
