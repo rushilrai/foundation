@@ -1,0 +1,65 @@
+name: Droplet Production (keystone)
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "apps/keystone/**"
+
+concurrency:
+  group: prod
+  cancel-in-progress: false
+
+env:
+  DEPLOY_HOST: ${{ secrets.KEYSTONE_DO_SSH_HOST }}
+  DEPLOY_USER: ${{ secrets.KEYSTONE_DO_SSH_USER }}
+  DEPLOY_KEY: ${{ secrets.KEYSTONE_DO_SSH_KEY }}
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/keystone
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies (workspace root)
+        run: pnpm install --frozen-lockfile
+
+      - name: Build backend (keystone)
+        run: pnpm run build
+
+      - name: Package production build
+        run: |
+          tar -czf keystone-build.tgz \
+            dist \
+            package.json \
+            pnpm-lock.yaml \
+            ecosystem.config.cjs
+
+      - name: Upload build to Droplet
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ env.DEPLOY_KEY }}
+          source: apps/keystone/keystone-build.tgz
+          target: /tmp/
+
+      - name: Deploy on Droplet
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ env.DEPLOY_KEY }}
+          script: |
+            bash /srv/keystone/deploy.sh
