@@ -11,7 +11,7 @@ async function main() {
     await setupDbConnection();
     await setupServer();
 
-    console.log("not done");
+    console.log("keystone running");
 }
 
 main().catch((error) => {
