@@ -10,6 +10,8 @@ async function main() {
 
     await setupDbConnection();
     await setupServer();
+
+    console.log("done");
 }
 
 try {

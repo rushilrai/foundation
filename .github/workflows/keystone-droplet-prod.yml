@@ -40,11 +40,11 @@ jobs:
 
       - name: Package production build
         run: |
-          tar -czf keystone-build.tgz \
-            dist \
-            package.json \
-            pnpm-lock.yaml \
-            ecosystem.config.cjs
+          cd ../..
+          pnpm deploy --filter @foundation/keystone --prod out-keystone
+          cp -r apps/keystone/dist out-keystone/
+          cp apps/keystone/ecosystem.config.cjs out-keystone/
+          tar -czf apps/keystone/keystone-build.tgz -C out-keystone .
 
       - name: Upload build to Droplet
         uses: appleboy/scp-action@v1.0.0
