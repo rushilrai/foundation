@@ -33,9 +33,14 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies (workspace root)
-        run: pnpm install --frozen-lockfile
+        working-directory: .
+        run: pnpm -w install --frozen-lockfile
 
-      - name: Build backend (keystone)
+      - name: Build db package
+        working-directory: .
+        run: pnpm -w --filter @foundation/db build
+
+      - name: Build
         run: pnpm run build
 
       - name: Package production build
