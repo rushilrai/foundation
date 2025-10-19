@@ -54,6 +54,7 @@ jobs:
           key: ${{ env.DEPLOY_KEY }}
           source: apps/keystone/keystone-build.tgz
           target: /tmp/
+          strip_components: 2
 
       - name: Deploy on Droplet
         uses: appleboy/ssh-action@v1.2.2
