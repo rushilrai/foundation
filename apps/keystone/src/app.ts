@@ -3,7 +3,7 @@ import { setupServer } from "./configs/server";
 
 async function main() {
     const environment = process.env.NODE_ENV;
-    
+
     if (!environment) {
         throw new Error("NODE_ENV must be set");
     }
@@ -14,9 +14,7 @@ async function main() {
     console.log("main");
 }
 
-try {
-    await main();
-} catch (error) {
+main().catch((error) => {
     console.error("Setup failed", error);
     process.exit(1);
-}
+});

@@ -24,6 +24,8 @@ export async function setupDbConnection() {
             throw new Error("Database connection test failed");
         }
 
+        console.log("Database connection successful");
+
         return db;
     } catch (error) {
         console.error("Database connection failed", error);

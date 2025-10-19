@@ -3,12 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "dist/app.js",
+  "main": "dist/app.cjs",
   "scripts": {
     "dev": "tsx watch --env-file=.env src/app.ts",
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/app.js",
+    "build": "node esbuild.config.mjs",
+    "start": "node --env-file=.env dist/app.cjs",
     "lint": "eslint ."
   },
   "dependencies": {
@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@types/pg": "^8.11.10",
+    "esbuild": "^0.25.11",
     "tsx": "^4.20.6"
   }
 }

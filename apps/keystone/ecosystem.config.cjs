@@ -4,7 +4,7 @@ module.exports = {
             name: "keystone",
             cwd: __dirname,
             script: "node",
-            args: ["--env-file=.env", "dist/app.js"],
+            args: ["--env-file=.env", "dist/app.cjs"],
             instances: 1,
             exec_mode: "fork",
             watch: false,
