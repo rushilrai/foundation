@@ -38,10 +38,11 @@ jobs:
 
       - name: Build db package
         working-directory: .
-        run: pnpm -w --filter @foundation/db build
+        run: pnpm --filter @foundation/db build
 
       - name: Build
-        run: pnpm run build
+        working-directory: .
+        run: pnpm --filter @foundation/keystone build
 
       - name: Package production build
         run: |
