@@ -41,7 +41,6 @@ jobs:
       - name: Package production build
         run: |
           cd ../..
-          pnpm config set inject-workspace-packages true -w
           pnpm deploy --filter @foundation/keystone --prod out-keystone
           cp -r apps/keystone/dist out-keystone/
           cp apps/keystone/ecosystem.config.cjs out-keystone/

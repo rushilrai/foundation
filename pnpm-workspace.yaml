@@ -6,3 +6,5 @@ onlyBuiltDependencies:
   - sharp
   - esbuild
   - '@tailwindcss/oxide'
+
+injectWorkspacePackages: true
