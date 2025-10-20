@@ -14,6 +14,7 @@ env:
   DEPLOY_HOST: ${{ secrets.KEYSTONE_DO_SSH_HOST }}
   DEPLOY_USER: ${{ secrets.KEYSTONE_DO_SSH_USER }}
   DEPLOY_KEY: ${{ secrets.KEYSTONE_DO_SSH_KEY }}
+  DATABASE_URL: ${{ secrets.KEYSTONE_DATABASE_URL }}
 
 jobs:
   deploy-prod:
@@ -36,17 +37,13 @@ jobs:
         working-directory: .
         run: pnpm -w install --frozen-lockfile
 
-      - name: Install db package deps
-        working-directory: .
-        run: pnpm --filter @foundation/db --workspace-root=false install --frozen-lockfile
-
-      - name: Build db package
-        working-directory: .
-        run: pnpm --filter @foundation/db --workspace-root=false build
-
       - name: Install keystone deps
         working-directory: .
         run: pnpm --filter @foundation/keystone --workspace-root=false install --frozen-lockfile
+
+      - name: Migrate DB
+        working-directory: .
+        run: pnpm --filter @foundation/keystone --workspace-root=false db:migrate
 
       - name: Build
         working-directory: .

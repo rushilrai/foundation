@@ -9,13 +9,10 @@
     "lint:fix": "turbo lint -- --fix",
     "typecheck": "turbo typecheck",
     "format": "prettier --write --cache --ignore-path .prettierignore \"**/*.{js,cjs,mjs,jsx,ts,tsx,json,json5,md,yml,yaml,html,css,scss,less,gql,graphql,astro}\"",
-    "format:check": "prettier --check --cache --ignore-path .prettierignore \"**/*.{js,cjs,mjs,jsx,ts,tsx,json,json5,md,yml,yaml,html,css,scss,less,gql,graphql,astro}\"",
-    "db:generate": "pnpm --filter @fullstack/db generate",
-    "db:migrate": "pnpm --filter @fullstack/db migrate"
+    "format:check": "prettier --check --cache --ignore-path .prettierignore \"**/*.{js,cjs,mjs,jsx,ts,tsx,json,json5,md,yml,yaml,html,css,scss,less,gql,graphql,astro}\""
   },
   "keywords": [],
   "author": "Rushil Rai",
-  "license": "MIT",
   "packageManager": "pnpm@10.18.0",
   "engines": {
     "node": ">=22.14.0",
