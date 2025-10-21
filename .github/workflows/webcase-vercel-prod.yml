@@ -38,10 +38,6 @@ jobs:
         working-directory: apps/webcase
         run: vercel pull --yes --environment=production --token=${{ env.VERCEL_TOKEN }}
 
-      - name: Build with Vercel (Production)
+      - name: Deploy Production
         working-directory: apps/webcase
-        run: vercel build --prod --token=${{ env.VERCEL_TOKEN }}
-
-      - name: Deploy Production (prebuilt)
-        working-directory: apps/webcase
-        run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
+        run: vercel deploy --prod --token=${{ env.VERCEL_TOKEN }}
