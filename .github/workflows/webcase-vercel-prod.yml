@@ -1,15 +1,15 @@
-name: Vercel Production (galleria)
+name: Vercel Production (webcase)
 
 on:
   push:
     branches: [ "main" ]
     paths:
-      - "apps/galleria/**"
+      - "apps/webcase/**"
 
 env:
-  VERCEL_ORG_ID: ${{ secrets.GALLERIA_VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.GALLERIA_VERCEL_PROJECT_ID }}
-  VERCEL_TOKEN: ${{ secrets.GALLERIA_VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets.WEBCASE_VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.WEBCASE_VERCEL_PROJECT_ID }}
+  VERCEL_TOKEN: ${{ secrets.WEBCASE_VERCEL_TOKEN }}
 
 concurrency:
   group: prod
@@ -35,13 +35,13 @@ jobs:
         run: pnpm add -g vercel@latest
 
       - name: Pull env (Production)
-        working-directory: apps/galleria
+        working-directory: apps/webcase
         run: vercel pull --yes --environment=production --token=${{ env.VERCEL_TOKEN }}
 
       - name: Build with Vercel (Production)
-        working-directory: apps/galleria
+        working-directory: apps/webcase
         run: vercel build --prod --token=${{ env.VERCEL_TOKEN }}
 
       - name: Deploy Production (prebuilt)
-        working-directory: apps/galleria
+        working-directory: apps/webcase
         run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}

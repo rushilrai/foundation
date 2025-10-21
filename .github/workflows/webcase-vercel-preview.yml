@@ -1,18 +1,18 @@
-name: Vercel Preview (galleria)
+name: Vercel Preview (webcase)
 
 on:
   pull_request:
     paths:
-      - "apps/galleria/**"
+      - "apps/webcase/**"
   push:
     branches-ignore: [ "main" ]
     paths:
-      - "apps/galleria/**"
+      - "apps/webcase/**"
 
 env:
-  VERCEL_ORG_ID: ${{ secrets.GALLERIA_VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.GALLERIA_VERCEL_PROJECT_ID }}
-  VERCEL_TOKEN: ${{ secrets.GALLERIA_VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets.WEBCASE_VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.WEBCASE_VERCEL_PROJECT_ID }}
+  VERCEL_TOKEN: ${{ secrets.WEBCASE_VERCEL_TOKEN }}
 
 concurrency:
   group: preview-${{ github.ref }}
@@ -38,13 +38,13 @@ jobs:
         run: pnpm add -g vercel@latest
 
       - name: Pull env (Preview)
-        working-directory: apps/galleria
+        working-directory: apps/webcase
         run: vercel pull --yes --environment=preview --token=${{ env.VERCEL_TOKEN }}
 
       - name: Build with Vercel (Preview)
-        working-directory: apps/galleria
+        working-directory: apps/webcase
         run: vercel build --token=${{ env.VERCEL_TOKEN }}
 
       - name: Deploy Preview (prebuilt)
-        working-directory: apps/galleria
+        working-directory: apps/webcase
         run: vercel deploy --prebuilt --token=${{ env.VERCEL_TOKEN }}
