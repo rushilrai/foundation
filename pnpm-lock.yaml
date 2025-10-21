@@ -126,6 +126,12 @@ importers:
 
   apps/webcase:
     dependencies:
+      '@fontsource-variable/merriweather':
+        specifier: ^5.2.6
+        version: 5.2.6
+      '@fontsource-variable/outfit':
+        specifier: ^5.2.8
+        version: 5.2.8
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)

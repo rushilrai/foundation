@@ -112,6 +112,11 @@
   --sidebar-ring: oklch(0.553 0.013 58.071);
 }
 
+@theme {
+  --font-heading: "Merriweather", serif;
+  --font-body: "Outfit", sans-serif;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
