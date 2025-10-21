@@ -6,5 +6,6 @@ onlyBuiltDependencies:
   - sharp
   - esbuild
   - '@tailwindcss/oxide'
+  - unrs-resolver
 
 injectWorkspacePackages: true
