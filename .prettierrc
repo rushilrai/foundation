@@ -3,5 +3,20 @@
   "tabWidth": 2,
   "useTabs": false,
   "singleQuote": false,
-  "semi": true
+  "semi": true,
+  "plugins": ["prettier-plugin-astro", "prettier-plugin-tailwindcss"],
+  "overrides": [
+    {
+      "files": "*.astro",
+      "options": { "parser": "astro" }
+    },
+    {
+      "files": "apps/galleria/**/*",
+      "options": { "tailwindStylesheet": "apps/galleria/src/index.css" }
+    },
+    {
+      "files": "apps/webcase/**/*",
+      "options": { "tailwindStylesheet": "apps/webcase/src/app/index.css" }
+    }
+  ]
 }
