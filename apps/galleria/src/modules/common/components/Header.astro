@@ -5,22 +5,28 @@ import LogoLightBg from "../../../assets/images/logo/logo-light-bg.png";
 import { MenuIcon } from "@lucide/astro";
 ---
 
-<header id="header" class="sticky top-0 z-50 flex w-full flex-row items-center justify-center bg-base-200 transition-[border-color] duration-200 border-b border-transparent [&.scrolled]:border-neutral/10">
+<header
+  id="header"
+  class="sticky top-0 z-50 flex w-full flex-row items-center justify-center border-b border-transparent bg-base-200 transition-[border-color] duration-200 [&.scrolled]:border-neutral/10"
+>
   <div class="flex w-full max-w-5xl flex-row items-center justify-between p-2">
     <a href="/">
       <Image
-      loading="eager"
-      id="header-logo"
-      src={LogoLightBg}
-      alt="logo with the initials RR"
-      width={60}
-      height={60}
-      densities={[1, 2]}
-      class="opacity-0"
-    />
+        loading="eager"
+        id="header-logo"
+        src={LogoLightBg}
+        alt="logo with the initials RR"
+        width={60}
+        height={60}
+        densities={[1, 2]}
+        class="opacity-0"
+      />
     </a>
 
-    <nav id="header-nav" class="hidden flex-row gap-6 font-heading text-base md:flex">
+    <nav
+      id="header-nav"
+      class="hidden flex-row gap-6 font-heading text-base md:flex"
+    >
       <a href="#hero" class="hover:text-primary">About</a>
       <a href="#experience" class="hover:text-primary">Experience</a>
     </nav>
@@ -65,7 +71,7 @@ import { MenuIcon } from "@lucide/astro";
   }
 
   const header = document.getElementById("header") as HTMLDivElement;
-  
+
   function handleScroll() {
     if (window.scrollY > 50) {
       header.classList.add("scrolled");
