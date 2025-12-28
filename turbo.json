@@ -3,26 +3,12 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        ".env*",
-        "apps/*/.env*",
-        "packages/*/.env*",
-        "pnpm-lock.yaml",
-        "apps/**/next.config.*",
-        "apps/**/astro.config.*",
-        "**/tailwind.config.*",
-        "**/postcss.config.*",
-        "**/tsconfig.json"
-      ],
-      "outputs": [".next/**", "dist/**"]
+      "inputs": ["$TURBO_DEFAULT$", ".env*"]
     },
     "lint": {
-      "dependsOn": ["^lint"],
       "outputs": []
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"],
       "outputs": []
     },
     "dev": {

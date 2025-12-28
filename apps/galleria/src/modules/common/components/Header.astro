@@ -2,24 +2,45 @@
 import { Image } from "astro:assets";
 
 import LogoLightBg from "../../../assets/images/logo/logo-light-bg.png";
+import { MenuIcon } from "@lucide/astro";
 ---
 
-<header class="flex w-full max-w-5xl flex-row items-center justify-between p-4">
-  <Image
-    loading="eager"
-    id="header-logo"
-    src={LogoLightBg}
-    alt="logo with the initials RR"
-    width={60}
-    height={60}
-    densities={[1, 2]}
-    class="opacity-0"
-  />
+<header id="header" class="sticky top-0 z-50 flex w-full flex-row items-center justify-center bg-base-200 transition-[border-color] duration-200 border-b border-transparent [&.scrolled]:border-neutral/10">
+  <div class="flex w-full max-w-5xl flex-row items-center justify-between p-2">
+    <a href="/">
+      <Image
+      loading="eager"
+      id="header-logo"
+      src={LogoLightBg}
+      alt="logo with the initials RR"
+      width={60}
+      height={60}
+      densities={[1, 2]}
+      class="opacity-0"
+    />
+    </a>
 
-  <nav id="header-nav" class="menu menu-horizontal gap-1 menu-lg font-heading">
-    <li class="opacity-0"><a href="#hero">About</a></li>
-    <li class="opacity-0"><a href="#experience">Experience</a></li>
-  </nav>
+    <nav id="header-nav" class="menu menu-horizontal gap-1 menu-lg font-heading">
+      <li class="opacity-0"><a href="#hero">About</a></li>
+      <li class="opacity-0"><a href="#experience">Experience</a></li>
+    </nav>
+
+    <details
+      id="header-mobile-dropdown"
+      class="dropdown dropdown-end md:hidden"
+    >
+      <summary class="btn btn-soft btn-sm btn-primary">
+        <MenuIcon class="size-4" />
+      </summary>
+
+      <ul
+        class="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm"
+      >
+        <li><a href="#hero">About</a></li>
+        <li><a href="#experience">Experience</a></li>
+      </ul>
+    </details>
+  </div>
 </header>
 
 <script>
@@ -42,4 +63,18 @@ import LogoLightBg from "../../../assets/images/logo/logo-light-bg.png";
       { delay: stagger(0.2), duration: 1 },
     );
   }
+
+  const header = document.getElementById("header") as HTMLDivElement;
+  
+  function handleScroll() {
+    if (window.scrollY > 50) {
+      header.classList.add("scrolled");
+    } else {
+      header.classList.remove("scrolled");
+    }
+  }
+
+  window.addEventListener("scroll", handleScroll);
+
+  handleScroll();
 </script>

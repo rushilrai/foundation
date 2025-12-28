@@ -1,4 +1,4 @@
-import { samplesTable } from "./modules/sample/schema";
+import { samplesTable } from "./modules/sample/schema.js";
 
 export const schema = {
     samplesTable,

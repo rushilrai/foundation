@@ -4,6 +4,7 @@ import "@fontsource-variable/outfit";
 
 import "../../../index.css";
 import Header from "./Header.astro";
+import Footer from "./Footer.astro";
 
 console.log("galleria running");
 ---
@@ -100,6 +101,9 @@ console.log("galleria running");
 
   <body class="flex min-h-screen w-full flex-col items-center bg-base-200">
     <Header />
+
     <slot />
+
+    <Footer />
   </body>
 </html>

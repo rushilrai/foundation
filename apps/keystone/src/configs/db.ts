@@ -1,9 +1,9 @@
-import { drizzle, NeonHttpDatabase } from 'drizzle-orm/neon-http';
-import { neon } from "@neondatabase/serverless";
+import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 
-import { schema } from "../schema";
+import { schema } from "../schema.js";
 
-type Database = NeonHttpDatabase<typeof schema>;
+export type Database = NodePgDatabase<typeof schema>;
 
 export let db: Database;
 
@@ -15,12 +15,13 @@ export async function setupDbConnection() {
             throw new Error("DATABASE_URL must be set");
         }
 
-        const sql = neon(databaseUrl);
-        db = drizzle({ client: sql });
+        const pool = new Pool({ connectionString: databaseUrl });
 
-        const testQueryResult = await sql.query("SELECT 1");
+        db = drizzle(pool, { schema });
 
-        if (testQueryResult.length !== 1) {
+        const testQueryResult = await pool.query("SELECT 1");
+
+        if (testQueryResult.rowCount !== 1) {
             throw new Error("Database connection test failed");
         }
 

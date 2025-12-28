@@ -1,5 +1,5 @@
-import { setupDbConnection } from "./configs/db";
-import { setupServer } from "./configs/server";
+import { setupDbConnection } from "./configs/db.js";
+import { setupServer } from "./configs/server.js";
 
 async function main() {
     const environment = process.env.NODE_ENV;

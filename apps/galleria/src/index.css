@@ -41,3 +41,7 @@
   background-color: oklch(27% 0.006 286.033);
   color: oklch(92% 0.004 286.32);
 }
+
+html {
+  scroll-padding-top: 6rem;
+}
