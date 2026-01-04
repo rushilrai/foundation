@@ -1,11 +1,12 @@
 packages:
-  - 'apps/*'
-  - 'packages/*'
-
-onlyBuiltDependencies:
-  - sharp
-  - esbuild
-  - '@tailwindcss/oxide'
-  - unrs-resolver
+  - apps/*
+  - packages/*
 
 injectWorkspacePackages: true
+
+onlyBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - esbuild
+  - msw
+  - sharp
+  - unrs-resolver
