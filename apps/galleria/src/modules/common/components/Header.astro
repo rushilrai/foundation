@@ -7,17 +7,17 @@ import { MenuIcon } from "@lucide/astro";
 
 <header
   id="header"
-  class="sticky top-0 z-50 flex w-full flex-row items-center justify-center border-b border-transparent bg-base-200 transition-[border-color] duration-200 [&.scrolled]:border-neutral/10"
+  class="sticky top-0 z-50 flex w-full flex-row items-center justify-center border-b border-transparent bg-base-100 transition-[border-color] duration-200 [&.scrolled]:border-neutral/10"
 >
-  <div class="flex w-full max-w-5xl flex-row items-center justify-between p-2">
+  <div class="flex w-full max-w-5xl flex-row items-center justify-between p-1">
     <a href="/">
       <Image
         loading="eager"
         id="header-logo"
         src={LogoLightBg}
         alt="logo with the initials RR"
-        width={60}
-        height={60}
+        width={50}
+        height={50}
         densities={[1, 2]}
         class="opacity-0"
       />
@@ -40,7 +40,7 @@ import { MenuIcon } from "@lucide/astro";
       </summary>
 
       <ul
-        class="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm"
+        class="dropdown-content menu z-1 w-52 rounded-box bg-base-300 p-2 shadow-sm"
       >
         <li><a href="#hero">About</a></li>
         <li><a href="#experience">Experience</a></li>

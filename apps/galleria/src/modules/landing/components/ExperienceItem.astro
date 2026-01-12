@@ -29,14 +29,14 @@ const { title, org, term, uri } = Astro.props;
   if (experienceItem) {
     hover(experienceItem, (element) => {
       animate(element, {
-        backgroundColor: getCSSVariable("--color-base-300"),
+        backgroundColor: getCSSVariable("--color-base-200"),
         paddingLeft: "1rem",
         paddingRight: "1rem",
       });
 
       return () => {
         animate(element, {
-          backgroundColor: getCSSVariable("--color-base-200"),
+          backgroundColor: getCSSVariable("--color-base-100"),
           paddingLeft: "0",
           paddingRight: "0",
         });
@@ -46,14 +46,14 @@ const { title, org, term, uri } = Astro.props;
     if (isTouchDevice()) {
       press(experienceItem, (element) => {
         animate(element, {
-          backgroundColor: getCSSVariable("--color-base-300"),
+          backgroundColor: getCSSVariable("--color-base-200"),
           paddingLeft: "0.5rem",
           paddingRight: "0.5rem",
         });
 
         return () => {
           animate(element, {
-            backgroundColor: getCSSVariable("--color-base-200"),
+            backgroundColor: getCSSVariable("--color-base-100"),
             paddingLeft: "0",
             paddingRight: "0",
           });
