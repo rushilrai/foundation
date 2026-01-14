@@ -11,6 +11,7 @@
   },
   "keywords": [],
   "author": "Rushil Rai",
+  "license": "MIT",
   "packageManager": "pnpm@10.26.2",
   "engines": {
     "node": ">=24.0.0",
