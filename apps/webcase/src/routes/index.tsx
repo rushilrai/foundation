@@ -4,9 +4,9 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { api } from 'convex/_generated/api'
 
-export const Route = createFileRoute('/')({ component: HomeRouteComponent })
+export const Route = createFileRoute('/')({ component: IndexRouteComponent })
 
-function HomeRouteComponent() {
+function IndexRouteComponent() {
   const { data } = useSuspenseQuery(convexQuery(api.tasks.get, {}))
 
   return (

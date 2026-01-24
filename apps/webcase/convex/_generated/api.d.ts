@@ -8,7 +8,8 @@
  * @module
  */
 
-import type * as tasks from "../tasks.js";
+import type * as modules_user_mutations from "../modules/user/mutations.js";
+import type * as modules_user_queries from "../modules/user/queries.js";
 
 import type {
   ApiFromModules,
@@ -17,7 +18,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  tasks: typeof tasks;
+  "modules/user/mutations": typeof modules_user_mutations;
+  "modules/user/queries": typeof modules_user_queries;
 }>;
 
 /**

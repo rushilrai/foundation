@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.0.0",
+    "@clerk/tanstack-react-start": "^0.27.17",
     "@convex-dev/react-query": "^0.1.0",
     "@fontsource-variable/outfit": "^5.2.8",
     "@tabler/icons-react": "^3.36.1",
