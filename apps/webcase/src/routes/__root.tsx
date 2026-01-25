@@ -69,31 +69,31 @@ export const Route = createRootRouteWithContext<{
 })
 
 function RootComponent() {
+  const { convexQueryClient } = Route.useRouteContext()
+
   return (
     <RootDocument>
-      <Outlet />
+      <ClerkProvider>
+        <ConvexProviderWithClerk
+          client={convexQueryClient.convexClient}
+          useAuth={useAuth}
+        >
+          <Outlet />
+        </ConvexProviderWithClerk>
+      </ClerkProvider>
     </RootDocument>
   )
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
-  const { convexQueryClient } = Route.useRouteContext()
-
   return (
     <html lang="en">
       <head>
         <HeadContent />
       </head>
 
-      <body>
-        <ClerkProvider>
-          <ConvexProviderWithClerk
-            client={convexQueryClient.convexClient}
-            useAuth={useAuth}
-          >
-            {children}
-          </ConvexProviderWithClerk>
-        </ClerkProvider>
+      <body className="h-screen">
+        {children}
 
         <TanStackDevtools
           config={{
