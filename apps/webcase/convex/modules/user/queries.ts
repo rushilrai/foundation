@@ -1,14 +1,22 @@
+import { Doc } from "convex/_generated/dataModel";
 import { query } from "convex/_generated/server";
+
+import { getByExternalId } from "./helpers";
 
 export const currentUser = query({
     args: {},
-    handler: async (ctx) => {
+    handler: async (ctx): Promise<{ user: Doc<"users"> } | { error: string }> => {
         const identity = await ctx.auth.getUserIdentity();
-        if (!identity) return null;
+        if (!identity) return { error: "UNAUTHORIZED" };
 
-        return await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-            .unique();
+        const user = await getByExternalId(ctx, identity.subject);
+
+        if (!user) {
+            return {
+                error: "USER_NOT_FOUND"
+            }
+        }
+
+        return { user };
     },
 });

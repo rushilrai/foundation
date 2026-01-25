@@ -2,14 +2,16 @@ import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export const userFields = {
-    clerkId: v.string(),
-    email: v.optional(v.string()),
-    name: v.optional(v.string()),
-    imageUrl: v.optional(v.string()),
+    externalId: v.string(),
+    email: v.string(),
+    firstName: v.string(),
+    lastName: v.string(),
+    imageUrl: v.nullable(v.string()),
+    deleted: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
 }
 
 export const userTable = defineTable(userFields)
-    .index("by_clerk_id", ["clerkId"])
+    .index("by_externalId", ["externalId"])
     .index("by_email", ["email"])
