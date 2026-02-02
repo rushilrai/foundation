@@ -1,27 +1,28 @@
-import { SignOutButton } from '@clerk/tanstack-react-start'
 import { auth } from '@clerk/tanstack-react-start/server'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+
+import { DashboardLayout } from '@/modules/common/components/DashboardLayout'
 
 const authGuard = createServerFn({ method: 'GET' }).handler(async () => {
   const { userId } = await auth()
+
   if (!userId) {
     throw redirect({ to: '/sign-in/$' })
   }
+
   return { userId }
 })
 
-export const Route = createFileRoute('/home')({
+export const Route = createFileRoute('/dashboard')({
   beforeLoad: () => authGuard(),
-  component: HomePage,
+  component: DashboardLayoutRoute,
 })
 
-function HomePage() {
+function DashboardLayoutRoute() {
   return (
-    <div>
-      <h1>Welcome to your dashboard</h1>
-
-      <SignOutButton />
-    </div>
+    <DashboardLayout>
+      <Outlet />
+    </DashboardLayout>
   )
 }

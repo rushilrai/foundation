@@ -9,13 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as HomeRouteImport } from './routes/home'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SignInSplatRouteImport } from './routes/sign-in/$'
+import { Route as SignInSplatRouteImport } from './routes/sign-in.$'
+import { Route as DashboardHomeRouteImport } from './routes/dashboard.home'
+import { Route as DashboardResumeIdIndexRouteImport } from './routes/dashboard.resume.$id.index'
+import { Route as DashboardResumeIdPatchPatchIdRouteImport } from './routes/dashboard.resume.$id.patch.$patchId'
 
-const HomeRoute = HomeRouteImport.update({
-  id: '/home',
-  path: '/home',
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -28,44 +31,88 @@ const SignInSplatRoute = SignInSplatRouteImport.update({
   path: '/sign-in/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardHomeRoute = DashboardHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardResumeIdIndexRoute = DashboardResumeIdIndexRouteImport.update({
+  id: '/resume/$id/',
+  path: '/resume/$id/',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardResumeIdPatchPatchIdRoute =
+  DashboardResumeIdPatchPatchIdRouteImport.update({
+    id: '/resume/$id/patch/$patchId',
+    path: '/resume/$id/patch/$patchId',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/home': typeof HomeRoute
+  '/dashboard': typeof DashboardRouteWithChildren
+  '/dashboard/home': typeof DashboardHomeRoute
   '/sign-in/$': typeof SignInSplatRoute
+  '/dashboard/resume/$id/': typeof DashboardResumeIdIndexRoute
+  '/dashboard/resume/$id/patch/$patchId': typeof DashboardResumeIdPatchPatchIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/home': typeof HomeRoute
+  '/dashboard': typeof DashboardRouteWithChildren
+  '/dashboard/home': typeof DashboardHomeRoute
   '/sign-in/$': typeof SignInSplatRoute
+  '/dashboard/resume/$id': typeof DashboardResumeIdIndexRoute
+  '/dashboard/resume/$id/patch/$patchId': typeof DashboardResumeIdPatchPatchIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/home': typeof HomeRoute
+  '/dashboard': typeof DashboardRouteWithChildren
+  '/dashboard/home': typeof DashboardHomeRoute
   '/sign-in/$': typeof SignInSplatRoute
+  '/dashboard/resume/$id/': typeof DashboardResumeIdIndexRoute
+  '/dashboard/resume/$id/patch/$patchId': typeof DashboardResumeIdPatchPatchIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/home' | '/sign-in/$'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/dashboard/home'
+    | '/sign-in/$'
+    | '/dashboard/resume/$id/'
+    | '/dashboard/resume/$id/patch/$patchId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/home' | '/sign-in/$'
-  id: '__root__' | '/' | '/home' | '/sign-in/$'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/dashboard/home'
+    | '/sign-in/$'
+    | '/dashboard/resume/$id'
+    | '/dashboard/resume/$id/patch/$patchId'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/dashboard/home'
+    | '/sign-in/$'
+    | '/dashboard/resume/$id/'
+    | '/dashboard/resume/$id/patch/$patchId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  HomeRoute: typeof HomeRoute
+  DashboardRoute: typeof DashboardRouteWithChildren
   SignInSplatRoute: typeof SignInSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/home': {
-      id: '/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof HomeRouteImport
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -82,12 +129,49 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignInSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/home': {
+      id: '/dashboard/home'
+      path: '/home'
+      fullPath: '/dashboard/home'
+      preLoaderRoute: typeof DashboardHomeRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/resume/$id/': {
+      id: '/dashboard/resume/$id/'
+      path: '/resume/$id'
+      fullPath: '/dashboard/resume/$id/'
+      preLoaderRoute: typeof DashboardResumeIdIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/resume/$id/patch/$patchId': {
+      id: '/dashboard/resume/$id/patch/$patchId'
+      path: '/resume/$id/patch/$patchId'
+      fullPath: '/dashboard/resume/$id/patch/$patchId'
+      preLoaderRoute: typeof DashboardResumeIdPatchPatchIdRouteImport
+      parentRoute: typeof DashboardRoute
+    }
   }
 }
 
+interface DashboardRouteChildren {
+  DashboardHomeRoute: typeof DashboardHomeRoute
+  DashboardResumeIdIndexRoute: typeof DashboardResumeIdIndexRoute
+  DashboardResumeIdPatchPatchIdRoute: typeof DashboardResumeIdPatchPatchIdRoute
+}
+
+const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardHomeRoute: DashboardHomeRoute,
+  DashboardResumeIdIndexRoute: DashboardResumeIdIndexRoute,
+  DashboardResumeIdPatchPatchIdRoute: DashboardResumeIdPatchPatchIdRoute,
+}
+
+const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
+  DashboardRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  HomeRoute: HomeRoute,
+  DashboardRoute: DashboardRouteWithChildren,
   SignInSplatRoute: SignInSplatRoute,
 }
 export const routeTree = rootRouteImport

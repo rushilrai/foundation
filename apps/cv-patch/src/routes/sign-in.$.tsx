@@ -7,8 +7,8 @@ export const Route = createFileRoute('/sign-in/$')({
 
 function SignInPage() {
   return (
-    <div>
-      <SignIn forceRedirectUrl="/home" />
+    <div className="h-full w-full flex flex-col justify-center items-center">
+      <SignIn forceRedirectUrl="/dashboard/home" />
     </div>
   )
 }

@@ -1,7 +1,6 @@
 import { ClerkProvider, useAuth } from '@clerk/tanstack-react-start'
 import { auth } from '@clerk/tanstack-react-start/server'
 import { ConvexQueryClient } from '@convex-dev/react-query'
-import { TanStackDevtools } from '@tanstack/react-devtools'
 import { QueryClient } from '@tanstack/react-query'
 import {
   HeadContent,
@@ -9,7 +8,6 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { createServerFn } from '@tanstack/react-start'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
 
@@ -94,18 +92,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 
       <body className="h-screen">
         {children}
-
-        <TanStackDevtools
-          config={{
-            position: 'bottom-right',
-          }}
-          plugins={[
-            {
-              name: 'Tanstack Router',
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
 
         <Scripts />
       </body>
