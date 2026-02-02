@@ -9,6 +9,12 @@
  */
 
 import type * as http from "../http.js";
+import type * as modules_items_actions from "../modules/items/actions.js";
+import type * as modules_items_helpers from "../modules/items/helpers.js";
+import type * as modules_items_internalQueries from "../modules/items/internalQueries.js";
+import type * as modules_items_mutations from "../modules/items/mutations.js";
+import type * as modules_items_queries from "../modules/items/queries.js";
+import type * as modules_items_utils from "../modules/items/utils.js";
 import type * as modules_user_helpers from "../modules/user/helpers.js";
 import type * as modules_user_http from "../modules/user/http.js";
 import type * as modules_user_mutations from "../modules/user/mutations.js";
@@ -23,6 +29,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   http: typeof http;
+  "modules/items/actions": typeof modules_items_actions;
+  "modules/items/helpers": typeof modules_items_helpers;
+  "modules/items/internalQueries": typeof modules_items_internalQueries;
+  "modules/items/mutations": typeof modules_items_mutations;
+  "modules/items/queries": typeof modules_items_queries;
+  "modules/items/utils": typeof modules_items_utils;
   "modules/user/helpers": typeof modules_user_helpers;
   "modules/user/http": typeof modules_user_http;
   "modules/user/mutations": typeof modules_user_mutations;
