@@ -18,10 +18,5 @@ export const PatchPreview = ({ patchId }: PatchPreviewProps) => {
     return await generateDownloadUrl({ patchId })
   }, [patchId, generateDownloadUrl])
 
-  return (
-    <DocxRenderer
-      fetchUrl={fetchUrl}
-      errorMessage="Document not ready yet..."
-    />
-  )
+  return <DocxRenderer fetchUrl={fetchUrl} errorMessage="Document not ready yet..." />
 }

@@ -48,6 +48,8 @@ export const create = mutation({
                 companyName: args.companyName,
                 roleName: args.roleName,
                 streamingText: null,
+                templateId: "resume-v1",
+                data: null,
                 patchedFileId: null,
                 changes: null,
                 status: "generating",
@@ -107,6 +109,52 @@ export const updateGeneratedContent = internalMutation({
     args: {
         patchId: v.id("patches"),
         patchedFileId: v.nullable(v.id("_storage")),
+        data: v.union(
+            v.null(),
+            v.object({
+                header: v.object({
+                    name: v.string(),
+                    phone: v.string(),
+                    email: v.string(),
+                    linkedin: v.string(),
+                }),
+                education: v.array(
+                    v.object({
+                        school: v.string(),
+                        location: v.string(),
+                        dates: v.string(),
+                        degree: v.string(),
+                        details: v.string(),
+                    })
+                ),
+                experience: v.array(
+                    v.object({
+                        company: v.string(),
+                        companyMeta: v.string(),
+                        roles: v.array(
+                            v.object({
+                                title: v.string(),
+                                meta: v.string(),
+                                bullets: v.array(v.string()),
+                            })
+                        ),
+                    })
+                ),
+                projects: v.array(
+                    v.object({
+                        name: v.string(),
+                        dates: v.string(),
+                        bullets: v.array(v.string()),
+                    })
+                ),
+                skills: v.object({
+                    technical: v.string(),
+                    financial: v.string(),
+                    languages: v.string(),
+                }),
+                extras: v.array(v.string()),
+            })
+        ),
         changes: v.nullable(v.array(v.string())),
         status: v.union(v.literal("ready"), v.literal("error")),
         errorMessage: v.optional(v.string()),
@@ -115,6 +163,7 @@ export const updateGeneratedContent = internalMutation({
         await ctx.db.patch(args.patchId, {
             streamingText: null,
             patchedFileId: args.patchedFileId,
+            data: args.data,
             changes: args.changes,
             status: args.status,
             errorMessage: args.errorMessage,

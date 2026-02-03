@@ -1,22 +1,20 @@
 "use node";
 
-import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
+import { readFile } from "node:fs/promises";
+
 import { openai, OpenAIModels, setupOpenAI } from "@convex/configs/ai";
-import { streamText, Output } from "ai";
+import { generateText, Output } from "ai";
 import { internal } from "convex/_generated/api";
 import { internalAction } from "convex/_generated/server";
 import { v } from "convex/values";
-import JSZip from "jszip";
 import { z } from "zod";
 
+import { renderResumeTemplate } from "./docxTemplate";
+import { ResumeDataSchema, type ResumeData } from "../../../shared/resumeSchema";
+
 const patchOutputSchema = z.object({
+    data: ResumeDataSchema,
     changes: z.array(z.string()),
-    edits: z.array(
-        z.object({
-            id: z.number().int().nonnegative(),
-            text: z.string(),
-        })
-    ),
 });
 
 export const generatePatch = internalAction({
@@ -24,16 +22,12 @@ export const generatePatch = internalAction({
     handler: async (ctx, args): Promise<void> => {
         console.log("[generatePatch] Starting", { patchId: args.patchId });
 
-        let streamError: Error | null = null;
-
         try {
             await setupOpenAI();
-            console.log("[generatePatch] OpenAI setup complete");
 
             const patch = await ctx.runQuery(internal.modules.patch.queries.getByIdInternal, {
                 patchId: args.patchId,
             });
-            console.log("[generatePatch] Got patch", { found: !!patch });
 
             if (!patch) {
                 console.error("[generatePatch] Patch not found", { patchId: args.patchId });
@@ -43,13 +37,12 @@ export const generatePatch = internalAction({
             const resume = await ctx.runQuery(internal.modules.resume.queries.getByIdInternal, {
                 resumeId: patch.resumeId,
             });
-            console.log("[generatePatch] Got resume", { found: !!resume, hasXml: !!resume?.extractedXml });
 
             if (!resume) {
-                console.log("[generatePatch] Resume not found, updating status to error");
                 await ctx.runMutation(internal.modules.patch.mutations.updateGeneratedContent, {
                     patchId: args.patchId,
                     patchedFileId: null,
+                    data: null,
                     changes: null,
                     status: "error",
                     errorMessage: "Resume not found",
@@ -57,169 +50,113 @@ export const generatePatch = internalAction({
                 return;
             }
 
-            if (!resume.extractedXml) {
-                console.log("[generatePatch] No extractedXml, updating status to error");
+            if (!resume.data) {
                 await ctx.runMutation(internal.modules.patch.mutations.updateGeneratedContent, {
                     patchId: args.patchId,
                     patchedFileId: null,
+                    data: null,
                     changes: null,
                     status: "error",
-                    errorMessage: "Resume XML not extracted",
+                    errorMessage: "Resume data not available",
                 });
                 return;
             }
 
-            const { nodes: textNodes, parts: xmlParts } = extractTextNodes(resume.extractedXml);
-            console.log("[generatePatch] Extracted text nodes", { count: textNodes.length });
+            await ctx.runMutation(internal.modules.patch.mutations.updateStreamingText, {
+                patchId: args.patchId,
+                streamingText: "Analyzing resume and job description...",
+            });
 
-            if (textNodes.length === 0) {
-                await ctx.runMutation(internal.modules.patch.mutations.updateGeneratedContent, {
-                    patchId: args.patchId,
-                    patchedFileId: null,
-                    changes: null,
-                    status: "error",
-                    errorMessage: "No text nodes found in resume XML",
-                });
-                return;
-            }
+            const system = `You are an expert resume editor and ATS optimizer.
 
-            console.log("[generatePatch] Starting LLM stream...");
+Task: Tailor the resume to the job description while preserving factual accuracy and structure.
 
-            const { partialOutputStream } = streamText({
-                model: openai.responses(OpenAIModels["gpt-5.2"]),
-                providerOptions: {
-                    openai: {
-                        reasoningEffort: "none"
-                    } satisfies OpenAIResponsesProviderOptions
-                },
-                output: Output.object({ schema: patchOutputSchema }),
-                onError({ error }) {
-                    console.error("[generatePatch] Stream error", error);
-                    streamError = error instanceof Error ? error : new Error(String(error));
-                },
-                system: `You are an expert resume writer. Your task is to tailor a resume for a specific job description.
+Rules:
+1. Do NOT invent facts. Only rewrite or re-emphasize what is already present.
+2. Preserve the overall structure and ordering of sections.
+3. Keep names, contact info, and education intact unless the job description requires minor phrasing updates.
+4. Improve bullet clarity and keyword alignment with the job description.
+5. Output JSON that strictly matches the schema.`;
 
-You will receive ONLY the text nodes from a Word document (the contents of <w:t> tags), each with an id.
+            const prompt = `Base resume JSON:
+${JSON.stringify(resume.data, null, 2)}
 
-CRITICAL RULES:
-1. ONLY propose edits to text content for existing ids. Do NOT add or remove ids.
-2. Do NOT invent facts. Preserve factual accuracy.
-3. Keep formatting intact by editing as few nodes as possible.
-4. Do NOT include unchanged nodes in the edits list.
-5. If a change needs more words, add them into the nearest relevant node(s).
-6. In the "changes" array, list each modification you made as a brief description (e.g., "Added 'Python' keyword to skills section").
-7. Return JSON that matches the schema: { changes: string[], edits: { id: number, text: string }[] }`,
-                prompt: `Resume text nodes (id -> text):
-${JSON.stringify(textNodes.map(node => ({ id: node.id, text: node.text })))}
-
----
-
-Job Description:
+Job description:
 ${patch.jobDescription}
 
 ${patch.companyName ? `Company: ${patch.companyName}` : ""}
 ${patch.roleName ? `Role: ${patch.roleName}` : ""}
 
-Tailor the resume by proposing edits to ONLY the text nodes above.`,
+Return JSON with:
+- data: the updated ResumeData JSON
+- changes: short bullet list of what you changed`;
+
+            const { output } = await generateText({
+                model: openai.responses(OpenAIModels["gpt-5.2"]),
+                output: Output.object({ schema: patchOutputSchema }),
+                system,
+                prompt,
             });
 
-            const UPDATE_INTERVAL_MS = 500;
-            let lastUpdateTime = Date.now();
-            let finalOutput: z.infer<typeof patchOutputSchema> | undefined;
+            if (!output) {
+                throw new Error("LLM did not return output");
+            }
 
-            for await (const partialObject of partialOutputStream) {
-                finalOutput = partialObject as z.infer<typeof patchOutputSchema>;
+            let data = output.data as ResumeData;
+            let changes = output.changes ?? [];
 
-                const now = Date.now();
-                if (now - lastUpdateTime >= UPDATE_INTERVAL_MS) {
-                    let streamingText = "";
+            const issues = validatePatchedData(data, resume.data);
+            if (issues.length > 0) {
+                await ctx.runMutation(internal.modules.patch.mutations.updateStreamingText, {
+                    patchId: args.patchId,
+                    streamingText: "QA detected issues. Refining output...",
+                });
 
-                    if (partialObject.changes?.length) {
-                        streamingText += `Changes identified:\n${partialObject.changes.map(c => `• ${c}`).join('\n')}`;
-                    }
+                const { output: retryOutput } = await generateText({
+                    model: openai.responses(OpenAIModels["gpt-5.2"]),
+                    output: Output.object({ schema: patchOutputSchema }),
+                    system,
+                    prompt: `${prompt}\n\nFix these issues:\n${issues.join("\n")}`,
+                });
 
-                    if (partialObject.edits?.length) {
-                        streamingText += `\n\nEdits drafted: ${partialObject.edits.length}`;
-                    } else if (!partialObject.changes?.length) {
-                        streamingText = "Analyzing resume...";
-                    }
-
-                    await ctx.runMutation(internal.modules.patch.mutations.updateStreamingText, {
-                        patchId: args.patchId,
-                        streamingText,
-                    });
-                    lastUpdateTime = now;
+                if (retryOutput) {
+                    data = retryOutput.data as ResumeData;
+                    changes = mergeChanges(changes, retryOutput.changes);
                 }
             }
 
-            if (streamError) {
-                throw streamError;
+            const finalIssues = validatePatchedData(data, resume.data);
+            if (finalIssues.length > 0) {
+                throw new Error(`Patched resume failed validation: ${finalIssues.join("; ")}`);
             }
 
-            if (!finalOutput) {
-                await ctx.runMutation(internal.modules.patch.mutations.updateGeneratedContent, {
-                    patchId: args.patchId,
-                    patchedFileId: null,
-                    changes: null,
-                    status: "error",
-                    errorMessage: "LLM did not return output",
-                });
+            const templateBuffer = await getTemplateBuffer();
+            const docxBytes = renderResumeTemplate(templateBuffer, data);
+            const docxBuffer = toArrayBuffer(docxBytes);
 
-                return;
-            }
-
-            const { edits, changes } = finalOutput;
-            const patchedXml = applyEditsToXml({ nodes: textNodes, parts: xmlParts }, edits);
-            console.log("[generatePatch] Stream complete", {
-                editsCount: edits?.length,
-                changesCount: changes?.length,
-                xmlLength: patchedXml.length,
-            });
-
-            const fileBlob = await ctx.storage.get(resume.fileId);
-            console.log("[generatePatch] Got file blob", { found: !!fileBlob });
-
-            if (!fileBlob) {
-                console.log("[generatePatch] File blob not found, updating status to error");
-                await ctx.runMutation(internal.modules.patch.mutations.updateGeneratedContent, {
-                    patchId: args.patchId,
-                    patchedFileId: null,
-                    changes: null,
-                    status: "error",
-                    errorMessage: "Original resume file not found",
-                });
-                return;
-            }
-
-            console.log("[generatePatch] Generating patched docx...");
-            const patchedDocx = await generatePatchedDocx(
-                await fileBlob.arrayBuffer(),
-                patchedXml
-            );
-            console.log("[generatePatch] Patched docx generated", { size: patchedDocx.byteLength });
-
-            console.log("[generatePatch] Storing patched docx...");
             const patchedFileId = await ctx.storage.store(
-                new Blob([patchedDocx], {
+                new Blob([docxBuffer], {
                     type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 })
             );
-            console.log("[generatePatch] Stored patched docx", { patchedFileId });
 
-            console.log("[generatePatch] Updating patch record...");
             await ctx.runMutation(internal.modules.patch.mutations.updateGeneratedContent, {
                 patchId: args.patchId,
                 patchedFileId,
+                data,
                 changes,
                 status: "ready",
+                errorMessage: undefined,
             });
-            console.log("[generatePatch] Complete!");
+
+            console.log("[generatePatch] Complete", { patchId: args.patchId });
         } catch (error) {
             console.error("[generatePatch] Error", error);
 
             await ctx.runMutation(internal.modules.patch.mutations.updateGeneratedContent, {
                 patchId: args.patchId,
                 patchedFileId: null,
+                data: null,
                 changes: null,
                 status: "error",
                 errorMessage: error instanceof Error ? error.message : "Unknown error during patch generation",
@@ -228,114 +165,50 @@ Tailor the resume by proposing edits to ONLY the text nodes above.`,
     },
 });
 
-async function generatePatchedDocx(
-    originalDocx: ArrayBuffer,
-    patchedXml: string
-): Promise<ArrayBuffer> {
-    const zip = await JSZip.loadAsync(originalDocx);
+let cachedTemplate: Uint8Array | null = null;
 
-    zip.file("word/document.xml", patchedXml);
-
-    return await zip.generateAsync({ type: "arraybuffer" });
-}
-
-type TextNode = {
-    id: number;
-    openTag: string;
-    closeTag: string;
-    rawText: string;
-    text: string;
-};
-
-type ExtractedTextNodes = {
-    nodes: TextNode[];
-    parts: Array<string | number>;
-};
-
-function extractTextNodes(xml: string): ExtractedTextNodes {
-    const nodes: TextNode[] = [];
-    const parts: Array<string | number> = [];
-    const textNodeRegex = /<w:t\b[^>]*>[\s\S]*?<\/w:t>/g;
-
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-
-    while ((match = textNodeRegex.exec(xml)) !== null) {
-        const full = match[0];
-        const startIndex = match.index;
-        const endIndex = startIndex + full.length;
-        const openTagEnd = full.indexOf(">");
-
-        if (openTagEnd === -1) {
-            continue;
-        }
-
-        const openTag = full.slice(0, openTagEnd + 1);
-        const closeTag = "</w:t>";
-        const rawText = full.slice(openTagEnd + 1, full.length - closeTag.length);
-
-        parts.push(xml.slice(lastIndex, startIndex));
-
-        const id = nodes.length;
-        nodes.push({
-            id,
-            openTag,
-            closeTag,
-            rawText,
-            text: decodeXml(rawText),
-        });
-        parts.push(id);
-        lastIndex = endIndex;
+async function getTemplateBuffer(): Promise<Uint8Array> {
+    if (cachedTemplate) {
+        return cachedTemplate;
     }
 
-    parts.push(xml.slice(lastIndex));
-
-    return { nodes, parts };
+    const templateUrl = new URL("../../assets/resume-template.docx", import.meta.url);
+    const buffer = await readFile(templateUrl);
+    cachedTemplate = new Uint8Array(buffer);
+    return cachedTemplate;
 }
 
-function applyEditsToXml(
-    extracted: ExtractedTextNodes,
-    edits: Array<{ id: number; text: string }>
-): string {
-    const editsById = new Map<number, string>();
-    for (const edit of edits ?? []) {
-        if (Number.isInteger(edit.id) && edit.id >= 0 && edit.id < extracted.nodes.length) {
-            editsById.set(edit.id, edit.text);
-        }
+function validatePatchedData(data: ResumeData, base: ResumeData): string[] {
+    const issues: string[] = [];
+    if (!data.header.name.trim()) issues.push("header.name is empty");
+    if (!data.header.email.trim()) issues.push("header.email is empty");
+    if (!data.header.phone.trim()) issues.push("header.phone is empty");
+    if (!data.header.linkedin.trim()) issues.push("header.linkedin is empty");
+    if (base.education.length > 0 && data.education.length === 0) {
+        issues.push("education section was removed");
     }
-
-    return extracted.parts
-        .map(part => {
-            if (typeof part === "number") {
-                const node = extracted.nodes[part];
-                const updatedText = editsById.has(part)
-                    ? encodeXml(editsById.get(part) ?? "")
-                    : node.rawText;
-                return `${node.openTag}${updatedText}${node.closeTag}`;
-            }
-            return part;
-        })
-        .join("");
+    if (base.experience.length > 0 && data.experience.length === 0) {
+        issues.push("experience section was removed");
+    }
+    if (base.projects.length > 0 && data.projects.length === 0) {
+        issues.push("projects section was removed");
+    }
+    return issues;
 }
 
-function decodeXml(text: string): string {
-    return text
-        .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
-            String.fromCodePoint(parseInt(hex, 16))
-        )
-        .replace(/&#([0-9]+);/g, (_, num) => String.fromCodePoint(parseInt(num, 10)))
-        .replace(/&quot;/g, "\"")
-        .replace(/&apos;/g, "'")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&amp;/g, "&");
+function mergeChanges(primary?: string[], secondary?: string[]): string[] {
+    const merged = new Set<string>();
+    for (const change of primary ?? []) {
+        merged.add(change);
+    }
+    for (const change of secondary ?? []) {
+        merged.add(change);
+    }
+    return Array.from(merged);
 }
 
-function encodeXml(text: string): string {
-    return text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&apos;");
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+    const buffer = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(buffer).set(bytes);
+    return buffer;
 }

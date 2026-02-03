@@ -117,9 +117,9 @@ function PatchDetailPage() {
         </div>
 
         <div className="w-1/2 p-6 flex flex-col overflow-hidden">
-          <h2 className="text-lg font-semibold mb-4 shrink-0">
-            Tailored Resume
-          </h2>
+          <div className="flex items-center justify-between mb-4 shrink-0">
+            <h2 className="text-lg font-semibold">Tailored Resume</h2>
+          </div>
 
           <div className="shrink-0">
             {patch.status === 'generating' ? (

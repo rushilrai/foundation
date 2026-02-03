@@ -10,7 +10,9 @@
     "test": "vitest run",
     "lint": "eslint",
     "format": "prettier",
-    "check": "prettier --write . && eslint --fix"
+    "check": "prettier --write . && eslint --fix",
+    "render:template": "node scripts/render-template.mjs",
+    "build:template": "python3 scripts/build-template.py"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.25",
@@ -31,11 +33,14 @@
     "@tanstack/router-plugin": "^1.157.9",
     "@tanstack/zod-form-adapter": "^0.42.1",
     "ai": "^6.0.67",
+    "angular-expressions": "^1.4.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.31.6",
     "docx-preview": "^0.3.7",
+    "docxtemplater": "^3.61.2",
     "jszip": "^3.10.1",
+    "pizzip": "^3.1.7",
     "nitro": "latest",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
