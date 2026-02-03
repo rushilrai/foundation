@@ -11,7 +11,12 @@ import { z } from "zod";
 
 const patchOutputSchema = z.object({
     changes: z.array(z.string()),
-    patchedXml: z.string(),
+    edits: z.array(
+        z.object({
+            id: z.number().int().nonnegative(),
+            text: z.string(),
+        })
+    ),
 });
 
 export const generatePatch = internalAction({
@@ -64,6 +69,20 @@ export const generatePatch = internalAction({
                 return;
             }
 
+            const { nodes: textNodes, parts: xmlParts } = extractTextNodes(resume.extractedXml);
+            console.log("[generatePatch] Extracted text nodes", { count: textNodes.length });
+
+            if (textNodes.length === 0) {
+                await ctx.runMutation(internal.modules.patch.mutations.updateGeneratedContent, {
+                    patchId: args.patchId,
+                    patchedFileId: null,
+                    changes: null,
+                    status: "error",
+                    errorMessage: "No text nodes found in resume XML",
+                });
+                return;
+            }
+
             console.log("[generatePatch] Starting LLM stream...");
 
             const { partialOutputStream } = streamText({
@@ -73,28 +92,25 @@ export const generatePatch = internalAction({
                         reasoningEffort: "none"
                     } satisfies OpenAIResponsesProviderOptions
                 },
-                output: Output.object({
-                    schema: patchOutputSchema,
-                }),
+                output: Output.object({ schema: patchOutputSchema }),
                 onError({ error }) {
                     console.error("[generatePatch] Stream error", error);
                     streamError = error instanceof Error ? error : new Error(String(error));
                 },
                 system: `You are an expert resume writer. Your task is to tailor a resume for a specific job description.
 
-You will receive the resume as Word document XML (document.xml from a .docx file).
+You will receive ONLY the text nodes from a Word document (the contents of <w:t> tags), each with an id.
 
 CRITICAL RULES:
-1. ONLY modify text content inside <w:t> tags - these contain the visible text
-2. DO NOT modify, add, or remove any XML tags or attributes
-3. DO NOT change any formatting tags (<w:rPr>, <w:pPr>, <w:r>, etc.)
-4. DO NOT add or remove paragraphs (<w:p> elements)
-5. Keep all factual information accurate - do not fabricate experience or skills
-6. Reorder emphasis and use keywords from the job description where they genuinely apply
-7. In the "changes" array, list each modification you made as a brief description (e.g., "Added 'Python' keyword to skills section", "Reworded project description to emphasize leadership")
-8. Return the changes array FIRST, then the patchedXml`,
-                prompt: `Resume XML:
-${resume.extractedXml}
+1. ONLY propose edits to text content for existing ids. Do NOT add or remove ids.
+2. Do NOT invent facts. Preserve factual accuracy.
+3. Keep formatting intact by editing as few nodes as possible.
+4. Do NOT include unchanged nodes in the edits list.
+5. If a change needs more words, add them into the nearest relevant node(s).
+6. In the "changes" array, list each modification you made as a brief description (e.g., "Added 'Python' keyword to skills section").
+7. Return JSON that matches the schema: { changes: string[], edits: { id: number, text: string }[] }`,
+                prompt: `Resume text nodes (id -> text):
+${JSON.stringify(textNodes.map(node => ({ id: node.id, text: node.text })))}
 
 ---
 
@@ -104,7 +120,7 @@ ${patch.jobDescription}
 ${patch.companyName ? `Company: ${patch.companyName}` : ""}
 ${patch.roleName ? `Role: ${patch.roleName}` : ""}
 
-Tailor the resume for this job by modifying ONLY the text inside <w:t> tags.`,
+Tailor the resume by proposing edits to ONLY the text nodes above.`,
             });
 
             const UPDATE_INTERVAL_MS = 500;
@@ -122,8 +138,8 @@ Tailor the resume for this job by modifying ONLY the text inside <w:t> tags.`,
                         streamingText += `Changes identified:\n${partialObject.changes.map(c => `• ${c}`).join('\n')}`;
                     }
 
-                    if (partialObject.patchedXml) {
-                        streamingText += `\n\n🍳 Cooking resume...\n\n${partialObject.patchedXml}`;
+                    if (partialObject.edits?.length) {
+                        streamingText += `\n\nEdits drafted: ${partialObject.edits.length}`;
                     } else if (!partialObject.changes?.length) {
                         streamingText = "Analyzing resume...";
                     }
@@ -140,22 +156,24 @@ Tailor the resume for this job by modifying ONLY the text inside <w:t> tags.`,
                 throw streamError;
             }
 
-            if (!finalOutput?.patchedXml) {
+            if (!finalOutput) {
                 await ctx.runMutation(internal.modules.patch.mutations.updateGeneratedContent, {
                     patchId: args.patchId,
                     patchedFileId: null,
-                    changes: finalOutput?.changes || null,
+                    changes: null,
                     status: "error",
-                    errorMessage: "LLM did not return patchedXml",
+                    errorMessage: "LLM did not return output",
                 });
 
                 return;
             }
 
-            const { patchedXml, changes } = finalOutput;
+            const { edits, changes } = finalOutput;
+            const patchedXml = applyEditsToXml({ nodes: textNodes, parts: xmlParts }, edits);
             console.log("[generatePatch] Stream complete", {
-                xmlLength: patchedXml?.length,
-                changesCount: changes?.length
+                editsCount: edits?.length,
+                changesCount: changes?.length,
+                xmlLength: patchedXml.length,
             });
 
             const fileBlob = await ctx.storage.get(resume.fileId);
@@ -219,4 +237,105 @@ async function generatePatchedDocx(
     zip.file("word/document.xml", patchedXml);
 
     return await zip.generateAsync({ type: "arraybuffer" });
+}
+
+type TextNode = {
+    id: number;
+    openTag: string;
+    closeTag: string;
+    rawText: string;
+    text: string;
+};
+
+type ExtractedTextNodes = {
+    nodes: TextNode[];
+    parts: Array<string | number>;
+};
+
+function extractTextNodes(xml: string): ExtractedTextNodes {
+    const nodes: TextNode[] = [];
+    const parts: Array<string | number> = [];
+    const textNodeRegex = /<w:t\b[^>]*>[\s\S]*?<\/w:t>/g;
+
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = textNodeRegex.exec(xml)) !== null) {
+        const full = match[0];
+        const startIndex = match.index;
+        const endIndex = startIndex + full.length;
+        const openTagEnd = full.indexOf(">");
+
+        if (openTagEnd === -1) {
+            continue;
+        }
+
+        const openTag = full.slice(0, openTagEnd + 1);
+        const closeTag = "</w:t>";
+        const rawText = full.slice(openTagEnd + 1, full.length - closeTag.length);
+
+        parts.push(xml.slice(lastIndex, startIndex));
+
+        const id = nodes.length;
+        nodes.push({
+            id,
+            openTag,
+            closeTag,
+            rawText,
+            text: decodeXml(rawText),
+        });
+        parts.push(id);
+        lastIndex = endIndex;
+    }
+
+    parts.push(xml.slice(lastIndex));
+
+    return { nodes, parts };
+}
+
+function applyEditsToXml(
+    extracted: ExtractedTextNodes,
+    edits: Array<{ id: number; text: string }>
+): string {
+    const editsById = new Map<number, string>();
+    for (const edit of edits ?? []) {
+        if (Number.isInteger(edit.id) && edit.id >= 0 && edit.id < extracted.nodes.length) {
+            editsById.set(edit.id, edit.text);
+        }
+    }
+
+    return extracted.parts
+        .map(part => {
+            if (typeof part === "number") {
+                const node = extracted.nodes[part];
+                const updatedText = editsById.has(part)
+                    ? encodeXml(editsById.get(part) ?? "")
+                    : node.rawText;
+                return `${node.openTag}${updatedText}${node.closeTag}`;
+            }
+            return part;
+        })
+        .join("");
+}
+
+function decodeXml(text: string): string {
+    return text
+        .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
+            String.fromCodePoint(parseInt(hex, 16))
+        )
+        .replace(/&#([0-9]+);/g, (_, num) => String.fromCodePoint(parseInt(num, 10)))
+        .replace(/&quot;/g, "\"")
+        .replace(/&apos;/g, "'")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&");
+}
+
+function encodeXml(text: string): string {
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
 }
