@@ -15,7 +15,9 @@ const authGuard = createServerFn({ method: 'GET' }).handler(async () => {
 })
 
 export const Route = createFileRoute('/dashboard')({
-  beforeLoad: () => authGuard(),
+  beforeLoad: async () => {
+    return await authGuard()
+  },
   component: DashboardLayoutRoute,
 })
 
