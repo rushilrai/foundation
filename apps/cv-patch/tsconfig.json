@@ -31,6 +31,9 @@
       ],
       "@convex/*": [
         "./convex/*"
+      ],
+      "@shared/*": [
+        "./shared/*"
       ]
     }
   }

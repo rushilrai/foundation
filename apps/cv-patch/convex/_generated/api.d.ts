@@ -8,9 +8,11 @@
  * @module
  */
 
+import type * as assets_resumeTemplateData from "../assets/resumeTemplateData.js";
 import type * as configs_ai from "../configs/ai.js";
 import type * as http from "../http.js";
 import type * as modules_patch_actions from "../modules/patch/actions.js";
+import type * as modules_patch_docxTemplate from "../modules/patch/docxTemplate.js";
 import type * as modules_patch_helpers from "../modules/patch/helpers.js";
 import type * as modules_patch_mutations from "../modules/patch/mutations.js";
 import type * as modules_patch_nodeActions from "../modules/patch/nodeActions.js";
@@ -33,9 +35,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "assets/resumeTemplateData": typeof assets_resumeTemplateData;
   "configs/ai": typeof configs_ai;
   http: typeof http;
   "modules/patch/actions": typeof modules_patch_actions;
+  "modules/patch/docxTemplate": typeof modules_patch_docxTemplate;
   "modules/patch/helpers": typeof modules_patch_helpers;
   "modules/patch/mutations": typeof modules_patch_mutations;
   "modules/patch/nodeActions": typeof modules_patch_nodeActions;
