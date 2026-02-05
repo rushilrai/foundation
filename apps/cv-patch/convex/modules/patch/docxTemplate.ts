@@ -13,9 +13,8 @@ export function renderResumeTemplate(
         : new Uint8Array(templateBuffer);
     const zip = new PizZip(buffer);
 
-    const fileTypeConfig = {
-        getTemplatedFiles: () => ["word/document.xml"],
-    };
+    const fileTypeConfig = (Docxtemplater as any).FileTypeConfig.docx();
+    fileTypeConfig.getTemplatedFiles = () => ["word/document.xml"];
 
     const doc = new Docxtemplater(zip, {
         paragraphLoop: true,

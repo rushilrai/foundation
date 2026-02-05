@@ -1,7 +1,5 @@
 "use node";
 
-import { readFile } from "node:fs/promises";
-
 import { openai, OpenAIModels, setupOpenAI } from "@convex/configs/ai";
 import { generateText, Output } from "ai";
 import { internal } from "convex/_generated/api";
@@ -9,6 +7,7 @@ import { internalAction } from "convex/_generated/server";
 import { v } from "convex/values";
 import { z } from "zod";
 
+import { decodeBase64Template } from "../../assets/resumeTemplateData";
 import { renderResumeTemplate } from "./docxTemplate";
 import { ResumeDataSchema, type ResumeData } from "../../../shared/resumeSchema";
 
@@ -172,9 +171,7 @@ async function getTemplateBuffer(): Promise<Uint8Array> {
         return cachedTemplate;
     }
 
-    const templateUrl = new URL("../../assets/resume-template.docx", import.meta.url);
-    const buffer = await readFile(templateUrl);
-    cachedTemplate = new Uint8Array(buffer);
+    cachedTemplate = decodeBase64Template();
     return cachedTemplate;
 }
 
