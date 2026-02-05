@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as assets_resumeTemplateData from "../assets/resumeTemplateData.js";
 import type * as configs_ai from "../configs/ai.js";
 import type * as http from "../http.js";
 import type * as modules_patch_actions from "../modules/patch/actions.js";
@@ -34,6 +35,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "assets/resumeTemplateData": typeof assets_resumeTemplateData;
   "configs/ai": typeof configs_ai;
   http: typeof http;
   "modules/patch/actions": typeof modules_patch_actions;
