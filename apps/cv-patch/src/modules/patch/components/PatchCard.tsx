@@ -1,5 +1,5 @@
-import type { Doc } from '@convex/_generated/dataModel.js'
 import { Link } from '@tanstack/react-router'
+import type { Doc } from '@convex/_generated/dataModel.js'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,12 @@ export const PatchCard = ({ patch }: PatchCardProps) => {
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base truncate">{patch.title}</CardTitle>
-          <Badge variant={statusVariantMap[patch.status as keyof typeof statusVariantMap] ?? 'secondary'}>
+          <Badge
+            variant={
+              statusVariantMap[patch.status as keyof typeof statusVariantMap] ??
+              'secondary'
+            }
+          >
             {patch.status}
           </Badge>
         </div>

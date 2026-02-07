@@ -1,10 +1,10 @@
-import type { Doc } from '@convex/_generated/dataModel.js'
 
 import { ResumePreview } from './ResumePreview'
 import { ResumeDetails } from './ResumeDetails'
+import type { Doc } from '@convex/_generated/dataModel.js'
 
 type OriginalTabProps = {
-  resume: Doc<"resumes">
+  resume: Doc<'resumes'>
 }
 
 export const OriginalTab = ({ resume }: OriginalTabProps) => {

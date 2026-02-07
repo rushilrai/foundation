@@ -1,8 +1,14 @@
-import type { Doc } from '@convex/_generated/dataModel.js'
 import { useMutation } from 'convex/react'
 import { useEffect, useMemo, useState } from 'react'
-
 import { api } from '@convex/_generated/api.js'
+import {
+  ResumeDataSchema,
+  getEmptyResumeData,
+} from '@shared/resumeSchema'
+import type { Doc } from '@convex/_generated/dataModel.js'
+
+import type {
+  ResumeData} from '@shared/resumeSchema';
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -15,11 +21,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
-import {
-  ResumeData,
-  ResumeDataSchema,
-  getEmptyResumeData,
-} from '@shared/resumeSchema'
 
 type ResumeContentTabProps = {
   resume: Doc<'resumes'>
@@ -31,7 +32,7 @@ const lineToArray = (value: string) =>
     .map((line) => line.trim())
     .filter(Boolean)
 
-const arrayToLines = (value: string[]) => value.join('\n')
+const arrayToLines = (value: Array<string>) => value.join('\n')
 
 export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
   const [draft, setDraft] = useState<ResumeData>(
@@ -59,7 +60,8 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
   if (resume.status !== 'ready' || !resume.data) {
     return (
       <div className="text-sm text-muted-foreground">
-        Resume content is still being processed. Please refresh once it is ready.
+        Resume content is still being processed. Please refresh once it is
+        ready.
       </div>
     )
   }
@@ -142,9 +144,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
         return {
           ...exp,
           roles: exp.roles.map((role, r) =>
-            r === roleIndex
-              ? { ...role, bullets: lineToArray(value) }
-              : role,
+            r === roleIndex ? { ...role, bullets: lineToArray(value) } : role,
           ),
         }
       }),
@@ -192,10 +192,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
         i === expIndex
           ? {
               ...exp,
-              roles: [
-                ...exp.roles,
-                { title: '', meta: '', bullets: [] },
-              ],
+              roles: [...exp.roles, { title: '', meta: '', bullets: [] }],
             }
           : exp,
       ),
@@ -233,9 +230,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
     setDraft((prev) => ({
       ...prev,
       projects: prev.projects.map((project, i) =>
-        i === index
-          ? { ...project, bullets: lineToArray(value) }
-          : project,
+        i === index ? { ...project, bullets: lineToArray(value) } : project,
       ),
     }))
   }
@@ -254,10 +249,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
     }))
   }
 
-  const updateSkills = (
-    key: keyof ResumeData['skills'],
-    value: string,
-  ) => {
+  const updateSkills = (key: keyof ResumeData['skills'], value: string) => {
     setDraft((prev) => ({
       ...prev,
       skills: { ...prev.skills, [key]: value },
@@ -369,10 +361,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
           </Button>
         </div>
         {draft.education.map((edu, index) => (
-          <div
-            key={`edu-${index}`}
-            className="border rounded-lg p-4 space-y-3"
-          >
+          <div key={`edu-${index}`} className="border rounded-lg p-4 space-y-3">
             <div className="flex justify-between items-center">
               <p className="text-sm font-medium">Entry {index + 1}</p>
               <Button
@@ -398,7 +387,9 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
               />
               <Input
                 value={edu.dates}
-                onChange={(e) => updateEducation(index, 'dates', e.target.value)}
+                onChange={(e) =>
+                  updateEducation(index, 'dates', e.target.value)
+                }
                 placeholder="Dates"
               />
             </div>
@@ -426,10 +417,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
           </Button>
         </div>
         {draft.experience.map((exp, index) => (
-          <div
-            key={`exp-${index}`}
-            className="border rounded-lg p-4 space-y-4"
-          >
+          <div key={`exp-${index}`} className="border rounded-lg p-4 space-y-4">
             <div className="flex justify-between items-center">
               <p className="text-sm font-medium">Company {index + 1}</p>
               <Button
@@ -531,16 +519,12 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
             </div>
             <Input
               value={project.name}
-              onChange={(e) =>
-                updateProject(index, 'name', e.target.value)
-              }
+              onChange={(e) => updateProject(index, 'name', e.target.value)}
               placeholder="Project name"
             />
             <Input
               value={project.dates}
-              onChange={(e) =>
-                updateProject(index, 'dates', e.target.value)
-              }
+              onChange={(e) => updateProject(index, 'dates', e.target.value)}
               placeholder="Dates"
             />
             <Textarea

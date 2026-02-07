@@ -1,6 +1,6 @@
 import { SignedIn, SignedOut } from '@clerk/tanstack-react-start'
 import { IconArrowUpRight } from '@tabler/icons-react'
-import { createFileRoute, Link, Navigate } from '@tanstack/react-router'
+import { Link, Navigate, createFileRoute } from '@tanstack/react-router'
 
 import { Button } from '@/components/ui/button'
 

@@ -1,6 +1,6 @@
-import type { Doc } from '@convex/_generated/dataModel.js'
 import { IconFileText } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
+import type { Doc } from '@convex/_generated/dataModel.js'
 
 import { Badge } from '@/components/ui/badge'
 import {
@@ -37,7 +37,13 @@ export const ResumeCard = ({ resume }: ResumeCardProps) => {
               <CardTitle className="text-base">{resume.title}</CardTitle>
             </div>
 
-            <Badge variant={statusVariantMap[resume.status as keyof typeof statusVariantMap] ?? 'secondary'}>
+            <Badge
+              variant={
+                statusVariantMap[
+                  resume.status as keyof typeof statusVariantMap
+                ] ?? 'secondary'
+              }
+            >
               {resume.status}
             </Badge>
           </div>

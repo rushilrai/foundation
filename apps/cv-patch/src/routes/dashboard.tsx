@@ -1,5 +1,5 @@
 import { auth } from '@clerk/tanstack-react-start/server'
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 
 import { DashboardLayout } from '@/modules/common/components/DashboardLayout'

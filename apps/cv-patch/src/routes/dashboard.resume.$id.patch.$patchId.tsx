@@ -1,7 +1,7 @@
 import { api } from '@convex/_generated/api.js'
-import type { Id } from '@convex/_generated/dataModel.js'
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery, useAction } from 'convex/react'
+import { useAction, useQuery } from 'convex/react'
+import type { Id } from '@convex/_generated/dataModel.js'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -83,7 +83,12 @@ function PatchDetailPage() {
     <>
       <DashboardHeader title={patch.title}>
         <div className="flex items-center gap-2">
-          <Badge variant={statusVariantMap[patch.status as keyof typeof statusVariantMap] ?? 'secondary'}>
+          <Badge
+            variant={
+              statusVariantMap[patch.status as keyof typeof statusVariantMap] ??
+              'secondary'
+            }
+          >
             {patch.status}
           </Badge>
 

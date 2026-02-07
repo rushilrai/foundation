@@ -1,10 +1,10 @@
 import { api } from '@convex/_generated/api.js'
-import type { Id } from '@convex/_generated/dataModel.js'
 import { useForm } from '@tanstack/react-form'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import { useState } from 'react'
 import { z } from 'zod'
+import type { Id } from '@convex/_generated/dataModel.js'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -114,9 +114,7 @@ export const CreatePatchDialog = ({
                     field.state.meta.isTouched && !field.state.meta.isValid
                   return (
                     <Field data-invalid={isInvalid}>
-                      <FieldLabel htmlFor={field.name}>
-                        Company Name
-                      </FieldLabel>
+                      <FieldLabel htmlFor={field.name}>Company Name</FieldLabel>
                       <Input
                         id={field.name}
                         name={field.name}
@@ -141,9 +139,7 @@ export const CreatePatchDialog = ({
                     field.state.meta.isTouched && !field.state.meta.isValid
                   return (
                     <Field data-invalid={isInvalid}>
-                      <FieldLabel htmlFor={field.name}>
-                        Role Name
-                      </FieldLabel>
+                      <FieldLabel htmlFor={field.name}>Role Name</FieldLabel>
                       <Input
                         id={field.name}
                         name={field.name}

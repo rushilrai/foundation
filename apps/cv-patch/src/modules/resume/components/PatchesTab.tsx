@@ -1,6 +1,6 @@
 import { api } from '@convex/_generated/api.js'
-import type { Id } from '@convex/_generated/dataModel.js'
 import { useQuery } from 'convex/react'
+import type { Id } from '@convex/_generated/dataModel.js'
 
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'

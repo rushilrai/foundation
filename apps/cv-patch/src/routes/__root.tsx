@@ -1,6 +1,4 @@
 import { ClerkProvider, useAuth } from '@clerk/tanstack-react-start'
-import { ConvexQueryClient } from '@convex-dev/react-query'
-import { QueryClient } from '@tanstack/react-query'
 import {
   HeadContent,
   Outlet,
@@ -10,6 +8,8 @@ import {
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
 
 import styles from '../index.css?url'
+import type { QueryClient } from '@tanstack/react-query'
+import type { ConvexQueryClient } from '@convex-dev/react-query'
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient

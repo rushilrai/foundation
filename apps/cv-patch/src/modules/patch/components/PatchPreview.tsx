@@ -1,7 +1,7 @@
 import { api } from '@convex/_generated/api.js'
-import type { Id } from '@convex/_generated/dataModel.js'
 import { useAction } from 'convex/react'
 import { useCallback } from 'react'
+import type { Id } from '@convex/_generated/dataModel.js'
 
 import { DocxRenderer } from '@/modules/common/components/DocxRenderer'
 
@@ -18,5 +18,10 @@ export const PatchPreview = ({ patchId }: PatchPreviewProps) => {
     return await generateDownloadUrl({ patchId })
   }, [patchId, generateDownloadUrl])
 
-  return <DocxRenderer fetchUrl={fetchUrl} errorMessage="Document not ready yet..." />
+  return (
+    <DocxRenderer
+      fetchUrl={fetchUrl}
+      errorMessage="Document not ready yet..."
+    />
+  )
 }

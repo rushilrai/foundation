@@ -4,7 +4,7 @@
   "tasks": {
     "build": {
       "outputs": [".output/**", ".vercel/output/**"],
-      "env": ["VITE_CONVEX_SITE_URL", "VITE_CONVEX_URL",]
+      "env": ["VITE_CONVEX_SITE_URL", "VITE_CONVEX_URL"]
     }
   }
 }
