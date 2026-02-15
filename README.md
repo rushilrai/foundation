@@ -10,6 +10,13 @@ My website.
 
 **Tech:** Astro, Tailwind CSS
 
+### cv-patch
+Patch your cv.
+
+**Live:** [cv-patch](https://cv-patch.rushilrai.me/)
+
+**Tech:** Astro, Tailwind CSS
+
 ### webcase
 An open source alternative to [Pocket](https://getpocket.com/home).
 
