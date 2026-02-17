@@ -7,6 +7,7 @@ import { internalAction } from 'convex/_generated/server'
 import { v } from 'convex/values'
 import JSZip from 'jszip'
 
+import { convertDocxToPdf } from '../common/cloudconvert'
 import {  ResumeDataSchema } from '../../../shared/resumeSchema'
 import type {ResumeData} from '../../../shared/resumeSchema';
 
@@ -144,6 +145,13 @@ extras: string[]`
           errorMessage: undefined,
         },
       )
+
+      // Schedule PDF conversion (non-blocking)
+      await ctx.scheduler.runAfter(
+        0,
+        internal.modules.resume.nodeActions.convertResumeToPdf,
+        { resumeId: args.resumeId },
+      )
     } catch (error) {
       console.error('[extractResumeData] Error', error)
       await ctx.runMutation(
@@ -215,6 +223,41 @@ function decodeXml(text: string): string {
 function normalizeWhitespace(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
 }
+
+export const convertResumeToPdf = internalAction({
+  args: { resumeId: v.id('resumes') },
+  handler: async (ctx, args): Promise<void> => {
+    try {
+      const resume = await ctx.runQuery(
+        internal.modules.resume.queries.getByIdInternal,
+        { resumeId: args.resumeId },
+      )
+
+      if (!resume) {
+        console.error('[convertResumeToPdf] Resume not found', {
+          resumeId: args.resumeId,
+        })
+        return
+      }
+
+      const pdfFileId = await convertDocxToPdf(ctx, resume.fileId)
+
+      await ctx.runMutation(
+        internal.modules.resume.mutations.updatePdfFileId,
+        {
+          resumeId: args.resumeId,
+          pdfFileId,
+        },
+      )
+
+      console.log('[convertResumeToPdf] Complete', {
+        resumeId: args.resumeId,
+      })
+    } catch (error) {
+      console.error('[convertResumeToPdf] Error (non-fatal)', error)
+    }
+  },
+})
 
 function validateResumeData(data: ResumeData): Array<string> {
   const issues: Array<string> = []

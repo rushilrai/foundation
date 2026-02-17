@@ -40,3 +40,42 @@ export const generateDownloadUrl = action({
     }
   },
 })
+
+export const generatePdfDownloadUrl = action({
+  args: { patchId: v.id('patches') },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ downloadUrl: string } | { error: string }> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return { error: 'UNAUTHORIZED' }
+    }
+
+    const patch = await ctx.runQuery(
+      internal.modules.patch.queries.getByIdInternal,
+      {
+        patchId: args.patchId,
+      },
+    )
+
+    if (!patch) {
+      return { error: 'PATCH_NOT_FOUND' }
+    }
+
+    if (!patch.pdfFileId) {
+      return { error: 'PDF_NOT_AVAILABLE' }
+    }
+
+    try {
+      const downloadUrl = await ctx.storage.getUrl(patch.pdfFileId)
+      if (!downloadUrl) {
+        return { error: 'DOWNLOAD_URL_GENERATION_FAILED' }
+      }
+      return { downloadUrl }
+    } catch (error) {
+      console.error('Error generating PDF download URL', error)
+      return { error: 'DOWNLOAD_URL_GENERATION_FAILED' }
+    }
+  },
+})

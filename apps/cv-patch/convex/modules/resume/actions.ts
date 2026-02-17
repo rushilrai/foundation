@@ -55,3 +55,43 @@ export const generateDownloadUrl = action({
     }
   },
 })
+
+export const generatePdfDownloadUrl = action({
+  args: { resumeId: v.id('resumes') },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ downloadUrl: string } | { error: string }> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return { error: 'UNAUTHORIZED' }
+    }
+
+    const resume = await ctx.runQuery(
+      internal.modules.resume.queries.getByIdInternal,
+      {
+        resumeId: args.resumeId,
+      },
+    )
+
+    if (!resume) {
+      return { error: 'RESUME_NOT_FOUND' }
+    }
+
+    if (!resume.pdfFileId) {
+      return { error: 'PDF_NOT_AVAILABLE' }
+    }
+
+    try {
+      const downloadUrl = await ctx.storage.getUrl(resume.pdfFileId)
+      if (!downloadUrl) {
+        return { error: 'DOWNLOAD_URL_GENERATION_FAILED' }
+      }
+
+      return { downloadUrl }
+    } catch (error) {
+      console.error('Error generating PDF download URL', error)
+      return { error: 'DOWNLOAD_URL_GENERATION_FAILED' }
+    }
+  },
+})

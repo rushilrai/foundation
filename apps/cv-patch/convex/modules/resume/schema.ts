@@ -5,6 +5,7 @@ export const resumeFields = {
   userId: v.id('users'),
   title: v.string(),
   fileId: v.id('_storage'),
+  pdfFileId: v.optional(v.nullable(v.id('_storage'))),
   fileName: v.string(),
   fileSize: v.number(),
   templateId: v.string(),

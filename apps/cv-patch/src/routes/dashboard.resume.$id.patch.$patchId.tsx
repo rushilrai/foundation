@@ -150,7 +150,7 @@ function PatchDetailPage() {
                 </p>
               </div>
             ) : (
-              <PatchPreview patchId={patch._id} />
+              <PatchPreview patchId={patch._id} pdfReady={!!patch.pdfFileId} />
             )}
           </div>
 

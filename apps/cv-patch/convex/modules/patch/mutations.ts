@@ -103,6 +103,19 @@ export const remove = mutation({
   },
 })
 
+export const updatePdfFileId = internalMutation({
+  args: {
+    patchId: v.id('patches'),
+    pdfFileId: v.nullable(v.id('_storage')),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    await ctx.db.patch(args.patchId, {
+      pdfFileId: args.pdfFileId,
+      updatedAt: Date.now(),
+    })
+  },
+})
+
 export const updateStreamingText = internalMutation({
   args: {
     patchId: v.id('patches'),

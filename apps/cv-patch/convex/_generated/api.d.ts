@@ -11,6 +11,9 @@
 import type * as assets_resumeTemplateData from "../assets/resumeTemplateData.js";
 import type * as configs_ai from "../configs/ai.js";
 import type * as http from "../http.js";
+import type * as modules_common_cloudconvert from "../modules/common/cloudconvert.js";
+import type * as modules_common_migrations from "../modules/common/migrations.js";
+import type * as modules_common_migrationsHelpers from "../modules/common/migrationsHelpers.js";
 import type * as modules_patch_actions from "../modules/patch/actions.js";
 import type * as modules_patch_docxTemplate from "../modules/patch/docxTemplate.js";
 import type * as modules_patch_helpers from "../modules/patch/helpers.js";
@@ -38,6 +41,9 @@ declare const fullApi: ApiFromModules<{
   "assets/resumeTemplateData": typeof assets_resumeTemplateData;
   "configs/ai": typeof configs_ai;
   http: typeof http;
+  "modules/common/cloudconvert": typeof modules_common_cloudconvert;
+  "modules/common/migrations": typeof modules_common_migrations;
+  "modules/common/migrationsHelpers": typeof modules_common_migrationsHelpers;
   "modules/patch/actions": typeof modules_patch_actions;
   "modules/patch/docxTemplate": typeof modules_patch_docxTemplate;
   "modules/patch/helpers": typeof modules_patch_helpers;

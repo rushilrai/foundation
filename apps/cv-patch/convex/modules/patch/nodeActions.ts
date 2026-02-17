@@ -9,8 +9,9 @@ import { z } from 'zod'
 
 import { decodeBase64Template } from '../../assets/resumeTemplateData'
 import {  ResumeDataSchema } from '../../../shared/resumeSchema'
-import { renderResumeTemplate } from './docxTemplate'
 import type {ResumeData} from '../../../shared/resumeSchema';
+import { convertDocxToPdf } from '../common/cloudconvert'
+import { renderResumeTemplate } from './docxTemplate'
 
 const patchOutputSchema = z.object({
   data: ResumeDataSchema,
@@ -204,6 +205,13 @@ ${issues.join('\n')}`
           status: 'ready',
           errorMessage: undefined,
         },
+      )
+
+      // Schedule PDF conversion (non-blocking)
+      await ctx.scheduler.runAfter(
+        0,
+        internal.modules.patch.nodeActions.convertPatchToPdf,
+        { patchId: args.patchId },
       )
 
       console.log('[generatePatch] Complete', { patchId: args.patchId })
@@ -400,6 +408,48 @@ function mergeChanges(primary?: Array<string>, secondary?: Array<string>): Array
   }
   return Array.from(merged)
 }
+
+export const convertPatchToPdf = internalAction({
+  args: { patchId: v.id('patches') },
+  handler: async (ctx, args): Promise<void> => {
+    try {
+      const patch = await ctx.runQuery(
+        internal.modules.patch.queries.getByIdInternal,
+        { patchId: args.patchId },
+      )
+
+      if (!patch) {
+        console.error('[convertPatchToPdf] Patch not found', {
+          patchId: args.patchId,
+        })
+        return
+      }
+
+      if (!patch.patchedFileId) {
+        console.error('[convertPatchToPdf] No patchedFileId on patch', {
+          patchId: args.patchId,
+        })
+        return
+      }
+
+      const pdfFileId = await convertDocxToPdf(ctx, patch.patchedFileId)
+
+      await ctx.runMutation(
+        internal.modules.patch.mutations.updatePdfFileId,
+        {
+          patchId: args.patchId,
+          pdfFileId,
+        },
+      )
+
+      console.log('[convertPatchToPdf] Complete', {
+        patchId: args.patchId,
+      })
+    } catch (error) {
+      console.error('[convertPatchToPdf] Error (non-fatal)', error)
+    }
+  },
+})
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   const buffer = new ArrayBuffer(bytes.byteLength)

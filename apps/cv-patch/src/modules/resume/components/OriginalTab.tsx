@@ -11,7 +11,7 @@ export const OriginalTab = ({ resume }: OriginalTabProps) => {
   return (
     <div className="grid grid-cols-3 gap-6 h-[calc(100vh-200px)]">
       <div className="col-span-2">
-        <ResumePreview resumeId={resume._id} />
+        <ResumePreview resumeId={resume._id} pdfReady={!!resume.pdfFileId} />
       </div>
 
       <div className="space-y-4 overflow-auto">

@@ -178,6 +178,19 @@ export const updateExtractedContent = internalMutation({
   },
 })
 
+export const updatePdfFileId = internalMutation({
+  args: {
+    resumeId: v.id('resumes'),
+    pdfFileId: v.nullable(v.id('_storage')),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    await ctx.db.patch(args.resumeId, {
+      pdfFileId: args.pdfFileId,
+      updatedAt: Date.now(),
+    })
+  },
+})
+
 export const updateData = mutation({
   args: {
     resumeId: v.id('resumes'),

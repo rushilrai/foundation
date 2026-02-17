@@ -3,25 +3,28 @@ import { useAction } from 'convex/react'
 import { useCallback } from 'react'
 import type { Id } from '@convex/_generated/dataModel.js'
 
-import { DocxRenderer } from '@/modules/common/components/DocxRenderer'
+import { PdfRenderer } from '@/modules/common/components/PdfRenderer'
 
 type PatchPreviewProps = {
   patchId: Id<'patches'>
+  pdfReady: boolean
 }
 
-export const PatchPreview = ({ patchId }: PatchPreviewProps) => {
-  const generateDownloadUrl = useAction(
-    api.modules.patch.actions.generateDownloadUrl,
+export const PatchPreview = ({ patchId, pdfReady }: PatchPreviewProps) => {
+  const generatePdfDownloadUrl = useAction(
+    api.modules.patch.actions.generatePdfDownloadUrl,
   )
 
   const fetchUrl = useCallback(async () => {
-    return await generateDownloadUrl({ patchId })
-  }, [patchId, generateDownloadUrl])
+    return await generatePdfDownloadUrl({ patchId })
+  }, [patchId, generatePdfDownloadUrl])
 
   return (
-    <DocxRenderer
+    <PdfRenderer
       fetchUrl={fetchUrl}
+      pdfReady={pdfReady}
       errorMessage="Document not ready yet..."
+      notReadyMessage="Generating PDF preview..."
     />
   )
 }
