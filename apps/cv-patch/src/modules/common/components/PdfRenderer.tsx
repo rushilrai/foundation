@@ -39,9 +39,7 @@ export const PdfRenderer = ({
 
         setPdfUrl(result.downloadUrl)
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Failed to load PDF',
-        )
+        setError(err instanceof Error ? err.message : 'Failed to load PDF')
       } finally {
         setLoading(false)
       }
@@ -78,12 +76,10 @@ export const PdfRenderer = ({
   }
 
   return (
-    <div className="h-full w-full">
-      <iframe
-        src={pdfUrl}
-        title="PDF Preview"
-        className="h-140 w-full border-2 border-accent rounded-lg"
-      />
-    </div>
+    <iframe
+      src={pdfUrl}
+      title="PDF Preview"
+      className="h-140 w-full border-2 border-accent rounded-lg"
+    />
   )
 }

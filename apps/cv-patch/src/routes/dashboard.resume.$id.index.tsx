@@ -39,9 +39,9 @@ function ResumeDetailPage() {
           <Skeleton className="h-6 w-48" />
         </DashboardHeader>
 
-        <main className="p-6">
+        <div className="p-6">
           <Skeleton className="h-[calc(100vh-200px)]" />
-        </main>
+        </div>
       </>
     )
   }
@@ -51,13 +51,13 @@ function ResumeDetailPage() {
       <>
         <DashboardHeader title="Error" />
 
-        <main className="p-6">
+        <div className="p-6">
           <p className="text-destructive">
             {resumeResult.error === 'RESUME_NOT_FOUND'
               ? 'Resume not found.'
               : 'An error occurred while loading the resume.'}
           </p>
-        </main>
+        </div>
       </>
     )
   }
@@ -79,7 +79,7 @@ function ResumeDetailPage() {
         </div>
       </DashboardHeader>
 
-      <main className="p-6">
+      <div className="p-6">
         <Tabs defaultValue="original">
           <TabsList>
             <TabsTrigger value="original">Original</TabsTrigger>
@@ -99,7 +99,7 @@ function ResumeDetailPage() {
             <PatchesTab resumeId={resume._id} />
           </TabsContent>
         </Tabs>
-      </main>
+      </div>
     </>
   )
 }

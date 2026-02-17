@@ -20,7 +20,7 @@ function HomePage() {
     <>
       <DashboardHeader title="Home" />
 
-      <main className="p-6 w-full h-full flex items-center justify-center">
+      <div className="p-6 w-full h-full flex items-center justify-center">
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -35,7 +35,7 @@ function HomePage() {
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
-      </main>
+      </div>
     </>
   )
 }
