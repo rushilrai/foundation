@@ -54,6 +54,7 @@ export const create = mutation({
         templateId: 'resume-v1',
         data: null,
         patchedFileId: null,
+        pdfFileId: null,
         changes: null,
         status: 'generating',
         deleted: false,

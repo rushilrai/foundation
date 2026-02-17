@@ -57,7 +57,7 @@ export const patchFields = {
     }),
   ),
   patchedFileId: v.nullable(v.id('_storage')),
-  pdfFileId: v.optional(v.nullable(v.id('_storage'))),
+  pdfFileId: v.nullable(v.id('_storage')),
   changes: v.nullable(v.array(v.string())),
   status: v.union(
     v.literal('generating'),

@@ -32,6 +32,7 @@ export const create = mutation({
         userId: user._id,
         title: args.title,
         fileId: args.fileId,
+        pdfFileId: null,
         fileName: args.fileName,
         fileSize: args.fileSize,
         templateId: 'resume-v1',
