@@ -108,7 +108,7 @@ Immutable fields — copy these exactly, byte-for-byte:
 
 Editable fields — rewrite for ATS keyword alignment while preserving approximate character length:
 - experience[].roles[].title — only adjust if the JD uses a clearly equivalent title; keep length within ~80%-125% of original
-- experience[].roles[].bullets[] — substitute keywords, keep each bullet within ~90%-110% of original character count
+- experience[].roles[].bullets[] — substitute keywords, keep each bullet within ~80%-110% of original character count
 - education[].degree, education[].details — keyword-focused rewrites within ~80%-125% of original length
 - projects[].name — keyword-focused rewrite within ~80%-125% of original length
 - projects[].bullets[] — same rules as experience bullets
@@ -239,7 +239,7 @@ ${validationIssues.join('\n')}`
 })
 
 let cachedTemplate: Uint8Array | null = null
-const BULLET_MIN_RATIO = 0.9
+const BULLET_MIN_RATIO = 0.8
 const BULLET_MAX_RATIO = 1.1
 const EDITABLE_MIN_RATIO = 0.65
 const EDITABLE_MAX_RATIO = 1.25
