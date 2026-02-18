@@ -147,13 +147,17 @@ Return JSON with:
       let data = output.data
       let changes = output.changes
 
-      const issues = validatePatchedData(data, resume.data)
-      if (issues.length > 0) {
+      let validationIssues = validatePatchedData(data, resume.data)
+      for (
+        let attempt = 1;
+        validationIssues.length > 0 && attempt <= MAX_VALIDATION_RETRY_ATTEMPTS;
+        attempt++
+      ) {
         await ctx.runMutation(
           internal.modules.patch.mutations.updateStreamingText,
           {
             patchId: args.patchId,
-            streamingText: 'QA detected issues. Refining output...',
+            streamingText: `QA detected issues. Refining output (${attempt}/${MAX_VALIDATION_RETRY_ATTEMPTS})...`,
           },
         )
 
@@ -163,7 +167,7 @@ Your previous output:
 ${JSON.stringify(data)}
 
 The following validation issues were found in your previous output. Fix ONLY these issues and return the corrected JSON:
-${issues.join('\n')}`
+${validationIssues.join('\n')}`
 
         const { output: retryOutput } = await generateText({
           model: openai.responses(OpenAIModels['gpt-5.2']),
@@ -174,12 +178,12 @@ ${issues.join('\n')}`
 
         data = retryOutput.data
         changes = mergeChanges(changes, retryOutput.changes)
+        validationIssues = validatePatchedData(data, resume.data)
       }
 
-      const finalIssues = validatePatchedData(data, resume.data)
-      if (finalIssues.length > 0) {
+      if (validationIssues.length > 0) {
         throw new Error(
-          `Patched resume failed validation: ${finalIssues.join('; ')}`,
+          `Patched resume failed validation: ${validationIssues.join('; ')}`,
         )
       }
 
@@ -237,8 +241,9 @@ ${issues.join('\n')}`
 let cachedTemplate: Uint8Array | null = null
 const BULLET_MIN_RATIO = 0.9
 const BULLET_MAX_RATIO = 1.1
-const EDITABLE_MIN_RATIO = 0.8
+const EDITABLE_MIN_RATIO = 0.65
 const EDITABLE_MAX_RATIO = 1.25
+const MAX_VALIDATION_RETRY_ATTEMPTS = 3
 
 function getTemplateBuffer(): Uint8Array {
   if (cachedTemplate) {
