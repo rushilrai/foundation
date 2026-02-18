@@ -24,7 +24,7 @@ type PatchCardProps = {
 
 export const PatchCard = ({ patch }: PatchCardProps) => {
   return (
-    <Card className="hover:border-primary/50 transition-colors">
+    <Card className="hover:border-primary/50 justify-between transition-colors">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base truncate">{patch.title}</CardTitle>
