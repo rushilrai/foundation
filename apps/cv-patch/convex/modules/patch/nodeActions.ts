@@ -108,12 +108,12 @@ Immutable fields — copy these exactly, byte-for-byte:
 
 Editable fields — rewrite for ATS keyword alignment while preserving approximate character length:
 - experience[].roles[].title — only adjust if the JD uses a clearly equivalent title; keep length within ~80%-125% of original
-- experience[].roles[].bullets[] — substitute keywords, keep each bullet within ~80%-110% of original character count
-- education[].degree, education[].details — keyword-focused rewrites within ~80%-125% of original length
-- projects[].name — keyword-focused rewrite within ~80%-125% of original length
+- experience[].roles[].bullets[] — substitute keywords, keep each bullet within ~80%-100% of original character count
+- education[].degree, education[].details — keyword-focused rewrites within ~80%-100% of original length
+- projects[].name — keyword-focused rewrite within ~80%-100% of original length
 - projects[].bullets[] — same rules as experience bullets
 - skills.technical, skills.financial, skills.languages — reorder to front-load JD-relevant terms, may substitute equivalent terms
-- extras[] — preserve as-is unless directly relevant; if edited keep length within ~80%-125% of original
+- extras[] — preserve as-is unless directly relevant; if edited keep length within ~80%-100% of original
 
 Structural invariants:
 - Same number of experience entries, same number of roles per experience entry, same number of bullets per role.
@@ -240,9 +240,9 @@ ${validationIssues.join('\n')}`
 
 let cachedTemplate: Uint8Array | null = null
 const BULLET_MIN_RATIO = 0.8
-const BULLET_MAX_RATIO = 1.1
+const BULLET_MAX_RATIO = 1
 const EDITABLE_MIN_RATIO = 0.65
-const EDITABLE_MAX_RATIO = 1.25
+const EDITABLE_MAX_RATIO = 1
 const MAX_VALIDATION_RETRY_ATTEMPTS = 3
 
 function getTemplateBuffer(): Uint8Array {
