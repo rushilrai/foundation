@@ -8,10 +8,10 @@ import { v } from 'convex/values'
 import { z } from 'zod'
 
 import { decodeBase64Template } from '../../assets/resumeTemplateData'
-import {  ResumeDataSchema } from '../../../shared/resumeSchema'
-import type {ResumeData} from '../../../shared/resumeSchema';
+import { ResumeDataSchema } from '../../../shared/resumeSchema'
 import { convertDocxToPdf } from '../common/cloudconvert'
 import { renderResumeTemplate } from './docxTemplate'
+import type { ResumeData } from '../../../shared/resumeSchema'
 
 const patchOutputSchema = z.object({
   data: ResumeDataSchema,
@@ -87,13 +87,17 @@ export const generatePatch = internalAction({
 
       const system = `You are an expert resume editor and ATS optimizer performing in-place keyword optimization on a structured resume JSON.
 
-CRITICAL CONSTRAINT: The output renders into a fixed-layout DOCX template. If any field or bullet grows longer than the original, it will overflow the template and break the document formatting. Every rewritten field must stay within approximately the same character count as the original.
+CRITICAL CONSTRAINT: The output renders into a fixed-layout DOCX template. Keep all rewritten text within tight character bounds so the document layout remains stable.
 
 Strategy — in-place rewriting:
-- Use strategic word substitution to incorporate exact terminology from the job description.
+- Maximize match quality for both ATS keyword matching and LLM-assisted recruiter screening.
+- Integrate exact JD terminology where it naturally fits the original accomplishment.
+- Add relevant lexical variants (abbreviations, expanded forms, adjacent domain phrasing) when factual meaning stays the same.
+- Prioritize hard skills, tools, domain nouns, and scope/impact language over generic soft-skill wording.
 - Do NOT invent facts, restructure sentences, add new bullets, remove bullets, or add/remove entries.
-- You MAY reorder bullets within a single role to place the most JD-relevant bullet first.
+- Do NOT reorder bullets.
 - You MAY reorder items within the skills fields (technical, financial, languages) to prioritize JD-relevant skills first.
+- Preserve quantitative evidence: if a bullet contains numbers/percentages/currency/scale tokens, keep those metrics in the rewritten bullet.
 
 Immutable fields — copy these exactly, byte-for-byte:
 - header.name, header.phone, header.email, header.linkedin
@@ -103,13 +107,13 @@ Immutable fields — copy these exactly, byte-for-byte:
 - projects[].dates
 
 Editable fields — rewrite for ATS keyword alignment while preserving approximate character length:
-- experience[].roles[].title — only adjust if the JD uses a clearly equivalent title
-- experience[].roles[].bullets[] — substitute keywords, keep each bullet within ~10% of its original character count
-- education[].degree, education[].details — minor keyword tweaks only
-- projects[].name — minor keyword tweaks only
+- experience[].roles[].title — only adjust if the JD uses a clearly equivalent title; keep length within ~80%-125% of original
+- experience[].roles[].bullets[] — substitute keywords, keep each bullet within ~90%-110% of original character count
+- education[].degree, education[].details — keyword-focused rewrites within ~80%-125% of original length
+- projects[].name — keyword-focused rewrite within ~80%-125% of original length
 - projects[].bullets[] — same rules as experience bullets
 - skills.technical, skills.financial, skills.languages — reorder to front-load JD-relevant terms, may substitute equivalent terms
-- extras[] — preserve as-is unless an entry is directly relevant to the JD, in which case minor keyword tweaks are acceptable
+- extras[] — preserve as-is unless directly relevant; if edited keep length within ~80%-125% of original
 
 Structural invariants:
 - Same number of experience entries, same number of roles per experience entry, same number of bullets per role.
@@ -140,12 +144,8 @@ Return JSON with:
         prompt,
       })
 
-      if (!output) {
-        throw new Error('LLM did not return output')
-      }
-
       let data = output.data
-      let changes = output.changes ?? []
+      let changes = output.changes
 
       const issues = validatePatchedData(data, resume.data)
       if (issues.length > 0) {
@@ -172,10 +172,8 @@ ${issues.join('\n')}`
           prompt: retryPrompt,
         })
 
-        if (retryOutput) {
-          data = retryOutput.data
-          changes = mergeChanges(changes, retryOutput.changes)
-        }
+        data = retryOutput.data
+        changes = mergeChanges(changes, retryOutput.changes)
       }
 
       const finalIssues = validatePatchedData(data, resume.data)
@@ -185,7 +183,7 @@ ${issues.join('\n')}`
         )
       }
 
-      const templateBuffer = await getTemplateBuffer()
+      const templateBuffer = getTemplateBuffer()
       const docxBytes = renderResumeTemplate(templateBuffer, data)
       const docxBuffer = toArrayBuffer(docxBytes)
 
@@ -237,8 +235,12 @@ ${issues.join('\n')}`
 })
 
 let cachedTemplate: Uint8Array | null = null
+const BULLET_MIN_RATIO = 0.9
+const BULLET_MAX_RATIO = 1.1
+const EDITABLE_MIN_RATIO = 0.8
+const EDITABLE_MAX_RATIO = 1.25
 
-async function getTemplateBuffer(): Promise<Uint8Array> {
+function getTemplateBuffer(): Uint8Array {
   if (cachedTemplate) {
     return cachedTemplate
   }
@@ -250,7 +252,6 @@ async function getTemplateBuffer(): Promise<Uint8Array> {
 function validatePatchedData(data: ResumeData, base: ResumeData): Array<string> {
   const issues: Array<string> = []
 
-  // Contact info must be byte-identical
   if (data.header.name !== base.header.name) {
     issues.push(
       `header.name was changed from "${base.header.name}" to "${data.header.name}" — must be identical`,
@@ -272,7 +273,6 @@ function validatePatchedData(data: ResumeData, base: ResumeData): Array<string> 
     )
   }
 
-  // Experience: entry count, immutable fields, role/bullet counts, bullet lengths
   if (data.experience.length !== base.experience.length) {
     issues.push(
       `experience has ${data.experience.length} entries, expected ${base.experience.length}`,
@@ -308,18 +308,29 @@ function validatePatchedData(data: ResumeData, base: ResumeData): Array<string> 
             )
           }
 
+          validateLengthRange(
+            issues,
+            `experience[${i}].roles[${r}].title`,
+            bRole.title,
+            dRole.title,
+            EDITABLE_MIN_RATIO,
+            EDITABLE_MAX_RATIO,
+          )
+
           if (dRole.bullets.length !== bRole.bullets.length) {
             issues.push(
               `experience[${i}].roles[${r}].bullets has ${dRole.bullets.length} bullets, expected ${bRole.bullets.length}`,
             )
           } else {
             for (let b = 0; b < bRole.bullets.length; b++) {
-              const maxLen = Math.ceil(bRole.bullets[b].length * 1.1)
-              if (dRole.bullets[b].length > maxLen) {
-                issues.push(
-                  `experience[${i}].roles[${r}].bullets[${b}] is ${dRole.bullets[b].length} chars, max allowed is ${maxLen} (original: ${bRole.bullets[b].length})`,
-                )
-              }
+              validateLengthRange(
+                issues,
+                `experience[${i}].roles[${r}].bullets[${b}]`,
+                bRole.bullets[b],
+                dRole.bullets[b],
+                BULLET_MIN_RATIO,
+                BULLET_MAX_RATIO,
+              )
             }
           }
         }
@@ -327,7 +338,6 @@ function validatePatchedData(data: ResumeData, base: ResumeData): Array<string> 
     }
   }
 
-  // Education: entry count, immutable fields
   if (data.education.length !== base.education.length) {
     issues.push(
       `education has ${data.education.length} entries, expected ${base.education.length}`,
@@ -352,10 +362,26 @@ function validatePatchedData(data: ResumeData, base: ResumeData): Array<string> 
           `education[${i}].dates was changed from "${bEdu.dates}" to "${dEdu.dates}" — must be identical`,
         )
       }
+
+      validateLengthRange(
+        issues,
+        `education[${i}].degree`,
+        bEdu.degree,
+        dEdu.degree,
+        EDITABLE_MIN_RATIO,
+        EDITABLE_MAX_RATIO,
+      )
+      validateLengthRange(
+        issues,
+        `education[${i}].details`,
+        bEdu.details,
+        dEdu.details,
+        EDITABLE_MIN_RATIO,
+        EDITABLE_MAX_RATIO,
+      )
     }
   }
 
-  // Projects: entry count, dates immutability, bullet counts, bullet lengths
   if (data.projects.length !== base.projects.length) {
     issues.push(
       `projects has ${data.projects.length} entries, expected ${base.projects.length}`,
@@ -371,34 +397,107 @@ function validatePatchedData(data: ResumeData, base: ResumeData): Array<string> 
         )
       }
 
+      validateLengthRange(
+        issues,
+        `projects[${i}].name`,
+        bProj.name,
+        dProj.name,
+        EDITABLE_MIN_RATIO,
+        EDITABLE_MAX_RATIO,
+      )
+
       if (dProj.bullets.length !== bProj.bullets.length) {
         issues.push(
           `projects[${i}].bullets has ${dProj.bullets.length} bullets, expected ${bProj.bullets.length}`,
         )
       } else {
         for (let b = 0; b < bProj.bullets.length; b++) {
-          const maxLen = Math.ceil(bProj.bullets[b].length * 1.1)
-          if (dProj.bullets[b].length > maxLen) {
-            issues.push(
-              `projects[${i}].bullets[${b}] is ${dProj.bullets[b].length} chars, max allowed is ${maxLen} (original: ${bProj.bullets[b].length})`,
-            )
-          }
+          validateLengthRange(
+            issues,
+            `projects[${i}].bullets[${b}]`,
+            bProj.bullets[b],
+            dProj.bullets[b],
+            BULLET_MIN_RATIO,
+            BULLET_MAX_RATIO,
+          )
         }
       }
     }
   }
 
-  // Extras: count must match
   if (data.extras.length !== base.extras.length) {
     issues.push(
       `extras has ${data.extras.length} entries, expected ${base.extras.length}`,
     )
+  } else {
+    for (let i = 0; i < base.extras.length; i++) {
+      validateLengthRange(
+        issues,
+        `extras[${i}]`,
+        base.extras[i],
+        data.extras[i],
+        EDITABLE_MIN_RATIO,
+        EDITABLE_MAX_RATIO,
+      )
+    }
   }
+
+  validateLengthRange(
+    issues,
+    'skills.technical',
+    base.skills.technical,
+    data.skills.technical,
+    EDITABLE_MIN_RATIO,
+    EDITABLE_MAX_RATIO,
+  )
+  validateLengthRange(
+    issues,
+    'skills.financial',
+    base.skills.financial,
+    data.skills.financial,
+    EDITABLE_MIN_RATIO,
+    EDITABLE_MAX_RATIO,
+  )
+  validateLengthRange(
+    issues,
+    'skills.languages',
+    base.skills.languages,
+    data.skills.languages,
+    EDITABLE_MIN_RATIO,
+    EDITABLE_MAX_RATIO,
+  )
 
   return issues
 }
 
-function mergeChanges(primary?: Array<string>, secondary?: Array<string>): Array<string> {
+function validateLengthRange(
+  issues: Array<string>,
+  path: string,
+  baseValue: string,
+  newValue: string,
+  minRatio: number,
+  maxRatio: number,
+): void {
+  const originalLength = baseValue.length
+  if (originalLength === 0) {
+    return
+  }
+
+  const minLength = Math.floor(originalLength * minRatio)
+  const maxLength = Math.ceil(originalLength * maxRatio)
+  const nextLength = newValue.length
+
+  if (nextLength < minLength || nextLength > maxLength) {
+    issues.push(
+      `${path} is ${nextLength} chars, allowed range is ${minLength}-${maxLength} (original: ${originalLength})`,
+    )
+  }
+}
+
+function mergeChanges(
+  primary?: Array<string>,
+  secondary?: Array<string>,
+): Array<string> {
   const merged = new Set<string>()
   for (const change of primary ?? []) {
     merged.add(change)
