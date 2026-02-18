@@ -13,9 +13,9 @@ My website.
 ### cv-patch
 Patch your cv.
 
-**Live:** [cv-patch](https://cv-patch.rushilrai.me/)
+**Live:** [cv-patch](https://cvpatch.rushilrai.me/)
 
-**Tech:** Astro, Tailwind CSS
+**Tech:** TanStack Start, Convex
 
 ### webcase
 An open source alternative to [Pocket](https://getpocket.com/home).
