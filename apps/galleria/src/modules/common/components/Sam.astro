@@ -1,0 +1,387 @@
+---
+import dogSprite from "../../../assets/images/common/dog-sprite.png";
+---
+
+<div
+  id="dog-container"
+  class="pointer-events-none fixed bottom-0 left-0 z-100 h-20 w-full"
+  aria-hidden="true"
+>
+  <div
+    id="dog-wrapper"
+    class="pointer-events-auto absolute bottom-0 cursor-pointer"
+    role="button"
+    tabindex="0"
+    style="left: 0px;"
+  >
+    <div
+      id="dog-sprite"
+      style={`
+        width: 96px;
+        height: 60px;
+        background-image: url(${dogSprite.src});
+        background-size: 768px 648px;
+        background-repeat: no-repeat;
+        background-position: 0px -20px;
+        filter: brightness(0);
+        image-rendering: pixelated;
+      `}
+    >
+    </div>
+  </div>
+
+  <div id="dog-ball" class="pointer-events-none absolute bottom-0">
+    <svg viewBox="0 0 12 12" width="12" height="12" class="text-base-content">
+      <circle cx="6" cy="6" r="6" fill="currentColor"></circle>
+    </svg>
+  </div>
+</div>
+
+<dialog id="dog-modal" class="modal">
+  <div class="modal-box">
+    <div class="py-4">
+      <div
+        class="mb-4 flex h-48 w-full items-center justify-center rounded-lg bg-base-200"
+      >
+        <span class="font-body text-base-content/50">Photo coming soon</span>
+      </div>
+
+      <p class="font-body">In memory of the goodest boy.</p>
+    </div>
+
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn">Close</button>
+      </form>
+    </div>
+  </div>
+
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+<script>
+  import { animate, hover } from "motion";
+
+  type Anim = "walk" | "sit" | "run" | "sleep";
+
+  const dogWrapper = document.getElementById("dog-wrapper") as HTMLDivElement;
+  const dogSprite = document.getElementById("dog-sprite") as HTMLDivElement;
+  const ball = document.getElementById("dog-ball") as HTMLDivElement;
+  const modal = document.getElementById("dog-modal") as HTMLDialogElement;
+
+  const SCALE = 1.5;
+  const CELL = 64 * SCALE;
+
+  const ROWS: Record<Anim, number> = {
+    walk: 200 * SCALE, // Row 4: y=212-239, bottom-aligned
+    sit: 56 * SCALE, // Row 1: y=69-95, bottom-aligned
+    run: 152 * SCALE, // Row 3: y=160-191, bottom-aligned
+    sleep: 296 * SCALE, // Row 6: y=321-335, bottom-aligned
+  };
+
+  const FRAME_COUNTS: Record<Anim, number> = {
+    walk: 8,
+    sit: 6,
+    run: 8,
+    sleep: 4,
+  };
+
+  let isHovered = false;
+  let isSleeping = false;
+  let currentFrame = 0;
+  let movingRight = true;
+  let traversalCount = 0;
+  let frameInterval: ReturnType<typeof setInterval> | null = null;
+  let moveAnimation: ReturnType<typeof animate> | null = null;
+  let ballAnimation: ReturnType<typeof animate> | null = null;
+  let sleepTimeout: ReturnType<typeof setTimeout> | null = null;
+  let ballBounce: ReturnType<typeof animate> | null = null;
+
+  const DOG_WIDTH = 96;
+  const BALL_OFFSET = 40;
+  const RUN_DURATION = 8;
+  const WALK_DURATION = 18;
+  const RUN_FRAME_RATE = 100;
+  const WALK_FRAME_RATE = 150;
+  const SLEEP_FRAME_RATE = 300;
+  const TRAVERSALS_BEFORE_SLEEP = 2;
+  const SLEEP_SECONDS = 10;
+
+  function showSpriteFrame(anim: Anim, frame: number) {
+    const x = -(frame * CELL);
+    const y = -ROWS[anim];
+    dogSprite.style.backgroundPosition = `${x}px ${y}px`;
+  }
+
+  function startFrameCycling(anim: Anim, rate: number) {
+    stopFrameCycling();
+    currentFrame = 0;
+    showSpriteFrame(anim, 0);
+
+    frameInterval = setInterval(() => {
+      currentFrame = (currentFrame + 1) % FRAME_COUNTS[anim];
+      showSpriteFrame(anim, currentFrame);
+    }, rate);
+  }
+
+  function stopFrameCycling() {
+    if (frameInterval) {
+      clearInterval(frameInterval);
+      frameInterval = null;
+    }
+  }
+
+  function playSitAnimation() {
+    stopFrameCycling();
+    let frame = 0;
+    showSpriteFrame("sit", 0);
+
+    frameInterval = setInterval(() => {
+      frame++;
+
+      if (frame >= FRAME_COUNTS.sit) {
+        stopFrameCycling();
+        showSpriteFrame("sit", FRAME_COUNTS.sit - 1);
+        return;
+      }
+
+      showSpriteFrame("sit", frame);
+    }, 120);
+  }
+
+  function playStandAnimation(onDone: () => void) {
+    stopFrameCycling();
+    let frame = FRAME_COUNTS.sit - 1;
+    showSpriteFrame("sit", frame);
+
+    frameInterval = setInterval(() => {
+      frame--;
+
+      if (frame < 0) {
+        stopFrameCycling();
+        onDone();
+        return;
+      }
+
+      showSpriteFrame("sit", frame);
+    }, 120);
+  }
+
+  function startMoving(fromCurrentPosition = false) {
+    if (isHovered || isSleeping) return;
+
+    const vw = window.innerWidth;
+    const endX = movingRight ? vw : -DOG_WIDTH;
+
+    let startX: number;
+    if (fromCurrentPosition) {
+      startX = dogWrapper.getBoundingClientRect().left;
+    } else {
+      startX = movingRight ? -DOG_WIDTH : vw;
+    }
+
+    const ballEndX = movingRight
+      ? endX + DOG_WIDTH + BALL_OFFSET
+      : endX - BALL_OFFSET;
+    const ballStartX = movingRight
+      ? startX + DOG_WIDTH + BALL_OFFSET
+      : startX - BALL_OFFSET;
+
+    // Flip when moving right
+    dogSprite.style.transform = movingRight ? "scaleX(-1)" : "scaleX(1)";
+
+    const anim = movingRight ? "run" : "walk";
+    const rate = movingRight ? RUN_FRAME_RATE : WALK_FRAME_RATE;
+    const fullSpeed = vw / (movingRight ? RUN_DURATION : WALK_DURATION);
+
+    const distance = Math.abs(endX - startX);
+    const duration = distance / fullSpeed;
+
+    startFrameCycling(anim, rate);
+    startBallBounce(movingRight ? "run" : "walk");
+
+    moveAnimation = animate(
+      dogWrapper,
+      { left: [`${startX}px`, `${endX}px`] },
+      { duration, ease: "linear" },
+    );
+
+    ballAnimation = animate(
+      ball,
+      { left: [`${ballStartX}px`, `${ballEndX}px`] },
+      { duration, ease: "linear" },
+    );
+
+    moveAnimation.then(() => {
+      if (isHovered || isSleeping) return;
+
+      traversalCount++;
+      movingRight = !movingRight;
+
+      if (traversalCount >= TRAVERSALS_BEFORE_SLEEP) {
+        startSleeping();
+      } else {
+        startMoving();
+      }
+    });
+  }
+
+  function stopMoving() {
+    if (moveAnimation) {
+      moveAnimation.stop();
+      moveAnimation = null;
+    }
+
+    if (ballAnimation) {
+      ballAnimation.stop();
+      ballAnimation = null;
+    }
+  }
+
+  function startSleeping() {
+    isSleeping = true;
+    stopMoving();
+
+    stopBallBounce();
+    ball.style.transition = "opacity 0.5s";
+    ball.style.opacity = "0";
+
+    // Face the center
+    const vw = window.innerWidth;
+    const centerX = vw / 2 - DOG_WIDTH / 2;
+    const currentLeft = dogWrapper.getBoundingClientRect().left;
+    const goingRight = centerX > currentLeft;
+    dogSprite.style.transform = goingRight ? "scaleX(-1)" : "scaleX(1)";
+
+    startFrameCycling("walk", WALK_FRAME_RATE);
+
+    const distance = Math.abs(centerX - currentLeft);
+    const walkSpeed = window.innerWidth / WALK_DURATION; // px per second
+    const walkToCenterDuration = distance / walkSpeed;
+
+    moveAnimation = animate(
+      dogWrapper,
+      { left: `${centerX}px` },
+      {
+        duration: walkToCenterDuration,
+        ease: "linear",
+      },
+    );
+
+    moveAnimation.then(() => {
+      moveAnimation = null;
+
+      playSitAnimation();
+
+      setTimeout(() => {
+        stopFrameCycling();
+        startFrameCycling("sleep", SLEEP_FRAME_RATE);
+
+        sleepTimeout = setTimeout(() => {
+          wakeUp();
+        }, SLEEP_SECONDS * 1000);
+      }, FRAME_COUNTS.sit * 120);
+    });
+  }
+
+  function wakeUp() {
+    stopFrameCycling();
+    if (sleepTimeout) {
+      clearTimeout(sleepTimeout);
+      sleepTimeout = null;
+    }
+
+    playStandAnimation(() => {
+      dogSprite.style.transform = "scaleX(1)";
+      startFrameCycling("walk", WALK_FRAME_RATE);
+
+      const currentLeft = dogWrapper.getBoundingClientRect().left;
+      const walkSpeed = window.innerWidth / WALK_DURATION;
+      const walkOffDuration = (currentLeft + DOG_WIDTH) / walkSpeed;
+
+      moveAnimation = animate(
+        dogWrapper,
+        { left: `${-DOG_WIDTH}px` },
+        {
+          duration: walkOffDuration,
+          ease: "linear",
+        },
+      );
+
+      moveAnimation.then(() => {
+        moveAnimation = null;
+        stopFrameCycling();
+
+        ball.style.opacity = "1";
+
+        isSleeping = false;
+        traversalCount = 0;
+        movingRight = true;
+
+        startMoving();
+      });
+    });
+  }
+
+  hover(dogWrapper, () => {
+    if (isSleeping) return;
+
+    isHovered = true;
+    stopMoving();
+    stopBallBounce();
+    playSitAnimation();
+
+    return () => {
+      if (isSleeping) return;
+
+      isHovered = false;
+      playStandAnimation(() => {
+        startMoving(true);
+      });
+    };
+  });
+
+  dogWrapper.addEventListener("click", () => {
+    modal.showModal();
+  });
+
+  dogWrapper.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      modal.showModal();
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (!isHovered && !isSleeping) {
+      stopMoving();
+      startMoving();
+    }
+  });
+
+  const ballSvg = ball.querySelector("svg") as SVGSVGElement;
+
+  function startBallBounce(speed: "run" | "walk") {
+    if (ballBounce) ballBounce.stop();
+    ballBounce = animate(
+      ballSvg,
+      { y: [0, -14, 0] },
+      {
+        duration: speed === "run" ? 0.4 : 0.7,
+        repeat: Infinity,
+        ease: "easeInOut",
+      },
+    );
+  }
+
+  function stopBallBounce() {
+    if (ballBounce) {
+      ballBounce.stop();
+      ballBounce = null;
+    }
+  }
+
+  startMoving();
+</script>
