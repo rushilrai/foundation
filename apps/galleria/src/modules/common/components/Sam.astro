@@ -1,5 +1,8 @@
 ---
+import { Image } from "astro:assets";
+
 import dogSprite from "../../../assets/images/common/dog-sprite.png";
+import samPhoto from "../../../assets/images/common/sam.jpeg";
 ---
 
 <div
@@ -40,11 +43,11 @@ import dogSprite from "../../../assets/images/common/dog-sprite.png";
 <dialog id="dog-modal" class="modal">
   <div class="modal-box">
     <div class="py-4">
-      <div
-        class="mb-4 flex h-48 w-full items-center justify-center rounded-lg bg-base-200"
-      >
-        <span class="font-body text-base-content/50">Photo coming soon</span>
-      </div>
+      <Image
+        src={samPhoto}
+        alt="Sam"
+        class="mb-4 w-full rounded-lg object-cover"
+      />
 
       <p class="font-body">In memory of the goodest boy.</p>
     </div>
