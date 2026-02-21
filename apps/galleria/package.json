@@ -14,7 +14,7 @@
     "@fontsource-variable/merriweather": "^5.2.6",
     "@fontsource-variable/outfit": "^5.2.8",
     "@lucide/astro": "^0.546.0",
-    "astro": "^5.14.5",
+    "astro": "^5.17.3",
     "motion": "^12.23.24",
     "sharp": "^0.34.4"
   },
