@@ -11,7 +11,7 @@ My website.
 **Tech:** Astro, Tailwind CSS
 
 ### cv-patch
-Patch your cv.
+Optimise your cv/resume for a particular job description.
 
 **Live:** [cv-patch](https://cvpatch.rushilrai.me/)
 
