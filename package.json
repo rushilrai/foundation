@@ -2,6 +2,10 @@
   "name": "foundation",
   "description": "rushilrai's monorepo",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
@@ -12,10 +16,22 @@
   "keywords": [],
   "author": "Rushil Rai",
   "license": "MIT",
-  "packageManager": "pnpm@10.26.2",
+  "packageManager": "bun@1.3.14",
   "engines": {
-    "node": ">=24.0.0",
-    "pnpm": ">=10.26.2"
+    "bun": ">=1.3.14",
+    "node": ">=24.0.0"
+  },
+  "trustedDependencies": [
+    "@clerk/shared",
+    "@tailwindcss/oxide",
+    "esbuild",
+    "msw",
+    "sharp",
+    "unrs-resolver"
+  ],
+  "overrides": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",

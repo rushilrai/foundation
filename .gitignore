@@ -7,3 +7,9 @@ build
 coverage
 .turbo
 .claude
+*.tsbuildinfo
+.tanstack
+.output
+.nitro
+.vinxi
+.vercel
