@@ -18,7 +18,7 @@ import {
 import { UploadResumeDialog } from '@/modules/resume/components/UploadResumeDialog'
 import { useResumeList } from '@/modules/resume/queries'
 
-export const DashboardSidebar = () => {
+export const AppSidebar = () => {
   const location = useLocation()
   const resumesResult = useResumeList()
   const { user } = useUser()
