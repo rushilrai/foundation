@@ -16,7 +16,7 @@
     "build:template": "python3 scripts/build-template.py"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^3.0.25",
+    "@ai-sdk/openai": "^4.0.1",
     "@base-ui/react": "^1.6.0",
     "@clerk/tanstack-react-start": "^1.4.9",
     "@convex-dev/react-query": "^0.1.0",
@@ -33,7 +33,7 @@
     "@tanstack/react-start": "^1.168.26",
     "@tanstack/router-plugin": "^1.168.18",
     "@tanstack/zod-form-adapter": "^0.42.1",
-    "ai": "^6.0.67",
+    "ai": "^7.0.3",
     "angular-expressions": "^1.5.5",
     "class-variance-authority": "^0.7.1",
     "cloudconvert": "^3.0.0",
