@@ -1,12 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "eslint.config.js",
-    "prettier.config.js",
-    "vite.config.js"
-  ],
+  "include": ["**/*.ts", "**/*.tsx", "prettier.config.mjs", "vite.config.ts"],
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -18,11 +12,11 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@convex/*": ["./convex/*"],
-      "@shared/*": ["./shared/*"]
+      "@shared/*": ["./shared/*"],
+      "convex/_generated/*": ["./convex/_generated/*"]
     }
   }
 }

@@ -4,7 +4,5 @@ export default defineNitroConfig({
   preset: 'vercel',
   compatibilityDate: 'latest',
   ssrRoutes: ['/(.*)'],
-  externals: {
-    inline: ['@tabler/icons-react'],
-  },
+  noExternals: ['@tabler/icons-react'],
 })

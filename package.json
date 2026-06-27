@@ -10,8 +10,9 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
-    "lint:fix": "turbo lint -- --fix",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck",
+    "format": "turbo format && prettier --write \"./*.{js,cjs,mjs,json,md,yml,yaml}\"",
+    "format:check": "turbo check && prettier --check \"./*.{js,cjs,mjs,json,md,yml,yaml}\""
   },
   "keywords": [],
   "author": "Rushil Rai",
@@ -34,13 +35,12 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
-    "@eslint/js": "^9.37.0",
-    "eslint": "^9.37.0",
+    "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
+    "oxlint": "^1.70.0",
     "prettier": "^3.6.2",
     "prettier-plugin-astro": "^0.14.1",
     "prettier-plugin-tailwindcss": "^0.7.1",
     "turbo": "^2.5.8",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.8.1"
+    "typescript": "^5.9.3"
   }
 }

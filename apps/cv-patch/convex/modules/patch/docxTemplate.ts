@@ -14,6 +14,7 @@ export function renderResumeTemplate(
       : new Uint8Array(templateBuffer)
   const zip = new PizZip(buffer)
 
+  // oxlint-disable-next-line typescript/no-explicit-any -- accessing docxtemplater's undocumented internal FileTypeConfig static
   const fileTypeConfig = (Docxtemplater as any).FileTypeConfig.docx()
   fileTypeConfig.getTemplatedFiles = () => ['word/document.xml']
 

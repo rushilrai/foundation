@@ -1,0 +1,16 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript"],
+  "categories": {
+    "correctness": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.{ts,tsx}"],
+      "rules": {
+        "typescript/no-explicit-any": "error"
+      }
+    }
+  ],
+  "ignorePatterns": ["dist/**", ".astro/**"]
+}

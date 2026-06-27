@@ -7,8 +7,10 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "lint": "oxlint .",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "format": "prettier --write .",
+    "check": "prettier --check ."
   },
   "dependencies": {
     "@fontsource-variable/merriweather": "^5.2.6",

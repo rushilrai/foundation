@@ -5,14 +5,11 @@ build
 *.env
 *.env.*local
 coverage
-
 dist-ssr
 *.local
-count.txt
 .nitro
 .tanstack
 .wrangler
 .output
 .vinxi
-todos.json
 .vercel

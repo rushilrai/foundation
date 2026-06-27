@@ -3,12 +3,20 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"]
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "dist/**", ".output/**"]
     },
     "lint": {
       "outputs": []
     },
     "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "outputs": []
+    },
+    "format": {
+      "cache": false
+    },
+    "check": {
       "outputs": []
     },
     "dev": {

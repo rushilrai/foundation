@@ -6,11 +6,12 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "build": "vite build",
-    "preview": "vite preview",
+    "serve": "vite preview",
     "test": "vitest run",
-    "lint": "eslint",
-    "format": "prettier",
-    "check": "prettier --write . && eslint --fix",
+    "lint": "oxlint",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "check": "prettier --check .",
     "render:template": "node scripts/render-template.mjs",
     "build:template": "python3 scripts/build-template.py"
   },
@@ -55,7 +56,6 @@
   },
   "devDependencies": {
     "@tanstack/devtools-vite": "^0.4.1",
-    "@tanstack/eslint-config": "^0.3.4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^25.0.10",
