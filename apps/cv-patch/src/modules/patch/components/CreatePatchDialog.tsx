@@ -1,8 +1,5 @@
-import { api } from '@convex/_generated/api.js'
-import type { Id } from '@convex/_generated/dataModel.js'
 import { useForm } from '@tanstack/react-form'
 import { useNavigate } from '@tanstack/react-router'
-import { useMutation } from 'convex/react'
 import { useState } from 'react'
 import { z } from 'zod'
 
@@ -23,6 +20,8 @@ import {
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { useCreatePatch } from '@/modules/patch/mutations'
+import type { ResumeId } from '@/modules/resume/schema'
 
 const createPatchSchema = z.object({
   companyName: z.string().min(1, 'Company name is required'),
@@ -31,7 +30,7 @@ const createPatchSchema = z.object({
 })
 
 type CreatePatchDialogProps = {
-  resumeId: Id<'resumes'>
+  resumeId: ResumeId
   children: React.ReactNode
 }
 
@@ -42,7 +41,7 @@ export const CreatePatchDialog = ({
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const createPatch = useMutation(api.modules.patch.mutations.create)
+  const createPatch = useCreatePatch()
   const navigate = useNavigate()
 
   const generateTitle = (companyName: string, roleName: string) => {

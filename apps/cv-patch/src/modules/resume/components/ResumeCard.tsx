@@ -1,4 +1,3 @@
-import type { Doc } from '@convex/_generated/dataModel.js'
 import { IconFileText } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 
@@ -9,6 +8,7 @@ import {
   CardDescription,
   CardTitle,
 } from '@/components/ui/card'
+import type { Resume } from '@/modules/resume/schema'
 
 const statusVariantMap = {
   processing: 'processing',
@@ -18,7 +18,7 @@ const statusVariantMap = {
 } as const
 
 type ResumeCardProps = {
-  resume: Doc<'resumes'>
+  resume: Resume
 }
 
 export const ResumeCard = ({ resume }: ResumeCardProps) => {

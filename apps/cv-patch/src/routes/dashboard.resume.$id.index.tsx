@@ -1,7 +1,4 @@
-import { api } from '@convex/_generated/api.js'
-import type { Id } from '@convex/_generated/dataModel.js'
 import { createFileRoute } from '@tanstack/react-router'
-import { useAction, useQuery } from 'convex/react'
 
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -10,6 +7,9 @@ import { DashboardHeader } from '@/modules/common/components/DashboardHeader'
 import { OriginalTab } from '@/modules/resume/components/OriginalTab'
 import { PatchesTab } from '@/modules/resume/components/PatchesTab'
 import { ResumeContentTab } from '@/modules/resume/components/ResumeContentTab'
+import { useGenerateResumeDownloadUrl } from '@/modules/resume/mutations'
+import { useResume } from '@/modules/resume/queries'
+import type { ResumeId } from '@/modules/resume/schema'
 
 export const Route = createFileRoute('/dashboard/resume/$id/')({
   component: ResumeDetailPage,
@@ -17,15 +17,11 @@ export const Route = createFileRoute('/dashboard/resume/$id/')({
 
 function ResumeDetailPage() {
   const { id } = Route.useParams()
-  const resumeResult = useQuery(api.modules.resume.queries.get, {
-    resumeId: id as Id<'resumes'>,
-  })
-  const generateDownloadUrl = useAction(
-    api.modules.resume.actions.generateDownloadUrl,
-  )
+  const resumeResult = useResume(id as ResumeId)
+  const generateDownloadUrl = useGenerateResumeDownloadUrl()
 
   const handleDownload = async () => {
-    const result = await generateDownloadUrl({ resumeId: id as Id<'resumes'> })
+    const result = await generateDownloadUrl({ resumeId: id as ResumeId })
     if ('downloadUrl' in result) {
       window.open(result.downloadUrl, '_blank')
     }

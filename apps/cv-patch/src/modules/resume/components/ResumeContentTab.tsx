@@ -1,11 +1,8 @@
-import { api } from '@convex/_generated/api.js'
-import type { Doc } from '@convex/_generated/dataModel.js'
 import {
   getEmptyResumeData,
   ResumeDataSchema,
   type ResumeData,
 } from '@shared/resumeSchema'
-import { useMutation } from 'convex/react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -19,9 +16,11 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { useUpdateResumeData } from '@/modules/resume/mutations'
+import type { Resume } from '@/modules/resume/schema'
 
 type ResumeContentTabProps = {
-  resume: Doc<'resumes'>
+  resume: Resume
 }
 
 const lineToArray = (value: string) =>
@@ -39,7 +38,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
   const [isSaving, setIsSaving] = useState(false)
   const [jsonOpen, setJsonOpen] = useState(false)
   const [jsonDraft, setJsonDraft] = useState('')
-  const updateData = useMutation(api.modules.resume.mutations.updateData)
+  const updateData = useUpdateResumeData()
 
   useEffect(() => {
     if (resume.data) {

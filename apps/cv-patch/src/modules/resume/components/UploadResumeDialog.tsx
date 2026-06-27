@@ -1,7 +1,5 @@
-import { api } from '@convex/_generated/api.js'
 import { useForm } from '@tanstack/react-form'
 import { useNavigate } from '@tanstack/react-router'
-import { useAction, useMutation } from 'convex/react'
 import { useState } from 'react'
 import { z } from 'zod'
 
@@ -21,6 +19,10 @@ import {
   FieldLabel,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import {
+  useCreateResume,
+  useGenerateResumeUploadUrl,
+} from '@/modules/resume/mutations'
 
 const uploadResumeSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -35,10 +37,8 @@ export const UploadResumeDialog = ({ children }: UploadResumeDialogProps) => {
   const [open, setOpen] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
 
-  const generateUploadUrl = useAction(
-    api.modules.resume.actions.generateUploadUrl,
-  )
-  const createResume = useMutation(api.modules.resume.mutations.create)
+  const generateUploadUrl = useGenerateResumeUploadUrl()
+  const createResume = useCreateResume()
   const navigate = useNavigate()
 
   const form = useForm({

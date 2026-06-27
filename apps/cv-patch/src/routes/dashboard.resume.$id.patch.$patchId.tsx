@@ -1,7 +1,4 @@
-import { api } from '@convex/_generated/api.js'
-import type { Id } from '@convex/_generated/dataModel.js'
 import { createFileRoute } from '@tanstack/react-router'
-import { useAction, useQuery } from 'convex/react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,6 +6,9 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DashboardHeader } from '@/modules/common/components/DashboardHeader'
 import { PatchPreview } from '@/modules/patch/components/PatchPreview'
+import { useGeneratePatchDownloadUrl } from '@/modules/patch/mutations'
+import { usePatch } from '@/modules/patch/queries'
+import type { PatchId } from '@/modules/patch/schema'
 
 const statusVariantMap = {
   processing: 'processing',
@@ -23,17 +23,13 @@ export const Route = createFileRoute('/dashboard/resume/$id/patch/$patchId')({
 
 function PatchDetailPage() {
   const { patchId } = Route.useParams()
-  const patchResult = useQuery(api.modules.patch.queries.get, {
-    patchId: patchId as Id<'patches'>,
-  })
+  const patchResult = usePatch(patchId as PatchId)
 
-  const generateDownloadUrl = useAction(
-    api.modules.patch.actions.generateDownloadUrl,
-  )
+  const generateDownloadUrl = useGeneratePatchDownloadUrl()
 
   const handleDownload = async () => {
     const result = await generateDownloadUrl({
-      patchId: patchId as Id<'patches'>,
+      patchId: patchId as PatchId,
     })
 
     if ('downloadUrl' in result) {

@@ -1,20 +1,16 @@
-import { api } from '@convex/_generated/api.js'
-import type { Id } from '@convex/_generated/dataModel.js'
-import { useQuery } from 'convex/react'
-
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CreatePatchDialog } from '@/modules/patch/components/CreatePatchDialog'
 import { PatchCard } from '@/modules/patch/components/PatchCard'
+import { usePatchesForResume } from '@/modules/patch/queries'
+import type { ResumeId } from '@/modules/resume/schema'
 
 type PatchesTabProps = {
-  resumeId: Id<'resumes'>
+  resumeId: ResumeId
 }
 
 export const PatchesTab = ({ resumeId }: PatchesTabProps) => {
-  const patchesResult = useQuery(api.modules.patch.queries.listForResume, {
-    resumeId,
-  })
+  const patchesResult = usePatchesForResume(resumeId)
 
   if (patchesResult === undefined) {
     return (

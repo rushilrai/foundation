@@ -1,19 +1,16 @@
-import { api } from '@convex/_generated/api.js'
-import type { Id } from '@convex/_generated/dataModel.js'
-import { useAction } from 'convex/react'
 import { useCallback } from 'react'
 
 import { PdfRenderer } from '@/modules/common/components/PdfRenderer'
+import { useGenerateResumePdfDownloadUrl } from '@/modules/resume/mutations'
+import type { ResumeId } from '@/modules/resume/schema'
 
 type ResumePreviewProps = {
-  resumeId: Id<'resumes'>
+  resumeId: ResumeId
   pdfReady: boolean
 }
 
 export const ResumePreview = ({ resumeId, pdfReady }: ResumePreviewProps) => {
-  const generatePdfDownloadUrl = useAction(
-    api.modules.resume.actions.generatePdfDownloadUrl,
-  )
+  const generatePdfDownloadUrl = useGenerateResumePdfDownloadUrl()
 
   const fetchUrl = useCallback(async () => {
     return await generatePdfDownloadUrl({ resumeId })

@@ -1,7 +1,7 @@
-import type { Doc } from '@convex/_generated/dataModel.js'
+import type { Resume } from '@/modules/resume/schema'
 
 type ResumeDetailsProps = {
-  resume: Doc<'resumes'>
+  resume: Resume
 }
 
 export const ResumeDetails = ({ resume }: ResumeDetailsProps) => {

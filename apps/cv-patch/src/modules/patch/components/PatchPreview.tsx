@@ -1,19 +1,16 @@
-import { api } from '@convex/_generated/api.js'
-import type { Id } from '@convex/_generated/dataModel.js'
-import { useAction } from 'convex/react'
 import { useCallback } from 'react'
 
 import { PdfRenderer } from '@/modules/common/components/PdfRenderer'
+import { useGeneratePatchPdfDownloadUrl } from '@/modules/patch/mutations'
+import type { PatchId } from '@/modules/patch/schema'
 
 type PatchPreviewProps = {
-  patchId: Id<'patches'>
+  patchId: PatchId
   pdfReady: boolean
 }
 
 export const PatchPreview = ({ patchId, pdfReady }: PatchPreviewProps) => {
-  const generatePdfDownloadUrl = useAction(
-    api.modules.patch.actions.generatePdfDownloadUrl,
-  )
+  const generatePdfDownloadUrl = useGeneratePatchPdfDownloadUrl()
 
   const fetchUrl = useCallback(async () => {
     return await generatePdfDownloadUrl({ patchId })

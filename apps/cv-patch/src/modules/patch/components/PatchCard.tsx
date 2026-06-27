@@ -1,4 +1,3 @@
-import type { Doc } from '@convex/_generated/dataModel.js'
 import { Link } from '@tanstack/react-router'
 
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +9,7 @@ import {
   CardFooter,
   CardTitle,
 } from '@/components/ui/card'
+import type { Patch } from '@/modules/patch/schema'
 
 const statusVariantMap = {
   processing: 'processing',
@@ -19,7 +19,7 @@ const statusVariantMap = {
 } as const
 
 type PatchCardProps = {
-  patch: Doc<'patches'>
+  patch: Patch
 }
 
 export const PatchCard = ({ patch }: PatchCardProps) => {

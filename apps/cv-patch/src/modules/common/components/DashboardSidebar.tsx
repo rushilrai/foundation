@@ -1,8 +1,6 @@
 import { SignOutButton, useUser } from '@clerk/tanstack-react-start'
-import { api } from '@convex/_generated/api.js'
 import { IconFileText, IconLogout, IconPlus } from '@tabler/icons-react'
 import { Link, useLocation } from '@tanstack/react-router'
-import { useQuery } from 'convex/react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -18,10 +16,11 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 import { UploadResumeDialog } from '@/modules/resume/components/UploadResumeDialog'
+import { useResumeList } from '@/modules/resume/queries'
 
 export const DashboardSidebar = () => {
   const location = useLocation()
-  const resumesResult = useQuery(api.modules.resume.queries.list)
+  const resumesResult = useResumeList()
   const { user } = useUser()
 
   const resumes =
