@@ -17,12 +17,12 @@
     "@fontsource-variable/outfit": "^5.2.8",
     "@lucide/astro": "^0.546.0",
     "astro": "^5.17.3",
-    "motion": "^12.23.24",
-    "sharp": "^0.34.4"
+    "motion": "^12.40.0",
+    "sharp": "^0.35.1"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.14",
-    "daisyui": "^5.3.7",
-    "tailwindcss": "^4.1.14"
+    "@tailwindcss/vite": "^4.3.1",
+    "daisyui": "^5.5.23",
+    "tailwindcss": "^4.3.1"
   }
 }
