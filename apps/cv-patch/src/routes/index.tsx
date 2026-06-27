@@ -1,4 +1,4 @@
-import { SignedIn, SignedOut } from '@clerk/tanstack-react-start'
+import { Show } from '@clerk/tanstack-react-start'
 import { IconArrowUpRight } from '@tabler/icons-react'
 import { createFileRoute, Link, Navigate } from '@tanstack/react-router'
 
@@ -11,7 +11,7 @@ export const Route = createFileRoute('/')({
 function IndexRouteComponent() {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center">
-      <SignedOut>
+      <Show when="signed-out">
         <div className="flex w-full flex-row items-center justify-center gap-12">
           <div className="flex flex-col">
             <h1 className="text-4xl font-bold text-primary">CV Patch</h1>
@@ -38,11 +38,11 @@ function IndexRouteComponent() {
             className="w-96"
           />
         </div>
-      </SignedOut>
+      </Show>
 
-      <SignedIn>
+      <Show when="signed-in">
         <Navigate to="/dashboard/home" />
-      </SignedIn>
+      </Show>
     </div>
   )
 }
