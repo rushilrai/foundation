@@ -1,7 +1,8 @@
-import { Button } from '@/components/ui/button'
 import { SignedIn, SignedOut } from '@clerk/tanstack-react-start'
 import { IconArrowUpRight } from '@tabler/icons-react'
 import { createFileRoute, Link, Navigate } from '@tanstack/react-router'
+
+import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/')({
   component: IndexRouteComponent,
@@ -9,13 +10,13 @@ export const Route = createFileRoute('/')({
 
 function IndexRouteComponent() {
   return (
-    <div className="h-full w-full flex flex-col justify-center items-center">
+    <div className="flex h-full w-full flex-col items-center justify-center">
       <SignedOut>
-        <div className="flex flex-row gap-12 items-center">
+        <div className="flex flex-row items-center gap-12">
           <div className="flex flex-col">
             <h1 className="text-4xl font-semibold text-primary">WebCase.</h1>
 
-            <p className="mt-1 text-muted-foreground max-w-sm">
+            <p className="mt-1 max-w-sm text-muted-foreground">
               Save articles, videos, and links from anywhere.
               <br />
               Read them later, distraction-free.

@@ -1,7 +1,7 @@
+import type { Doc } from 'convex/_generated/dataModel'
 import { query } from 'convex/_generated/server'
 
 import { getByExternalId } from './helpers'
-import type { Doc } from 'convex/_generated/dataModel'
 
 export const currentUser = query({
   args: {},

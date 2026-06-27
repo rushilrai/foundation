@@ -1,6 +1,6 @@
+import type { Doc } from '@convex/_generated/dataModel.js'
 import { IconFileText } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
-import type { Doc } from '@convex/_generated/dataModel.js'
 
 import { Badge } from '@/components/ui/badge'
 import {
@@ -23,7 +23,7 @@ type ResumeCardProps = {
 
 export const ResumeCard = ({ resume }: ResumeCardProps) => {
   return (
-    <Card className="hover:border-primary/50 transition-colors">
+    <Card className="transition-colors hover:border-primary/50">
       <CardContent className="p-4">
         <Link
           to="/dashboard/resume/$id"

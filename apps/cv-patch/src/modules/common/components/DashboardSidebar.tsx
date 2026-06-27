@@ -1,9 +1,10 @@
-import { api } from '@convex/_generated/api.js'
 import { SignOutButton, useUser } from '@clerk/tanstack-react-start'
+import { api } from '@convex/_generated/api.js'
 import { IconFileText, IconLogout, IconPlus } from '@tabler/icons-react'
 import { Link, useLocation } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
 
+import { Button } from '@/components/ui/button'
 import {
   Sidebar,
   SidebarContent,
@@ -16,8 +17,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
-import { Button } from '@/components/ui/button'
-
 import { UploadResumeDialog } from '@/modules/resume/components/UploadResumeDialog'
 
 export const DashboardSidebar = () => {
@@ -31,7 +30,7 @@ export const DashboardSidebar = () => {
   return (
     <Sidebar variant="inset">
       <SidebarHeader className="flex flex-row items-center justify-between p-4">
-        <span className="font-bold text-2xl text-primary">CV Patch</span>
+        <span className="text-2xl font-bold text-primary">CV Patch</span>
 
         <UploadResumeDialog>
           <Button variant="default" size="icon-sm">
@@ -75,8 +74,8 @@ export const DashboardSidebar = () => {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 flex-row items-center justify-between">
-        <span className="text-sm truncate">{user?.fullName}</span>
+      <SidebarFooter className="flex-row items-center justify-between p-4">
+        <span className="truncate text-sm">{user?.fullName}</span>
 
         <SignOutButton>
           <Button variant="outline" size="icon-sm">

@@ -1,10 +1,10 @@
 import { api } from '@convex/_generated/api.js'
+import type { Id } from '@convex/_generated/dataModel.js'
 import { useForm } from '@tanstack/react-form'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import { useState } from 'react'
 import { z } from 'zod'
-import type { Id } from '@convex/_generated/dataModel.js'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -176,7 +176,7 @@ export const CreatePatchDialog = ({
                       onChange={(e) => field.handleChange(e.target.value)}
                       aria-invalid={isInvalid}
                       placeholder="Paste the full job description here..."
-                      className="min-h-50 max-h-100 overflow-y-auto"
+                      className="max-h-100 min-h-50 overflow-y-auto"
                     />
                     {isInvalid && (
                       <FieldError errors={field.state.meta.errors} />

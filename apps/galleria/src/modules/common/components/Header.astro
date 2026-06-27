@@ -1,8 +1,8 @@
 ---
-import { Image } from "astro:assets";
+import { MenuIcon } from '@lucide/astro'
+import { Image } from 'astro:assets'
 
-import LogoLightBg from "../../../assets/images/logo/logo-light-bg.png";
-import { MenuIcon } from "@lucide/astro";
+import LogoLightBg from '../../../assets/images/logo/logo-light-bg.png'
 ---
 
 <header
@@ -35,7 +35,7 @@ import { MenuIcon } from "@lucide/astro";
       id="header-mobile-dropdown"
       class="dropdown dropdown-end md:hidden"
     >
-      <summary class="btn btn-soft btn-sm btn-primary">
+      <summary class="btn btn-soft btn-primary btn-sm">
         <MenuIcon class="size-4" />
       </summary>
 
@@ -50,37 +50,37 @@ import { MenuIcon } from "@lucide/astro";
 </header>
 
 <script>
-  import { animate, stagger } from "motion";
+  import { animate, stagger } from 'motion'
 
-  const logo = document.getElementById("header-logo") as HTMLImageElement;
+  const logo = document.getElementById('header-logo') as HTMLImageElement
 
   if (logo) {
-    animate(logo, { opacity: [0, 1] }, { duration: 1 });
+    animate(logo, { opacity: [0, 1] }, { duration: 1 })
   }
 
-  const nav = document.getElementById("header-nav") as HTMLUListElement;
+  const nav = document.getElementById('header-nav') as HTMLUListElement
 
   if (nav) {
-    const navChildren = Array.from(nav.children);
+    const navChildren = Array.from(nav.children)
 
     animate(
       navChildren,
       { y: [10, 0], opacity: [0, 1] },
       { delay: stagger(0.2), duration: 1 },
-    );
+    )
   }
 
-  const header = document.getElementById("header") as HTMLDivElement;
+  const header = document.getElementById('header') as HTMLDivElement
 
   function handleScroll() {
     if (window.scrollY > 50) {
-      header.classList.add("scrolled");
+      header.classList.add('scrolled')
     } else {
-      header.classList.remove("scrolled");
+      header.classList.remove('scrolled')
     }
   }
 
-  window.addEventListener("scroll", handleScroll);
+  window.addEventListener('scroll', handleScroll)
 
-  handleScroll();
+  handleScroll()
 </script>

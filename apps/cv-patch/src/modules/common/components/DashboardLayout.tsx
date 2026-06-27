@@ -1,6 +1,5 @@
-import { DashboardSidebar } from './DashboardSidebar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
-
+import { DashboardSidebar } from './DashboardSidebar'
 
 type DashboardLayoutProps = {
   children: React.ReactNode

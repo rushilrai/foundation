@@ -1,3 +1,4 @@
+import type { Doc } from 'convex/_generated/dataModel'
 import { internalQuery, query } from 'convex/_generated/server'
 import { v } from 'convex/values'
 
@@ -9,7 +10,6 @@ import {
   getPatchesForResume,
   getUserPatches,
 } from './helpers'
-import type { Doc } from 'convex/_generated/dataModel'
 
 export const listForResume = query({
   args: { resumeId: v.id('resumes') },

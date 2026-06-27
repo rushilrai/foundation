@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import Docxtemplater from 'docxtemplater'
-import PizZip from 'pizzip'
 import expressions from 'docxtemplater/expressions.js'
+import PizZip from 'pizzip'
 
 const templatePath = path.resolve(
   process.cwd(),

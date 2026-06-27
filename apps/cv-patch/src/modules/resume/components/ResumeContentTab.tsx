@@ -1,14 +1,13 @@
+import { api } from '@convex/_generated/api.js'
+import type { Doc } from '@convex/_generated/dataModel.js'
+import {
+  getEmptyResumeData,
+  ResumeDataSchema,
+  type ResumeData,
+} from '@shared/resumeSchema'
 import { useMutation } from 'convex/react'
 import { useEffect, useMemo, useState } from 'react'
-import { api } from '@convex/_generated/api.js'
-import {
-  ResumeDataSchema,
-  getEmptyResumeData,
-} from '@shared/resumeSchema'
-import type { Doc } from '@convex/_generated/dataModel.js'
 
-import type {
-  ResumeData} from '@shared/resumeSchema';
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -20,7 +19,6 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-
 
 type ResumeContentTabProps = {
   resume: Doc<'resumes'>
@@ -361,8 +359,8 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
           </Button>
         </div>
         {draft.education.map((edu, index) => (
-          <div key={`edu-${index}`} className="border rounded-lg p-4 space-y-3">
-            <div className="flex justify-between items-center">
+          <div key={`edu-${index}`} className="space-y-3 rounded-lg border p-4">
+            <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Entry {index + 1}</p>
               <Button
                 variant="ghost"
@@ -417,8 +415,8 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
           </Button>
         </div>
         {draft.experience.map((exp, index) => (
-          <div key={`exp-${index}`} className="border rounded-lg p-4 space-y-4">
-            <div className="flex justify-between items-center">
+          <div key={`exp-${index}`} className="space-y-4 rounded-lg border p-4">
+            <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Company {index + 1}</p>
               <Button
                 variant="ghost"
@@ -455,9 +453,9 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
             {exp.roles.map((role, roleIndex) => (
               <div
                 key={`role-${roleIndex}`}
-                className="border rounded-md p-3 space-y-2"
+                className="space-y-2 rounded-md border p-3"
               >
-                <div className="flex justify-between items-center">
+                <div className="flex items-center justify-between">
                   <p className="text-xs font-medium">Role {roleIndex + 1}</p>
                   <Button
                     variant="ghost"
@@ -505,9 +503,9 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
         {draft.projects.map((project, index) => (
           <div
             key={`project-${index}`}
-            className="border rounded-lg p-4 space-y-3"
+            className="space-y-3 rounded-lg border p-4"
           >
-            <div className="flex justify-between items-center">
+            <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Project {index + 1}</p>
               <Button
                 variant="ghost"

@@ -1,5 +1,4 @@
-import { createOpenAI } from '@ai-sdk/openai'
-import type { OpenAIProvider } from '@ai-sdk/openai';
+import { createOpenAI, type OpenAIProvider } from '@ai-sdk/openai'
 
 export const OpenAIModels = {
   'gpt-5.2': 'gpt-5.2',

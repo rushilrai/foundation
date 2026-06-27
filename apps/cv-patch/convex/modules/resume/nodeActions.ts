@@ -1,15 +1,14 @@
 'use node'
 
-import { OpenAIModels, openai, setupOpenAI } from '@convex/configs/ai'
-import { Output, generateText } from 'ai'
+import { openai, OpenAIModels, setupOpenAI } from '@convex/configs/ai'
+import { generateText, Output } from 'ai'
 import { internal } from 'convex/_generated/api'
 import { internalAction } from 'convex/_generated/server'
 import { v } from 'convex/values'
 import JSZip from 'jszip'
 
+import { ResumeDataSchema, type ResumeData } from '../../../shared/resumeSchema'
 import { convertDocxToPdf } from '../common/cloudconvert'
-import {  ResumeDataSchema } from '../../../shared/resumeSchema'
-import type {ResumeData} from '../../../shared/resumeSchema';
 
 export const extractResumeData = internalAction({
   args: { resumeId: v.id('resumes') },
@@ -242,13 +241,10 @@ export const convertResumeToPdf = internalAction({
 
       const pdfFileId = await convertDocxToPdf(ctx, resume.fileId)
 
-      await ctx.runMutation(
-        internal.modules.resume.mutations.updatePdfFileId,
-        {
-          resumeId: args.resumeId,
-          pdfFileId,
-        },
-      )
+      await ctx.runMutation(internal.modules.resume.mutations.updatePdfFileId, {
+        resumeId: args.resumeId,
+        pdfFileId,
+      })
 
       console.log('[convertResumeToPdf] Complete', {
         resumeId: args.resumeId,

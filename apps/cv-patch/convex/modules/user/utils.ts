@@ -1,5 +1,5 @@
-import { Webhook } from 'svix'
 import type { WebhookEvent } from '@clerk/tanstack-react-start/webhooks'
+import { Webhook } from 'svix'
 
 export async function validateClerkUserWebhookRequest(
   req: Request,

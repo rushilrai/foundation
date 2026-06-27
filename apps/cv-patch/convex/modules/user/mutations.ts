@@ -1,8 +1,8 @@
+import type { Id } from 'convex/_generated/dataModel'
 import { internalMutation } from 'convex/_generated/server'
 import { v } from 'convex/values'
 
 import { getByExternalId } from './helpers'
-import type { Id } from 'convex/_generated/dataModel'
 
 export const upsertFromClerk = internalMutation({
   args: {

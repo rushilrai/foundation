@@ -50,10 +50,10 @@ export const PdfRenderer = ({
 
   if (!pdfReady) {
     return (
-      <div className="h-140 w-full border-2 border-accent bg-muted rounded-lg flex items-center justify-center">
+      <div className="flex h-140 w-full items-center justify-center rounded-lg border-2 border-accent bg-muted">
         <div className="flex items-center gap-2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
-          <p className="text-muted-foreground text-sm">{notReadyMessage}</p>
+          <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-primary" />
+          <p className="text-sm text-muted-foreground">{notReadyMessage}</p>
         </div>
       </div>
     )
@@ -69,8 +69,8 @@ export const PdfRenderer = ({
 
   if (error || !pdfUrl) {
     return (
-      <div className="h-140 w-full bg-muted rounded-lg flex items-center justify-center">
-        <p className="text-muted-foreground text-sm">{errorMessage}</p>
+      <div className="flex h-140 w-full items-center justify-center rounded-lg bg-muted">
+        <p className="text-sm text-muted-foreground">{errorMessage}</p>
       </div>
     )
   }
@@ -79,7 +79,7 @@ export const PdfRenderer = ({
     <iframe
       src={pdfUrl}
       title="PDF Preview"
-      className="h-140 w-full border-2 border-accent rounded-lg"
+      className="h-140 w-full rounded-lg border-2 border-accent"
     />
   )
 }

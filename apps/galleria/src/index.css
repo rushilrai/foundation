@@ -1,11 +1,11 @@
-@import "tailwindcss";
-@plugin "daisyui";
+@import 'tailwindcss';
+@plugin 'daisyui';
 
-@plugin "daisyui/theme" {
-  name: "rr-theme";
+@plugin 'daisyui/theme' {
+  name: 'rr-theme';
   default: true;
   prefersdark: false;
-  color-scheme: "light";
+  color-scheme: 'light';
   --color-base-100: oklch(94.5% 0.008 85);
   --color-base-200: oklch(91% 0.007 85);
   --color-base-300: oklch(91% 0.007 85);
@@ -33,8 +33,8 @@
 }
 
 @theme {
-  --font-heading: "Merriweather", serif;
-  --font-body: "Outfit", sans-serif;
+  --font-heading: 'Merriweather', serif;
+  --font-body: 'Outfit', sans-serif;
 }
 
 ::selection {

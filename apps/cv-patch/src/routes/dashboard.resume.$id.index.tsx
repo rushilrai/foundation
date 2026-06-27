@@ -1,12 +1,11 @@
 import { api } from '@convex/_generated/api.js'
+import type { Id } from '@convex/_generated/dataModel.js'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAction, useQuery } from 'convex/react'
-import type { Id } from '@convex/_generated/dataModel.js'
 
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-
 import { DashboardHeader } from '@/modules/common/components/DashboardHeader'
 import { OriginalTab } from '@/modules/resume/components/OriginalTab'
 import { PatchesTab } from '@/modules/resume/components/PatchesTab'

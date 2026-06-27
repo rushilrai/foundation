@@ -1,11 +1,11 @@
 import { internal } from 'convex/_generated/api'
+import type { Id } from 'convex/_generated/dataModel'
 import { internalMutation, mutation } from 'convex/_generated/server'
 import { v } from 'convex/values'
 
 import { getById as getResumeById } from '../resume/helpers'
 import { getByExternalId } from '../user/helpers'
 import { getByIdWithAuth } from './helpers'
-import type { Id } from 'convex/_generated/dataModel'
 
 export const create = mutation({
   args: {

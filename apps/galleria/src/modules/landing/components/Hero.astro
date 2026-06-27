@@ -1,9 +1,9 @@
 ---
-import { Image } from "astro:assets";
-import { MailIcon } from "@lucide/astro";
+import { MailIcon } from '@lucide/astro'
+import { Image } from 'astro:assets'
 
-import Headshot from "../../../assets/images/landing/headshot.png";
-import HeroImage from "../../../assets/images/landing/hero.png";
+import Headshot from '../../../assets/images/landing/headshot.png'
+import HeroImage from '../../../assets/images/landing/hero.png'
 ---
 
 <section
@@ -121,23 +121,23 @@ import HeroImage from "../../../assets/images/landing/hero.png";
 </section>
 
 <script>
-  import { animate, inView, stagger } from "motion";
+  import { animate, inView, stagger } from 'motion'
 
-  const hero = document.getElementById("hero") as HTMLDivElement;
-  const heroContent = document.getElementById("hero-content") as HTMLDivElement;
-  const heroImage = document.getElementById("hero-image") as HTMLImageElement;
+  const hero = document.getElementById('hero') as HTMLDivElement
+  const heroContent = document.getElementById('hero-content') as HTMLDivElement
+  const heroImage = document.getElementById('hero-image') as HTMLImageElement
 
   if (hero && heroContent && heroImage) {
-    const heroContentChildren = Array.from(heroContent.children);
+    const heroContentChildren = Array.from(heroContent.children)
 
     inView(hero, () => {
       animate(
         heroContentChildren,
         { y: [10, 0], opacity: [0, 1] },
         { delay: stagger(0.2), duration: 1 },
-      );
+      )
 
-      animate(heroImage, { opacity: [0, 1] }, { duration: 1 });
-    });
+      animate(heroImage, { opacity: [0, 1] }, { duration: 1 })
+    })
   }
 </script>

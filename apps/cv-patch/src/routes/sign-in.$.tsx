@@ -7,7 +7,7 @@ export const Route = createFileRoute('/sign-in/$')({
 
 function SignInPage() {
   return (
-    <div className="h-full w-full flex flex-col justify-center items-center">
+    <div className="flex h-full w-full flex-col items-center justify-center">
       <SignIn forceRedirectUrl="/dashboard/home" />
     </div>
   )

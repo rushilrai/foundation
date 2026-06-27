@@ -1,17 +1,16 @@
 'use node'
 
-import { OpenAIModels, openai, setupOpenAI } from '@convex/configs/ai'
-import { Output, generateText } from 'ai'
+import { openai, OpenAIModels, setupOpenAI } from '@convex/configs/ai'
+import { generateText, Output } from 'ai'
 import { internal } from 'convex/_generated/api'
 import { internalAction } from 'convex/_generated/server'
 import { v } from 'convex/values'
 import { z } from 'zod'
 
+import { ResumeDataSchema, type ResumeData } from '../../../shared/resumeSchema'
 import { decodeBase64Template } from '../../assets/resumeTemplateData'
-import { ResumeDataSchema } from '../../../shared/resumeSchema'
 import { convertDocxToPdf } from '../common/cloudconvert'
 import { renderResumeTemplate } from './docxTemplate'
-import type { ResumeData } from '../../../shared/resumeSchema'
 
 const patchOutputSchema = z.object({
   data: ResumeDataSchema,
@@ -254,7 +253,10 @@ function getTemplateBuffer(): Uint8Array {
   return cachedTemplate
 }
 
-function validatePatchedData(data: ResumeData, base: ResumeData): Array<string> {
+function validatePatchedData(
+  data: ResumeData,
+  base: ResumeData,
+): Array<string> {
   const issues: Array<string> = []
 
   if (data.header.name !== base.header.name) {
@@ -538,13 +540,10 @@ export const convertPatchToPdf = internalAction({
 
       const pdfFileId = await convertDocxToPdf(ctx, patch.patchedFileId)
 
-      await ctx.runMutation(
-        internal.modules.patch.mutations.updatePdfFileId,
-        {
-          patchId: args.patchId,
-          pdfFileId,
-        },
-      )
+      await ctx.runMutation(internal.modules.patch.mutations.updatePdfFileId, {
+        patchId: args.patchId,
+        pdfFileId,
+      })
 
       console.log('[convertPatchToPdf] Complete', {
         patchId: args.patchId,

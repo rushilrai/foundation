@@ -1,5 +1,5 @@
 ---
-const { title, org, term, uri } = Astro.props;
+const { title, org, term, uri } = Astro.props
 ---
 
 <a href={uri} target="_blank">
@@ -18,47 +18,47 @@ const { title, org, term, uri } = Astro.props;
 </a>
 
 <script>
-  import { hover, animate, press } from "motion";
+  import { animate, hover, press } from 'motion'
 
-  import { getCSSVariable, isTouchDevice } from "../../common/utils";
+  import { getCSSVariable, isTouchDevice } from '../../common/utils'
 
   const experienceItem = document.querySelectorAll(
-    ".experience-item-card",
-  ) as NodeListOf<HTMLDivElement>;
+    '.experience-item-card',
+  ) as NodeListOf<HTMLDivElement>
 
   if (experienceItem) {
     hover(experienceItem, (element) => {
       animate(element, {
-        backgroundColor: getCSSVariable("--color-base-200"),
-        paddingLeft: "1rem",
-        paddingRight: "1rem",
-      });
+        backgroundColor: getCSSVariable('--color-base-200'),
+        paddingLeft: '1rem',
+        paddingRight: '1rem',
+      })
 
       return () => {
         animate(element, {
-          backgroundColor: getCSSVariable("--color-base-100"),
-          paddingLeft: "0",
-          paddingRight: "0",
-        });
-      };
-    });
+          backgroundColor: getCSSVariable('--color-base-100'),
+          paddingLeft: '0',
+          paddingRight: '0',
+        })
+      }
+    })
 
     if (isTouchDevice()) {
       press(experienceItem, (element) => {
         animate(element, {
-          backgroundColor: getCSSVariable("--color-base-200"),
-          paddingLeft: "0.5rem",
-          paddingRight: "0.5rem",
-        });
+          backgroundColor: getCSSVariable('--color-base-200'),
+          paddingLeft: '0.5rem',
+          paddingRight: '0.5rem',
+        })
 
         return () => {
           animate(element, {
-            backgroundColor: getCSSVariable("--color-base-100"),
-            paddingLeft: "0",
-            paddingRight: "0",
-          });
-        };
-      });
+            backgroundColor: getCSSVariable('--color-base-100'),
+            paddingLeft: '0',
+            paddingRight: '0',
+          })
+        }
+      })
     }
   }
 </script>

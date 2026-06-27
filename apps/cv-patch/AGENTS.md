@@ -58,20 +58,18 @@ pnpm check            # Format and fix linting issues
 
 ```typescript
 // React/external first
-import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
 
 // Convex generated types
 import type { Doc } from '@convex/_generated/dataModel.js'
 import { query } from '@convex/_generated/server'
-
 // Shared schemas
 import { ResumeDataSchema } from '@shared/resumeSchema'
+import { Link } from '@tanstack/react-router'
+import { useState } from 'react'
 
 // Components
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-
 // Local
 import { getById } from './helpers'
 ```

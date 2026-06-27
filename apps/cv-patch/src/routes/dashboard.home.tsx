@@ -8,7 +8,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
-
 import { DashboardHeader } from '@/modules/common/components/DashboardHeader'
 
 export const Route = createFileRoute('/dashboard/home')({
@@ -20,7 +19,7 @@ function HomePage() {
     <>
       <DashboardHeader title="Home" />
 
-      <div className="p-6 w-full h-full flex items-center justify-center">
+      <div className="flex h-full w-full items-center justify-center p-6">
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">

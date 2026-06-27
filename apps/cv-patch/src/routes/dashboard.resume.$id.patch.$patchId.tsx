@@ -1,15 +1,14 @@
 import { api } from '@convex/_generated/api.js'
+import type { Id } from '@convex/_generated/dataModel.js'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAction, useQuery } from 'convex/react'
-import type { Id } from '@convex/_generated/dataModel.js'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-
 import { DashboardHeader } from '@/modules/common/components/DashboardHeader'
 import { PatchPreview } from '@/modules/patch/components/PatchPreview'
-import { Separator } from '@/components/ui/separator'
 
 const statusVariantMap = {
   processing: 'processing',
@@ -104,8 +103,8 @@ function PatchDetailPage() {
         </div>
       </DashboardHeader>
 
-      <div className="flex flex-row flex-1 min-h-0">
-        <div className="w-1/2 border-r p-6 flex flex-col">
+      <div className="flex min-h-0 flex-1 flex-row">
+        <div className="flex w-1/2 flex-col border-r p-6">
           <div>
             <h2 className="text-lg font-semibold">Job Description</h2>
 
@@ -117,21 +116,21 @@ function PatchDetailPage() {
             )}
           </div>
 
-          <div className="whitespace-pre-wrap text-sm leading-relaxed overflow-auto mt-4">
+          <div className="mt-4 overflow-auto text-sm leading-relaxed whitespace-pre-wrap">
             {patch.jobDescription}
           </div>
 
           <Separator className="my-4" />
 
           {patch.changes && patch.changes.length > 0 && (
-            <div className="overflow-hidden flex flex-col">
-              <h3 className="text-md font-semibold mb-2">Changes Made</h3>
+            <div className="flex flex-col overflow-hidden">
+              <h3 className="text-md mb-2 font-semibold">Changes Made</h3>
 
               <ul className="space-y-1 overflow-auto">
                 {patch.changes.map((change, i) => (
                   <li
                     key={i}
-                    className="text-sm text-muted-foreground flex items-start gap-2"
+                    className="flex items-start gap-2 text-sm text-muted-foreground"
                   >
                     <span className="text-primary">•</span>
 
@@ -143,31 +142,31 @@ function PatchDetailPage() {
           )}
         </div>
 
-        <div className="w-1/2 p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
+        <div className="flex w-1/2 flex-col p-6">
+          <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Tailored Resume</h2>
           </div>
 
           <div>
             {patch.status === 'generating' ? (
-              <div className="h-96 w-full border-2 border-accent bg-muted rounded-lg p-4 overflow-auto">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+              <div className="h-96 w-full overflow-auto rounded-lg border-2 border-accent bg-muted p-4">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-primary" />
 
-                  <p className="text-muted-foreground text-sm">
+                  <p className="text-sm text-muted-foreground">
                     Generating tailored resume...
                   </p>
                 </div>
 
                 {patch.streamingText && (
-                  <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">
+                  <pre className="font-mono text-xs whitespace-pre-wrap text-muted-foreground">
                     {patch.streamingText}
                   </pre>
                 )}
               </div>
             ) : patch.status === 'error' ? (
-              <div className="h-96 w-full bg-muted rounded-lg flex items-center justify-center">
-                <p className="text-destructive text-sm">
+              <div className="flex h-96 w-full items-center justify-center rounded-lg bg-muted">
+                <p className="text-sm text-destructive">
                   {patch.errorMessage || 'An error occurred during generation.'}
                 </p>
               </div>

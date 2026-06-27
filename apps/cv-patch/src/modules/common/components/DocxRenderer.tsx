@@ -51,21 +51,21 @@ export const DocxRenderer = ({
   }, [fetchUrl])
 
   return (
-    <div className="h-full w-full relative">
+    <div className="relative h-full w-full">
       <div
         ref={containerRef}
-        className={`h-140 w-full border-2 border-accent bg-white rounded-lg overflow-auto ${loading || error ? 'invisible' : ''}`}
+        className={`h-140 w-full overflow-auto rounded-lg border-2 border-accent bg-white ${loading || error ? 'invisible' : ''}`}
       />
 
       {loading && (
-        <div className="absolute inset-0 bg-muted rounded-lg p-4">
+        <div className="absolute inset-0 rounded-lg bg-muted p-4">
           <Skeleton className="h-full w-full" />
         </div>
       )}
 
       {error && !loading && (
-        <div className="absolute inset-0 bg-muted rounded-lg flex items-center justify-center">
-          <p className="text-muted-foreground text-sm">{errorMessage}</p>
+        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-muted">
+          <p className="text-sm text-muted-foreground">{errorMessage}</p>
         </div>
       )}
     </div>

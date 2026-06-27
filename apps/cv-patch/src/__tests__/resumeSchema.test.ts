@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
-
 import { ResumeDataSchema } from '@shared/resumeSchema'
+import { describe, expect, it } from 'vitest'
 
 describe('ResumeDataSchema', () => {
   it('validates sample resume data', () => {
