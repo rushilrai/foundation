@@ -14,7 +14,7 @@
     "check": "prettier --check ."
   },
   "dependencies": {
-    "@base-ui/react": "^1.1.0",
+    "@base-ui/react": "^1.6.0",
     "@clerk/tanstack-react-start": "^0.27.17",
     "@convex-dev/react-query": "^0.1.0",
     "@fontsource-variable/outfit": "^5.2.8",
@@ -34,7 +34,7 @@
     "nitro": "3.0.260610-beta",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "shadcn": "^3.7.0",
+    "shadcn": "^4.11.0",
     "svix": "^1.84.1",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.1",
@@ -51,7 +51,7 @@
     "@vitejs/plugin-react": "^5.1.4",
     "jsdom": "^27.4.0",
     "prettier": "^3.8.4",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vite": "^7.3.5",
     "vitest": "^4.0.18",
     "web-vitals": "^5.1.0"
