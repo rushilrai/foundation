@@ -1,5 +1,4 @@
 ---
-import { MenuIcon } from '@lucide/astro'
 import { Image } from 'astro:assets'
 
 import LogoLightBg from '../../../assets/images/logo/logo-light-bg.png'
@@ -16,58 +15,22 @@ import LogoLightBg from '../../../assets/images/logo/logo-light-bg.png'
         id="header-logo"
         src={LogoLightBg}
         alt="logo with the initials RR"
-        width={50}
-        height={50}
+        width={200}
+        height={200}
         densities={[1, 2]}
-        class="opacity-0"
+        class="opacity-0 w-18 h-18"
       />
     </a>
-
-    <nav
-      id="header-nav"
-      class="hidden flex-row gap-6 font-heading text-base md:flex"
-    >
-      <a href="#hero" class="hover:text-primary">About</a>
-      <a href="#experience" class="hover:text-primary">Experience</a>
-    </nav>
-
-    <details
-      id="header-mobile-dropdown"
-      class="dropdown dropdown-end md:hidden"
-    >
-      <summary class="btn btn-soft btn-primary btn-sm">
-        <MenuIcon class="size-4" />
-      </summary>
-
-      <ul
-        class="dropdown-content menu z-1 w-52 rounded-box bg-base-300 p-2 shadow-sm"
-      >
-        <li><a href="#hero">About</a></li>
-        <li><a href="#experience">Experience</a></li>
-      </ul>
-    </details>
   </div>
 </header>
 
 <script>
-  import { animate, stagger } from 'motion'
+  import { animate } from 'motion'
 
   const logo = document.getElementById('header-logo') as HTMLImageElement
 
   if (logo) {
     animate(logo, { opacity: [0, 1] }, { duration: 1 })
-  }
-
-  const nav = document.getElementById('header-nav') as HTMLUListElement
-
-  if (nav) {
-    const navChildren = Array.from(nav.children)
-
-    animate(
-      navChildren,
-      { y: [10, 0], opacity: [0, 1] },
-      { delay: stagger(0.2), duration: 1 },
-    )
   }
 
   const header = document.getElementById('header') as HTMLDivElement
