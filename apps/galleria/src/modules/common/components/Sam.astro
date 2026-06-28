@@ -357,7 +357,11 @@ import samPhoto from '../../../assets/images/common/sam.jpeg'
     }
   })
 
+  let lastWidth = window.innerWidth
   window.addEventListener('resize', () => {
+    if (window.innerWidth === lastWidth) return
+    lastWidth = window.innerWidth
+
     if (!isHovered && !isSleeping) {
       stopMoving()
       startMoving()
