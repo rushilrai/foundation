@@ -13,8 +13,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "convex/_generated/*": ["./convex/_generated/*"]
+      "@/*": ["./src/*"]
     }
   }
 }

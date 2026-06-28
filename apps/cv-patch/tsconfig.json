@@ -15,8 +15,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@convex/*": ["./convex/*"],
-      "@shared/*": ["./shared/*"],
-      "convex/_generated/*": ["./convex/_generated/*"]
+      "@shared/*": ["./shared/*"]
     }
   }
 }

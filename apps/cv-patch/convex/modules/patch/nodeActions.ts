@@ -2,11 +2,11 @@
 
 import { openai, OpenAIModels, setupOpenAI } from '@convex/configs/ai'
 import { generateText, Output } from 'ai'
-import { internal } from 'convex/_generated/api'
-import { internalAction } from 'convex/_generated/server'
 import { v } from 'convex/values'
 import { z } from 'zod'
 
+import { internal } from '../../_generated/api'
+import { internalAction } from '../../_generated/server'
 import { ResumeDataSchema, type ResumeData } from '../../../shared/resumeSchema'
 import { decodeBase64Template } from '../../assets/resumeTemplateData'
 import { convertDocxToPdf } from '../common/cloudconvert'

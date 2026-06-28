@@ -1,7 +1,7 @@
-import type { Doc } from 'convex/_generated/dataModel'
-import { internalQuery, query } from 'convex/_generated/server'
 import { v } from 'convex/values'
 
+import type { Doc } from '../../_generated/dataModel'
+import { internalQuery, query } from '../../_generated/server'
 import { getByExternalId } from '../user/helpers'
 import { getById, getByIdWithAuth, getUserResumes } from './helpers'
 

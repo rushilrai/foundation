@@ -1,5 +1,5 @@
-import { Doc } from 'convex/_generated/dataModel'
-import { MutationCtx, QueryCtx } from 'convex/_generated/server'
+import { Doc } from '../../_generated/dataModel'
+import { MutationCtx, QueryCtx } from '../../_generated/server'
 
 export const getByExternalId = async (
   ctx: QueryCtx | MutationCtx,

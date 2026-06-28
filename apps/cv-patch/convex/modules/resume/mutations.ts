@@ -1,8 +1,8 @@
-import { internal } from 'convex/_generated/api'
-import type { Id } from 'convex/_generated/dataModel'
-import { internalMutation, mutation } from 'convex/_generated/server'
 import { v } from 'convex/values'
 
+import { internal } from '../../_generated/api'
+import type { Id } from '../../_generated/dataModel'
+import { internalMutation, mutation } from '../../_generated/server'
 import { getByExternalId } from '../user/helpers'
 import { getByIdWithAuth } from './helpers'
 
