@@ -27,6 +27,10 @@ export function useGeneratePatchDownloadUrl() {
   return useAction(api.modules.patch.actions.generateDownloadUrl)
 }
 
+export function useGenerateCoverLetterDownloadUrl() {
+  return useAction(api.modules.patch.actions.generateCoverLetterDownloadUrl)
+}
+
 export function useGeneratePatchPdfDownloadUrl() {
   return useAction(api.modules.patch.actions.generatePdfDownloadUrl)
 }

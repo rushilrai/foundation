@@ -4,6 +4,7 @@ import { internal } from '../../_generated/api'
 import type { Id } from '../../_generated/dataModel'
 import { internalMutation, mutation } from '../../_generated/server'
 import { MAX_HEADER_LINKS } from '../../../shared/resumeSchema'
+import { rateLimiter } from '../../configs/rateLimiter'
 import {
   nullableResumeDataValidator,
   resumeDataValidator,
@@ -134,6 +135,68 @@ export const updateExtractedContent = internalMutation({
       rawText: args.rawText,
       status: args.status,
       errorMessage: args.errorMessage,
+      updatedAt: Date.now(),
+    })
+  },
+})
+
+export const requestRating = mutation({
+  args: { resumeId: v.id('resumes') },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ success: true } | { error: string }> => {
+    const result = await getByIdWithAuth(ctx, args.resumeId)
+
+    if ('error' in result) {
+      return result
+    }
+
+    if (result.resume.status !== 'ready' || !result.resume.data) {
+      return { error: 'RESUME_NOT_READY' }
+    }
+
+    const { ok } = await rateLimiter.limit(ctx, 'rateResume', {
+      key: result.user._id,
+    })
+    if (!ok) {
+      return { error: 'RATE_LIMITED' }
+    }
+
+    try {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.modules.resume.nodeActions.rateResume,
+        { resumeId: args.resumeId },
+      )
+
+      return { success: true }
+    } catch (error) {
+      console.error('Error requesting resume rating', error)
+      return { error: 'RATING_REQUEST_FAILED' }
+    }
+  },
+})
+
+export const updateRating = internalMutation({
+  args: {
+    resumeId: v.id('resumes'),
+    rating: v.object({
+      overall: v.number(),
+      categories: v.array(
+        v.object({
+          name: v.string(),
+          score: v.number(),
+          comments: v.string(),
+        }),
+      ),
+      suggestions: v.array(v.string()),
+      ratedAt: v.number(),
+    }),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    await ctx.db.patch(args.resumeId, {
+      rating: args.rating,
       updatedAt: Date.now(),
     })
   },

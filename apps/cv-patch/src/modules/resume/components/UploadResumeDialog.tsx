@@ -98,7 +98,7 @@ export const UploadResumeDialog = ({ children }: UploadResumeDialogProps) => {
           <DialogTitle>Upload Resume</DialogTitle>
 
           <DialogDescription>
-            Upload a .docx file to get started.
+            Upload a .docx, .pdf, .tex, or .txt file to get started.
           </DialogDescription>
         </DialogHeader>
 
@@ -151,7 +151,7 @@ export const UploadResumeDialog = ({ children }: UploadResumeDialogProps) => {
                       id={field.name}
                       name={field.name}
                       type="file"
-                      accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      accept=".docx,.pdf,.tex,.txt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,text/plain"
                       onBlur={field.handleBlur}
                       onChange={(e) =>
                         field.handleChange(e.target.files?.[0] ?? null)

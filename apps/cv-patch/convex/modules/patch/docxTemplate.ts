@@ -6,6 +6,15 @@ import type { ResumeData } from '../../../shared/resumeSchema'
 
 const CONTACT_SEPARATOR = '    '
 
+export type CoverLetterTemplateData = {
+  senderName: string
+  contactLine: string
+  date: string
+  company: string
+  greeting: string
+  paragraphs: Array<string>
+}
+
 export function buildContactLine(header: ResumeData['header']): string {
   return [header.phone, header.email, ...header.links.map((link) => link.url)]
     .map((part) => part.trim())
@@ -16,6 +25,23 @@ export function buildContactLine(header: ResumeData['header']): string {
 export function renderResumeTemplate(
   templateBuffer: ArrayBuffer | Uint8Array,
   data: ResumeData,
+): Uint8Array {
+  return renderTemplate(templateBuffer, {
+    ...data,
+    header: { ...data.header, contactLine: buildContactLine(data.header) },
+  })
+}
+
+export function renderCoverLetterTemplate(
+  templateBuffer: ArrayBuffer | Uint8Array,
+  data: CoverLetterTemplateData,
+): Uint8Array {
+  return renderTemplate(templateBuffer, data)
+}
+
+function renderTemplate(
+  templateBuffer: ArrayBuffer | Uint8Array,
+  data: Record<string, unknown>,
 ): Uint8Array {
   const buffer =
     templateBuffer instanceof Uint8Array
@@ -34,10 +60,7 @@ export function renderResumeTemplate(
     fileTypeConfig,
   })
 
-  doc.render({
-    ...data,
-    header: { ...data.header, contactLine: buildContactLine(data.header) },
-  })
+  doc.render(data)
 
   return doc.getZip().generate({ type: 'uint8array' })
 }

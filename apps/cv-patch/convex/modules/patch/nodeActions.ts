@@ -7,8 +7,10 @@ import { internalAction } from '../../_generated/server'
 import { DEFAULT_REASONING_EFFORT, setupOpenAI } from '../../configs/ai'
 import { buildPatchSystem, createPatchAgent } from './agent'
 
+// Mirrored in src/modules/patch/components/PatchChat.tsx, which hides this
+// synthetic kickoff message from the chat.
 const FIRST_RUN_PROMPT =
-  'Analyze the job description and tailor my resume to it.'
+  'Analyze the job description, tailor my resume to it, and write a cover letter.'
 
 export const startPatchAgent = internalAction({
   args: { patchId: v.id('patches') },

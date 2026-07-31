@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as assets_coverLetterTemplateData from "../assets/coverLetterTemplateData.js";
 import type * as assets_resumeTemplateData from "../assets/resumeTemplateData.js";
 import type * as configs_ai from "../configs/ai.js";
 import type * as configs_rateLimiter from "../configs/rateLimiter.js";
@@ -41,6 +42,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "assets/coverLetterTemplateData": typeof assets_coverLetterTemplateData;
   "assets/resumeTemplateData": typeof assets_resumeTemplateData;
   "configs/ai": typeof configs_ai;
   "configs/rateLimiter": typeof configs_rateLimiter;
