@@ -119,9 +119,7 @@ export const listVersions = query({
   },
 })
 
-// Paginated thread messages with live stream deltas. Unlike the rest of the
-// public surface this throws on auth failures — the paginated query hook
-// requires the pagination result shape and cannot carry an error union.
+// Throws on auth failure — paginated query hooks cannot carry error unions.
 export const listThreadMessages = query({
   args: {
     threadId: v.string(),

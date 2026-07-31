@@ -32,7 +32,7 @@ const lineToArray = (value: string) =>
 
 const arrayToLines = (value: Array<string>) => value.join('\n')
 
-// Guards against documents that predate the header.links/location migration.
+// Guards against documents that predate the header migrations.
 const normalizeResumeData = (data: ResumeData): ResumeData => ({
   ...data,
   header: {

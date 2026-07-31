@@ -29,8 +29,7 @@ const sendErrorMessages: Record<string, string> = {
   AGENT_BUSY: 'The agent is still working — wait for it to finish.',
 }
 
-// Mirrors FIRST_RUN_PROMPT in convex/modules/patch/nodeActions.ts — the
-// synthetic message that kicks off a new thread, hidden from the chat.
+// Mirrors FIRST_RUN_PROMPT in convex/modules/patch/nodeActions.ts.
 const FIRST_RUN_PROMPT =
   'Analyze the job description, tailor my resume to it, and write a cover letter.'
 
@@ -174,8 +173,6 @@ const ChatMessage = ({ message }: { message: UIMessage }) => {
     )
   }
 
-  // Render parts in their actual order so tool markers sit between the text
-  // they chronologically belong to.
   return (
     <Message>
       <MessageContent>

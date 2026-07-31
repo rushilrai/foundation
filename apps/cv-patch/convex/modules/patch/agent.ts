@@ -128,8 +128,7 @@ const updateResume = createTool({
       return { ok: false, issues }
     }
 
-    // A byte-identical echo of the base resume passes every constraint but
-    // delivers nothing — reject it so the agent actually rewords.
+    // The model sometimes echoes the base resume unchanged; reject no-ops.
     if (stableStringify(args.data) === stableStringify(resume.data)) {
       return {
         ok: false,
@@ -328,8 +327,7 @@ const readBaseResume = createTool({
   },
 })
 
-// The agent is created per-call because the OpenAI provider is initialized
-// asynchronously via setupOpenAI().
+// Per-call: the OpenAI provider is initialized async by setupOpenAI().
 export function createPatchAgent() {
   return new Agent(components.agent, {
     name: 'patch-agent',
@@ -380,8 +378,7 @@ async function countPdfPages(
   return pdf.getPageCount()
 }
 
-// JSON.stringify with sorted object keys, so semantically-equal payloads
-// compare equal regardless of key order.
+// Key-order-insensitive comparison form.
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map(stableStringify).join(',')}]`

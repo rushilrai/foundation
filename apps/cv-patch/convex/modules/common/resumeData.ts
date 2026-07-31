@@ -1,7 +1,6 @@
 import { v } from 'convex/values'
 
-// Single source of truth for the ResumeData shape on the Convex side.
-// Must stay in sync with shared/resumeSchema.ts (Zod).
+// Must stay in sync with shared/resumeSchema.ts.
 export const resumeLinkValidator = v.object({
   label: v.string(),
   url: v.string(),

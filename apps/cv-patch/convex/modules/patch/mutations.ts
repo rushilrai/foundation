@@ -104,8 +104,7 @@ export const create = mutation({
 export const sendMessage = mutation({
   args: {
     patchId: v.id('patches'),
-    // Only used by the client-side optimistic update; the server derives the
-    // authoritative thread from the patch.
+    // Client-only hint for the optimistic update; the server derives it.
     threadId: v.optional(v.string()),
     prompt: v.string(),
   },
@@ -271,10 +270,7 @@ export const saveVersion = internalMutation({
 
     let versionNumber = (latest?.versionNumber ?? 0) + 1
 
-    // Legacy patches generated before versioning existed: snapshot their
-    // current output as v1 before overwriting the mirror fields, so the
-    // pre-agent result is never lost even if the backfill migration has not
-    // run yet.
+    // Snapshot pre-versioning output as v1 so it survives the overwrite.
     if (!latest && patch.data && patch.patchedFileId) {
       await ctx.db.insert('patchVersions', {
         patchId: args.patchId,
