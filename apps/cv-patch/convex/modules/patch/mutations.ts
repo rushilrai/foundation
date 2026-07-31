@@ -317,6 +317,41 @@ export const saveVersion = internalMutation({
   },
 })
 
+export const saveCoverLetter = internalMutation({
+  args: {
+    patchId: v.id('patches'),
+    greeting: v.string(),
+    paragraphs: v.array(v.string()),
+    fileId: v.id('_storage'),
+    pdfFileId: v.nullable(v.id('_storage')),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    const patch = await ctx.db.get(args.patchId)
+    if (!patch) {
+      throw new Error('Patch not found')
+    }
+
+    // Replace, don't accumulate: drop the previous letter's files.
+    if (patch.coverLetter) {
+      await ctx.storage.delete(patch.coverLetter.fileId)
+      if (patch.coverLetter.pdfFileId) {
+        await ctx.storage.delete(patch.coverLetter.pdfFileId)
+      }
+    }
+
+    await ctx.db.patch(args.patchId, {
+      coverLetter: {
+        greeting: args.greeting,
+        paragraphs: args.paragraphs,
+        fileId: args.fileId,
+        pdfFileId: args.pdfFileId,
+        generatedAt: Date.now(),
+      },
+      updatedAt: Date.now(),
+    })
+  },
+})
+
 export const markError = internalMutation({
   args: {
     patchId: v.id('patches'),

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PatchChat } from '@/modules/patch/components/PatchChat'
+import { PatchCoverLetter } from '@/modules/patch/components/PatchCoverLetter'
 import { PatchDiff } from '@/modules/patch/components/PatchDiff'
 import { PatchPreview } from '@/modules/patch/components/PatchPreview'
 import { PatchVersions } from '@/modules/patch/components/PatchVersions'
@@ -112,6 +113,7 @@ export function PatchDetailScreen({ patchId }: { patchId: string }) {
           <Tabs defaultValue="preview">
             <TabsList>
               <TabsTrigger value="preview">Preview</TabsTrigger>
+              <TabsTrigger value="cover-letter">Cover Letter</TabsTrigger>
               <TabsTrigger value="diff">Diff</TabsTrigger>
               <TabsTrigger value="versions">Versions</TabsTrigger>
               <TabsTrigger value="jd">Job Description</TabsTrigger>
@@ -140,6 +142,10 @@ export function PatchDetailScreen({ patchId }: { patchId: string }) {
                   pdfReady={!!patch.pdfFileId}
                 />
               )}
+            </TabsContent>
+
+            <TabsContent value="cover-letter" className="mt-6">
+              <PatchCoverLetter patch={patch} />
             </TabsContent>
 
             <TabsContent value="diff" className="mt-6">

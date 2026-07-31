@@ -1,6 +1,7 @@
 import type { Resume } from '@/modules/resume/schema'
 import { ResumeDetails } from './ResumeDetails'
 import { ResumePreview } from './ResumePreview'
+import { ResumeRatingCard } from './ResumeRatingCard'
 
 type OriginalTabProps = {
   resume: Resume
@@ -15,6 +16,7 @@ export const OriginalTab = ({ resume }: OriginalTabProps) => {
 
       <div className="space-y-4 overflow-auto">
         <ResumeDetails resume={resume} />
+        <ResumeRatingCard resume={resume} />
       </div>
     </div>
   )

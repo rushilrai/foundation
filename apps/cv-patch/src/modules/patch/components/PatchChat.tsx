@@ -21,7 +21,7 @@ const sendErrorMessages: Record<string, string> = {
 // Mirrors FIRST_RUN_PROMPT in convex/modules/patch/nodeActions.ts — the
 // synthetic message that kicks off a new thread, hidden from the chat.
 const FIRST_RUN_PROMPT =
-  'Analyze the job description and tailor my resume to it.'
+  'Analyze the job description, tailor my resume to it, and write a cover letter.'
 
 export const PatchChat = ({ patch }: PatchChatProps) => {
   const messages = usePatchThreadMessages(patch.threadId)
@@ -183,13 +183,20 @@ const getToolOutput = (part: UIMessage['parts'][number]): ToolOutput | null => {
 
 const ToolChip = ({ part }: { part: UIMessage['parts'][number] }) => {
   const isUpdate = part.type === 'tool-updateResume'
+  const isCoverLetter = part.type === 'tool-writeCoverLetter'
   const output = getToolOutput(part)
 
   const hasErrored = 'state' in part && part.state === 'output-error'
 
   let label: string
   if (hasErrored) {
-    label = isUpdate ? 'Resume update failed' : 'Tool call failed'
+    label = isUpdate
+      ? 'Resume update failed'
+      : isCoverLetter
+        ? 'Cover letter failed'
+        : 'Tool call failed'
+  } else if (isCoverLetter) {
+    label = output ? 'Cover letter ready' : 'Writing cover letter...'
   } else if (!isUpdate) {
     label = 'Read base resume'
   } else if (!output) {
@@ -204,7 +211,9 @@ const ToolChip = ({ part }: { part: UIMessage['parts'][number] }) => {
     <span
       className={cn(
         'rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground',
-        isUpdate && output?.ok && 'border-primary/40 text-foreground',
+        (isUpdate || isCoverLetter) &&
+          output?.ok &&
+          'border-primary/40 text-foreground',
       )}
     >
       {label}

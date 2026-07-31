@@ -8,19 +8,29 @@ import { z } from 'zod'
 import { components, internal } from '../../_generated/api'
 import type { Doc } from '../../_generated/dataModel'
 import { ResumeDataSchema } from '../../../shared/resumeSchema'
+import { decodeCoverLetterTemplate } from '../../assets/coverLetterTemplateData'
 import { decodeBase64Template } from '../../assets/resumeTemplateData'
 import { openai, OpenAIModels } from '../../configs/ai'
-import { convertDocxToPdf } from '../common/cloudconvert'
-import { renderResumeTemplate } from './docxTemplate'
+import { convertFileToPdf } from '../common/cloudconvert'
+import {
+  buildContactLine,
+  renderCoverLetterTemplate,
+  renderResumeTemplate,
+} from './docxTemplate'
 import { validatePatchedData } from './validation'
 
 export const PATCH_AGENT_INSTRUCTIONS = `You are a resume tailoring assistant. You help the user adapt their base resume to a specific job description through conversation, and you deliver updated resume documents with the updateResume tool.
 
 Behaviour:
-- On the first message of a thread: briefly analyze the job description (key hard skills, tools, domain terminology, seniority signals), explain in a short plan how you will reword the resume, then call updateResume with your first tailored pass, then summarize what you changed in one short paragraph.
-- On follow-up requests: apply the user's asks via updateResume (always pass the FULL resume data, not a fragment), and reply concisely about what changed.
+- On the first message of a thread: briefly analyze the job description (key hard skills, tools, domain terminology, seniority signals), explain in a short plan how you will reword the resume, then call updateResume with your first tailored pass, then call writeCoverLetter with a tailored cover letter, then summarize what you did in one short paragraph.
+- On follow-up requests: apply the user's asks via updateResume (always pass the FULL resume data, not a fragment) or writeCoverLetter (rewrites replace the whole letter), and reply concisely about what changed.
 - Keep chat replies short and skimmable. No headers, no long lists unless asked.
 - If updateResume reports issues, fix them and call it again. Do not report failure to the user unless you cannot resolve the issues after a few attempts.
+
+Cover letter rules:
+- 3-4 paragraphs, under 300 words total, professional but not stiff.
+- Ground every claim in facts from the base resume; never invent experience.
+- Mirror the JD's terminology naturally; name the company and role in the opening paragraph.
 
 Editing rules — in-place rewording only:
 - Maximize match quality for both ATS keyword matching and LLM-assisted recruiter screening.
@@ -127,7 +137,7 @@ const updateResume = createTool({
     let pdfFileId: Doc<'patchVersions'>['pdfFileId'] = null
     let pageCount: number | null = null
     try {
-      pdfFileId = await convertDocxToPdf(ctx, patchedFileId)
+      pdfFileId = await convertFileToPdf(ctx, patchedFileId, 'resume.docx')
       pageCount = await countPdfPages(ctx, pdfFileId)
     } catch (error) {
       // PDF preview is best-effort; the DOCX is still valid without it.
@@ -181,6 +191,101 @@ const updateResume = createTool({
   },
 })
 
+type WriteCoverLetterResult = { ok: true; warning?: string }
+
+const writeCoverLetter = createTool({
+  description:
+    'Write (or fully rewrite) the cover letter for this application. Renders it into a DOCX with the sender details, date, and company filled in automatically — only provide the greeting and body paragraphs.',
+  inputSchema: z.object({
+    greeting: z
+      .string()
+      .describe('Salutation line, e.g. "Dear Hiring Manager,"'),
+    paragraphs: z
+      .array(z.string())
+      .min(2)
+      .max(5)
+      .describe('Body paragraphs, without the closing sign-off'),
+  }),
+  execute: async (ctx, args): Promise<WriteCoverLetterResult> => {
+    if (!ctx.threadId) {
+      throw new Error('writeCoverLetter called outside a thread')
+    }
+
+    const patch = await ctx.runQuery(
+      internal.modules.patch.queries.getByThreadIdInternal,
+      { threadId: ctx.threadId },
+    )
+    if (!patch) {
+      throw new Error('Patch not found for thread')
+    }
+
+    const resume = await ctx.runQuery(
+      internal.modules.resume.queries.getByIdInternal,
+      { resumeId: patch.resumeId },
+    )
+    if (!resume?.data) {
+      throw new Error('Base resume data not available')
+    }
+
+    const companyLine = [patch.companyName, patch.roleName]
+      .filter(Boolean)
+      .join(' — ')
+
+    const docxBytes = renderCoverLetterTemplate(getCoverLetterBuffer(), {
+      senderName: resume.data.header.name,
+      contactLine: buildContactLine(resume.data.header),
+      date: new Date().toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }),
+      company: companyLine,
+      greeting: args.greeting,
+      paragraphs: args.paragraphs,
+    })
+
+    const fileId = await ctx.storage.store(
+      new Blob([toArrayBuffer(docxBytes)], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      }),
+    )
+
+    let pdfFileId: Doc<'patchVersions'>['pdfFileId'] = null
+    try {
+      pdfFileId = await convertFileToPdf(ctx, fileId, 'cover-letter.docx')
+    } catch (error) {
+      console.error(
+        '[writeCoverLetter] PDF conversion failed (non-fatal)',
+        error,
+      )
+    }
+
+    try {
+      await ctx.runMutation(internal.modules.patch.mutations.saveCoverLetter, {
+        patchId: patch._id,
+        greeting: args.greeting,
+        paragraphs: args.paragraphs,
+        fileId,
+        pdfFileId,
+      })
+    } catch (error) {
+      await ctx.storage.delete(fileId)
+      if (pdfFileId) {
+        await ctx.storage.delete(pdfFileId)
+      }
+      throw error
+    }
+
+    return {
+      ok: true,
+      ...(pdfFileId === null && {
+        warning:
+          'PDF export failed for the cover letter. Tell the user the PDF download is unavailable but the DOCX download works.',
+      }),
+    }
+  },
+})
+
 const readBaseResume = createTool({
   description:
     'Read the base (original) resume data JSON that all tailoring must stay faithful to.',
@@ -214,12 +319,13 @@ export function createPatchAgent() {
     name: 'patch-agent',
     languageModel: openai.responses(OpenAIModels['gpt-5.6-luna']),
     instructions: PATCH_AGENT_INSTRUCTIONS,
-    tools: { updateResume, readBaseResume },
-    stopWhen: stepCountIs(8),
+    tools: { updateResume, writeCoverLetter, readBaseResume },
+    stopWhen: stepCountIs(10),
   })
 }
 
 let cachedTemplate: Uint8Array | null = null
+let cachedCoverLetterTemplate: Uint8Array | null = null
 
 function getTemplateBuffer(): Uint8Array {
   if (cachedTemplate) {
@@ -228,6 +334,15 @@ function getTemplateBuffer(): Uint8Array {
 
   cachedTemplate = decodeBase64Template()
   return cachedTemplate
+}
+
+function getCoverLetterBuffer(): Uint8Array {
+  if (cachedCoverLetterTemplate) {
+    return cachedCoverLetterTemplate
+  }
+
+  cachedCoverLetterTemplate = decodeCoverLetterTemplate()
+  return cachedCoverLetterTemplate
 }
 
 async function countPdfPages(

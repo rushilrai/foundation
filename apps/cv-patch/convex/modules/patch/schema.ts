@@ -24,6 +24,15 @@ export const patchFields = {
   patchedFileId: v.nullable(v.id('_storage')),
   pdfFileId: v.nullable(v.id('_storage')),
   changes: v.nullable(v.array(v.string())),
+  coverLetter: v.optional(
+    v.object({
+      greeting: v.string(),
+      paragraphs: v.array(v.string()),
+      fileId: v.id('_storage'),
+      pdfFileId: v.nullable(v.id('_storage')),
+      generatedAt: v.number(),
+    }),
+  ),
   status: v.union(
     v.literal('generating'),
     v.literal('ready'),

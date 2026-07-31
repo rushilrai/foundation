@@ -9,6 +9,10 @@ export function useUpdateResumeData() {
   return useMutation(api.modules.resume.mutations.updateData)
 }
 
+export function useRequestResumeRating() {
+  return useMutation(api.modules.resume.mutations.requestRating)
+}
+
 export function useGenerateResumeUploadUrl() {
   return useAction(api.modules.resume.actions.generateUploadUrl)
 }
