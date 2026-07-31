@@ -43,25 +43,31 @@ export const AppSidebar = () => {
           <SidebarGroupLabel>Resumes</SidebarGroupLabel>
 
           <SidebarGroupContent>
-            <SidebarMenu>
-              {resumes.map((resume) => (
-                <SidebarMenuItem key={resume._id}>
-                  <SidebarMenuButton
-                    isActive={
-                      location.pathname === `/dashboard/resume/${resume._id}`
-                    }
-                    render={
-                      <Link
-                        to="/dashboard/resume/$id"
-                        params={{ id: resume._id }}
-                      >
-                        <IconFileText className="size-4" />
-                        <span className="truncate">{resume.title}</span>
-                      </Link>
-                    }
-                  />
-                </SidebarMenuItem>
-              ))}
+            <SidebarMenu className="gap-2">
+              {resumes.map((resume) => {
+                const basePath = `/dashboard/resume/${resume._id}`
+                // Also highlights when inside one of the resume's patches.
+                const isActive =
+                  location.pathname === basePath ||
+                  location.pathname.startsWith(`${basePath}/`)
+
+                return (
+                  <SidebarMenuItem key={resume._id}>
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      render={
+                        <Link
+                          to="/dashboard/resume/$id"
+                          params={{ id: resume._id }}
+                        >
+                          <IconFileText className="size-4" />
+                          <span className="truncate">{resume.title}</span>
+                        </Link>
+                      }
+                    />
+                  </SidebarMenuItem>
+                )
+              })}
 
               {resumes.length === 0 && (
                 <p className="px-2 text-sm text-muted-foreground">
