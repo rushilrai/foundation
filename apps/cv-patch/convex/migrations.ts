@@ -67,3 +67,44 @@ export const migrateHeaderLinks = internalMutation({
     return { resumesMigrated, patchesMigrated }
   },
 })
+
+// One-off: backfills a patchVersions row (v1) for patches generated before
+// the agent flow. Run with `npx convex run migrations:migratePatchVersions`.
+export const migratePatchVersions = internalMutation({
+  args: {},
+  handler: async (ctx): Promise<{ versionsCreated: number }> => {
+    let versionsCreated = 0
+
+    const patches = await ctx.db.query('patches').collect()
+    for (const patch of patches) {
+      if (patch.activeVersionId || !patch.data || !patch.patchedFileId) {
+        continue
+      }
+
+      const existing = await ctx.db
+        .query('patchVersions')
+        .withIndex('by_patchId', (q) => q.eq('patchId', patch._id))
+        .first()
+      if (existing) {
+        continue
+      }
+
+      const versionId = await ctx.db.insert('patchVersions', {
+        patchId: patch._id,
+        userId: patch.userId,
+        versionNumber: 1,
+        data: patch.data,
+        changes: patch.changes ?? [],
+        patchedFileId: patch.patchedFileId,
+        pdfFileId: patch.pdfFileId,
+        pageCount: null,
+        createdAt: patch.createdAt,
+      })
+
+      await ctx.db.patch(patch._id, { activeVersionId: versionId })
+      versionsCreated++
+    }
+
+    return { versionsCreated }
+  },
+})

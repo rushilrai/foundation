@@ -15,9 +15,10 @@ export const generateDownloadUrl = action({
     }
 
     const patch = await ctx.runQuery(
-      internal.modules.patch.queries.getByIdInternal,
+      internal.modules.patch.queries.getByIdOwnedInternal,
       {
         patchId: args.patchId,
+        externalId: identity.subject,
       },
     )
 
@@ -54,9 +55,10 @@ export const generatePdfDownloadUrl = action({
     }
 
     const patch = await ctx.runQuery(
-      internal.modules.patch.queries.getByIdInternal,
+      internal.modules.patch.queries.getByIdOwnedInternal,
       {
         patchId: args.patchId,
+        externalId: identity.subject,
       },
     )
 

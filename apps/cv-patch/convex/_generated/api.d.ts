@@ -10,14 +10,19 @@
 
 import type * as assets_resumeTemplateData from "../assets/resumeTemplateData.js";
 import type * as configs_ai from "../configs/ai.js";
+import type * as configs_rateLimiter from "../configs/rateLimiter.js";
 import type * as http from "../http.js";
+import type * as migrations from "../migrations.js";
 import type * as modules_common_cloudconvert from "../modules/common/cloudconvert.js";
+import type * as modules_common_resumeData from "../modules/common/resumeData.js";
 import type * as modules_patch_actions from "../modules/patch/actions.js";
+import type * as modules_patch_agent from "../modules/patch/agent.js";
 import type * as modules_patch_docxTemplate from "../modules/patch/docxTemplate.js";
 import type * as modules_patch_helpers from "../modules/patch/helpers.js";
 import type * as modules_patch_mutations from "../modules/patch/mutations.js";
 import type * as modules_patch_nodeActions from "../modules/patch/nodeActions.js";
 import type * as modules_patch_queries from "../modules/patch/queries.js";
+import type * as modules_patch_validation from "../modules/patch/validation.js";
 import type * as modules_resume_actions from "../modules/resume/actions.js";
 import type * as modules_resume_helpers from "../modules/resume/helpers.js";
 import type * as modules_resume_mutations from "../modules/resume/mutations.js";
@@ -38,14 +43,19 @@ import type {
 declare const fullApi: ApiFromModules<{
   "assets/resumeTemplateData": typeof assets_resumeTemplateData;
   "configs/ai": typeof configs_ai;
+  "configs/rateLimiter": typeof configs_rateLimiter;
   http: typeof http;
+  migrations: typeof migrations;
   "modules/common/cloudconvert": typeof modules_common_cloudconvert;
+  "modules/common/resumeData": typeof modules_common_resumeData;
   "modules/patch/actions": typeof modules_patch_actions;
+  "modules/patch/agent": typeof modules_patch_agent;
   "modules/patch/docxTemplate": typeof modules_patch_docxTemplate;
   "modules/patch/helpers": typeof modules_patch_helpers;
   "modules/patch/mutations": typeof modules_patch_mutations;
   "modules/patch/nodeActions": typeof modules_patch_nodeActions;
   "modules/patch/queries": typeof modules_patch_queries;
+  "modules/patch/validation": typeof modules_patch_validation;
   "modules/resume/actions": typeof modules_resume_actions;
   "modules/resume/helpers": typeof modules_resume_helpers;
   "modules/resume/mutations": typeof modules_resume_mutations;
@@ -84,4 +94,7 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  agent: import("@convex-dev/agent/_generated/component.js").ComponentApi<"agent">;
+  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+};

@@ -40,6 +40,7 @@ export const CreatePatchDialog = ({
 }: CreatePatchDialogProps) => {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const createPatch = useCreatePatch()
   const navigate = useNavigate()
@@ -59,6 +60,7 @@ export const CreatePatchDialog = ({
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true)
+      setSubmitError(null)
 
       try {
         const result = await createPatch({
@@ -76,9 +78,16 @@ export const CreatePatchDialog = ({
             to: '/dashboard/resume/$id/patch/$patchId',
             params: { id: resumeId, patchId: result.patchId },
           })
+        } else {
+          setSubmitError(
+            result.error === 'RATE_LIMITED'
+              ? 'Rate limit reached. Try again in a little while.'
+              : 'Failed to create the variant. Please try again.',
+          )
         }
       } catch (error) {
         console.error('Error creating patch:', error)
+        setSubmitError('Failed to create the variant. Please try again.')
       } finally {
         setIsSubmitting(false)
       }
@@ -184,6 +193,10 @@ export const CreatePatchDialog = ({
                 )
               }}
             />
+
+            {submitError && (
+              <p className="text-sm text-destructive">{submitError}</p>
+            )}
 
             <Button type="submit" disabled={isSubmitting} className="w-full">
               {isSubmitting ? 'Generating...' : 'Generate Variant'}
