@@ -135,10 +135,6 @@ export const PatchChat = ({ patch }: PatchChatProps) => {
 }
 
 const ChatMessage = ({ message }: { message: UIMessage }) => {
-  const [visibleText] = useSmoothText(message.text, {
-    startStreaming: message.status === 'streaming',
-  })
-
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
@@ -149,21 +145,47 @@ const ChatMessage = ({ message }: { message: UIMessage }) => {
     )
   }
 
-  const toolParts = message.parts.filter((part) =>
-    part.type.startsWith('tool-'),
-  )
-
+  // Render parts in their actual order so tool chips sit between the text
+  // they chronologically belong to.
   return (
     <div className="flex flex-col items-start gap-2">
-      {toolParts.map((part, index) => (
-        <ToolChip key={`tool-${index}`} part={part} />
-      ))}
+      {message.parts.map((part, index) => {
+        if (part.type === 'text') {
+          return (
+            <AssistantText
+              key={`part-${index}`}
+              text={part.text}
+              streaming={message.status === 'streaming'}
+            />
+          )
+        }
 
-      {visibleText && (
-        <div className="max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm whitespace-pre-wrap">
-          {visibleText}
-        </div>
-      )}
+        if (part.type.startsWith('tool-')) {
+          return <ToolChip key={`part-${index}`} part={part} />
+        }
+
+        return null
+      })}
+    </div>
+  )
+}
+
+const AssistantText = ({
+  text,
+  streaming,
+}: {
+  text: string
+  streaming: boolean
+}) => {
+  const [visibleText] = useSmoothText(text, { startStreaming: streaming })
+
+  if (!visibleText) {
+    return null
+  }
+
+  return (
+    <div className="max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm whitespace-pre-wrap">
+      {visibleText}
     </div>
   )
 }
