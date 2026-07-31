@@ -1,0 +1,51 @@
+{
+  "header": {
+    "name": "Jane Doe",
+    "phone": "+1 555 010 1234",
+    "email": "jane.doe@example.com",
+    "links": [
+      { "label": "LinkedIn", "url": "linkedin.com/in/janedoe" },
+      { "label": "GitHub", "url": "github.com/janedoe" }
+    ]
+  },
+  "education": [
+    {
+      "school": "Example University",
+      "location": "London, UK",
+      "dates": "2018 - 2021",
+      "degree": "BSc Computer Science, First Class Honours",
+      "details": "Relevant coursework: algorithms, databases, distributed systems."
+    }
+  ],
+  "experience": [
+    {
+      "company": "Acme Corp",
+      "companyMeta": "London, UK",
+      "roles": [
+        {
+          "title": "Software Engineer",
+          "meta": "Jan 2022 - Present",
+          "bullets": [
+            "Built and maintained internal tooling used by 200+ engineers, cutting release time by 30%.",
+            "Led migration of legacy services to a containerised platform across 3 product teams."
+          ]
+        }
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Open Source Dashboard",
+      "dates": "2023",
+      "bullets": [
+        "Created an analytics dashboard with 1k+ GitHub stars and 40 contributors."
+      ]
+    }
+  ],
+  "skills": {
+    "technical": "TypeScript, React, Node.js, PostgreSQL, Docker",
+    "financial": "Financial modelling, forecasting",
+    "languages": "English (native), French (conversational)"
+  },
+  "extras": ["Volunteer mentor at local coding bootcamp."]
+}

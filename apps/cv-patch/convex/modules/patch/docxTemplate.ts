@@ -4,6 +4,15 @@ import PizZip from 'pizzip'
 
 import type { ResumeData } from '../../../shared/resumeSchema'
 
+const CONTACT_SEPARATOR = '    '
+
+export function buildContactLine(header: ResumeData['header']): string {
+  return [header.phone, header.email, ...header.links.map((link) => link.url)]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(CONTACT_SEPARATOR)
+}
+
 export function renderResumeTemplate(
   templateBuffer: ArrayBuffer | Uint8Array,
   data: ResumeData,
@@ -25,7 +34,10 @@ export function renderResumeTemplate(
     fileTypeConfig,
   })
 
-  doc.render(data)
+  doc.render({
+    ...data,
+    header: { ...data.header, contactLine: buildContactLine(data.header) },
+  })
 
   return doc.getZip().generate({ type: 'uint8array' })
 }

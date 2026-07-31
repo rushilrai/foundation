@@ -1,5 +1,6 @@
 import {
   getEmptyResumeData,
+  MAX_HEADER_LINKS,
   ResumeDataSchema,
   type ResumeData,
 } from '@shared/resumeSchema'
@@ -31,9 +32,15 @@ const lineToArray = (value: string) =>
 
 const arrayToLines = (value: Array<string>) => value.join('\n')
 
+// Guards against documents that predate the header.links migration.
+const normalizeResumeData = (data: ResumeData): ResumeData => ({
+  ...data,
+  header: { ...data.header, links: data.header.links ?? [] },
+})
+
 export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
   const [draft, setDraft] = useState<ResumeData>(
-    resume.data ?? getEmptyResumeData(),
+    normalizeResumeData(resume.data ?? getEmptyResumeData()),
   )
   const [isSaving, setIsSaving] = useState(false)
   const [jsonOpen, setJsonOpen] = useState(false)
@@ -42,9 +49,11 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
 
   useEffect(() => {
     if (resume.data) {
-      setDraft(resume.data)
+      setDraft(normalizeResumeData(resume.data))
     }
   }, [resume.data])
+
+  const jsonValue = useMemo(() => JSON.stringify(draft, null, 2), [draft])
 
   if (resume.status === 'error') {
     return (
@@ -63,8 +72,6 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
     )
   }
 
-  const jsonValue = useMemo(() => JSON.stringify(draft, null, 2), [draft])
-
   const handleSave = async () => {
     setIsSaving(true)
     try {
@@ -76,10 +83,47 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
     }
   }
 
-  const updateHeader = (key: keyof ResumeData['header'], value: string) => {
+  const updateHeader = (key: 'name' | 'phone' | 'email', value: string) => {
     setDraft((prev) => ({
       ...prev,
       header: { ...prev.header, [key]: value },
+    }))
+  }
+
+  const updateLink = (index: number, key: 'label' | 'url', value: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      header: {
+        ...prev.header,
+        links: prev.header.links.map((link, i) =>
+          i === index ? { ...link, [key]: value } : link,
+        ),
+      },
+    }))
+  }
+
+  const addLink = () => {
+    setDraft((prev) => {
+      if (prev.header.links.length >= MAX_HEADER_LINKS) {
+        return prev
+      }
+      return {
+        ...prev,
+        header: {
+          ...prev.header,
+          links: [...prev.header.links, { label: '', url: '' }],
+        },
+      }
+    })
+  }
+
+  const removeLink = (index: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      header: {
+        ...prev.header,
+        links: prev.header.links.filter((_, i) => i !== index),
+      },
     }))
   }
 
@@ -342,11 +386,43 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
             onChange={(e) => updateHeader('email', e.target.value)}
             placeholder="Email"
           />
-          <Input
-            value={draft.header.linkedin}
-            onChange={(e) => updateHeader('linkedin', e.target.value)}
-            placeholder="LinkedIn"
-          />
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">
+              Links ({draft.header.links.length}/{MAX_HEADER_LINKS})
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addLink}
+              disabled={draft.header.links.length >= MAX_HEADER_LINKS}
+            >
+              Add Link
+            </Button>
+          </div>
+          {draft.header.links.map((link, index) => (
+            <div key={`link-${index}`} className="flex items-center gap-2">
+              <Input
+                value={link.label}
+                onChange={(e) => updateLink(index, 'label', e.target.value)}
+                placeholder="Label (e.g. LinkedIn)"
+                className="w-48"
+              />
+              <Input
+                value={link.url}
+                onChange={(e) => updateLink(index, 'url', e.target.value)}
+                placeholder="URL (as shown on the resume)"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => removeLink(index)}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
         </div>
       </section>
 

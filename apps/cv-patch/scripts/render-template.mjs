@@ -25,7 +25,19 @@ const doc = new Docxtemplater(zip, {
 
 const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'))
 
-doc.render(data)
+const contactLine = [
+  data.header.phone,
+  data.header.email,
+  ...data.header.links.map((link) => link.url),
+]
+  .map((part) => part.trim())
+  .filter(Boolean)
+  .join('    ')
+
+doc.render({
+  ...data,
+  header: { ...data.header, contactLine },
+})
 
 const buffer = doc.getZip().generate({ type: 'nodebuffer' })
 fs.writeFileSync(outputPath, buffer)

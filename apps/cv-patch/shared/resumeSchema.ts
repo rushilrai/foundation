@@ -1,10 +1,17 @@
 import { z } from 'zod'
 
+export const MAX_HEADER_LINKS = 5
+
+export const ResumeLinkSchema = z.object({
+  label: z.string(),
+  url: z.string(),
+})
+
 export const ResumeHeaderSchema = z.object({
   name: z.string(),
   phone: z.string(),
   email: z.string(),
-  linkedin: z.string(),
+  links: z.array(ResumeLinkSchema).max(MAX_HEADER_LINKS),
 })
 
 export const ResumeEducationSchema = z.object({
@@ -48,6 +55,7 @@ export const ResumeDataSchema = z.object({
   extras: z.array(z.string()),
 })
 
+export type ResumeLink = z.infer<typeof ResumeLinkSchema>
 export type ResumeData = z.infer<typeof ResumeDataSchema>
 
 export function getEmptyResumeData(): ResumeData {
@@ -56,7 +64,7 @@ export function getEmptyResumeData(): ResumeData {
       name: '',
       phone: '',
       email: '',
-      linkedin: '',
+      links: [],
     },
     education: [],
     experience: [],

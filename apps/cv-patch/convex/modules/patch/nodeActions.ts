@@ -1,6 +1,11 @@
 'use node'
 
-import { openai, OpenAIModels, setupOpenAI } from '@convex/configs/ai'
+import {
+  DEFAULT_REASONING_EFFORT,
+  openai,
+  OpenAIModels,
+  setupOpenAI,
+} from '@convex/configs/ai'
 import { generateText, Output } from 'ai'
 import { v } from 'convex/values'
 import { z } from 'zod'
@@ -99,7 +104,7 @@ Strategy — in-place rewriting:
 - Preserve quantitative evidence: if a bullet contains numbers/percentages/currency/scale tokens, keep those metrics in the rewritten bullet.
 
 Immutable fields — copy these exactly, byte-for-byte:
-- header.name, header.phone, header.email, header.linkedin
+- header.name, header.phone, header.email, header.links (every label and url)
 - experience[].company, experience[].companyMeta
 - experience[].roles[].meta
 - education[].school, education[].location, education[].dates
@@ -137,10 +142,13 @@ Return JSON with:
 - changes: short bullet list of what you changed and why`
 
       const { output } = await generateText({
-        model: openai.responses(OpenAIModels['gpt-5.2']),
+        model: openai.responses(OpenAIModels['gpt-5.6-luna']),
         output: Output.object({ schema: patchOutputSchema }),
         system,
         prompt,
+        providerOptions: {
+          openai: { reasoningEffort: DEFAULT_REASONING_EFFORT },
+        },
       })
 
       let data = output.data
@@ -169,10 +177,13 @@ The following validation issues were found in your previous output. Fix ONLY the
 ${validationIssues.join('\n')}`
 
         const { output: retryOutput } = await generateText({
-          model: openai.responses(OpenAIModels['gpt-5.2']),
+          model: openai.responses(OpenAIModels['gpt-5.6-luna']),
           output: Output.object({ schema: patchOutputSchema }),
           system,
           prompt: retryPrompt,
+          providerOptions: {
+            openai: { reasoningEffort: DEFAULT_REASONING_EFFORT },
+          },
         })
 
         data = retryOutput.data
@@ -274,10 +285,25 @@ function validatePatchedData(
       `header.phone was changed from "${base.header.phone}" to "${data.header.phone}" — must be identical`,
     )
   }
-  if (data.header.linkedin !== base.header.linkedin) {
+  // ?? [] guards against base resumes that predate the header.links migration
+  const baseLinks = base.header.links ?? []
+  const dataLinks = data.header.links ?? []
+
+  if (dataLinks.length !== baseLinks.length) {
     issues.push(
-      `header.linkedin was changed from "${base.header.linkedin}" to "${data.header.linkedin}" — must be identical`,
+      `header.links has ${dataLinks.length} entries, expected ${baseLinks.length}`,
     )
+  } else {
+    for (let i = 0; i < baseLinks.length; i++) {
+      const bLink = baseLinks[i]
+      const dLink = dataLinks[i]
+
+      if (dLink.label !== bLink.label || dLink.url !== bLink.url) {
+        issues.push(
+          `header.links[${i}] was changed from "${bLink.label}: ${bLink.url}" to "${dLink.label}: ${dLink.url}" — must be identical`,
+        )
+      }
+    }
   }
 
   if (data.experience.length !== base.experience.length) {
