@@ -5,6 +5,7 @@ import { v } from 'convex/values'
 import { internal } from '../../_generated/api'
 import { internalAction } from '../../_generated/server'
 import { DEFAULT_REASONING_EFFORT, setupOpenAI } from '../../configs/ai'
+import { convertFileToPdf } from '../common/cloudconvert'
 import { buildPatchSystem, createPatchAgent } from './agent'
 
 // Mirrored in src/modules/patch/components/PatchChat.tsx, which hides this
@@ -86,6 +87,63 @@ export const startPatchAgent = internalAction({
         { patchId: args.patchId },
       )
     }
+  },
+})
+
+// Converts any missing PDFs for a patch (resume version + cover letter).
+// Recovery path for CloudConvert failures during the agent run:
+// `npx convex run modules/patch/nodeActions:backfillPdfs '{"patchId": "..."}'`
+export const backfillPdfs = internalAction({
+  args: { patchId: v.id('patches') },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ resumePdf: boolean; coverLetterPdf: boolean }> => {
+    const patch = await ctx.runQuery(
+      internal.modules.patch.queries.getByIdInternal,
+      { patchId: args.patchId },
+    )
+
+    if (!patch) {
+      throw new Error('Patch not found')
+    }
+
+    let resumePdf = false
+    let coverLetterPdf = false
+
+    if (patch.patchedFileId && !patch.pdfFileId) {
+      const pdfFileId = await convertFileToPdf(
+        ctx,
+        patch.patchedFileId,
+        'resume.docx',
+      )
+      await ctx.runMutation(
+        internal.modules.patch.mutations.setBackfilledPdfs,
+        {
+          patchId: args.patchId,
+          pdfFileId,
+        },
+      )
+      resumePdf = true
+    }
+
+    if (patch.coverLetter && !patch.coverLetter.pdfFileId) {
+      const coverLetterPdfFileId = await convertFileToPdf(
+        ctx,
+        patch.coverLetter.fileId,
+        'cover-letter.docx',
+      )
+      await ctx.runMutation(
+        internal.modules.patch.mutations.setBackfilledPdfs,
+        {
+          patchId: args.patchId,
+          coverLetterPdfFileId,
+        },
+      )
+      coverLetterPdf = true
+    }
+
+    return { resumePdf, coverLetterPdf }
   },
 })
 
