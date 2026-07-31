@@ -3,6 +3,7 @@ import { v } from 'convex/values'
 import { internal } from '../../_generated/api'
 import type { Id } from '../../_generated/dataModel'
 import { internalMutation, mutation } from '../../_generated/server'
+import { nullableResumeDataValidator } from '../common/resumeData'
 import { getById as getResumeById } from '../resume/helpers'
 import { getByExternalId } from '../user/helpers'
 import { getByIdWithAuth } from './helpers'
@@ -133,52 +134,7 @@ export const updateGeneratedContent = internalMutation({
   args: {
     patchId: v.id('patches'),
     patchedFileId: v.nullable(v.id('_storage')),
-    data: v.union(
-      v.null(),
-      v.object({
-        header: v.object({
-          name: v.string(),
-          phone: v.string(),
-          email: v.string(),
-          linkedin: v.string(),
-        }),
-        education: v.array(
-          v.object({
-            school: v.string(),
-            location: v.string(),
-            dates: v.string(),
-            degree: v.string(),
-            details: v.string(),
-          }),
-        ),
-        experience: v.array(
-          v.object({
-            company: v.string(),
-            companyMeta: v.string(),
-            roles: v.array(
-              v.object({
-                title: v.string(),
-                meta: v.string(),
-                bullets: v.array(v.string()),
-              }),
-            ),
-          }),
-        ),
-        projects: v.array(
-          v.object({
-            name: v.string(),
-            dates: v.string(),
-            bullets: v.array(v.string()),
-          }),
-        ),
-        skills: v.object({
-          technical: v.string(),
-          financial: v.string(),
-          languages: v.string(),
-        }),
-        extras: v.array(v.string()),
-      }),
-    ),
+    data: nullableResumeDataValidator,
     changes: v.nullable(v.array(v.string())),
     status: v.union(v.literal('ready'), v.literal('error')),
     errorMessage: v.optional(v.string()),

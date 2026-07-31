@@ -167,7 +167,7 @@ def main():
 
     # Insert template tags
     set_text_simple(paragraphs[1], '{header.name}')
-    set_text_simple(paragraphs[2], '{header.phone}    {header.email}    {header.linkedin}')
+    set_text_simple(paragraphs[2], '{header.contactLine}')
 
     insert_before(body, paragraphs[5], make_tag_paragraph('{#education}'))
     set_text_with_tabs(paragraphs[5], '{school}', '{location} | {dates}')

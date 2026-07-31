@@ -1,9 +1,12 @@
 import { createOpenAI, type OpenAIProvider } from '@ai-sdk/openai'
 
+// gpt-5.6-luna must be referenced by its full id — the bare 'gpt-5.6' alias
+// routes to Sol, not Luna.
 export const OpenAIModels = {
-  'gpt-5.2': 'gpt-5.2',
-  'gpt-5.1': 'gpt-5.1',
+  'gpt-5.6-luna': 'gpt-5.6-luna',
 } as const
+
+export const DEFAULT_REASONING_EFFORT = 'medium'
 
 export let openai: OpenAIProvider
 

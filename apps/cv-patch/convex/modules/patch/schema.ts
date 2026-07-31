@@ -1,6 +1,8 @@
 import { defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
+import { nullableResumeDataValidator } from '../common/resumeData'
+
 export const patchFields = {
   resumeId: v.id('resumes'),
   userId: v.id('users'),
@@ -10,52 +12,7 @@ export const patchFields = {
   roleName: v.string(),
   streamingText: v.nullable(v.string()),
   templateId: v.string(),
-  data: v.union(
-    v.null(),
-    v.object({
-      header: v.object({
-        name: v.string(),
-        phone: v.string(),
-        email: v.string(),
-        linkedin: v.string(),
-      }),
-      education: v.array(
-        v.object({
-          school: v.string(),
-          location: v.string(),
-          dates: v.string(),
-          degree: v.string(),
-          details: v.string(),
-        }),
-      ),
-      experience: v.array(
-        v.object({
-          company: v.string(),
-          companyMeta: v.string(),
-          roles: v.array(
-            v.object({
-              title: v.string(),
-              meta: v.string(),
-              bullets: v.array(v.string()),
-            }),
-          ),
-        }),
-      ),
-      projects: v.array(
-        v.object({
-          name: v.string(),
-          dates: v.string(),
-          bullets: v.array(v.string()),
-        }),
-      ),
-      skills: v.object({
-        technical: v.string(),
-        financial: v.string(),
-        languages: v.string(),
-      }),
-      extras: v.array(v.string()),
-    }),
-  ),
+  data: nullableResumeDataValidator,
   patchedFileId: v.nullable(v.id('_storage')),
   pdfFileId: v.nullable(v.id('_storage')),
   changes: v.nullable(v.array(v.string())),
