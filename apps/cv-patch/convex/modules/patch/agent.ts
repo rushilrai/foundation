@@ -24,6 +24,7 @@ export const PATCH_AGENT_INSTRUCTIONS = `You are a resume tailoring assistant. Y
 Behaviour:
 - On the first message of a thread: briefly analyze the job description (key hard skills, tools, domain terminology, seniority signals), explain in a short plan how you will reword the resume, then call updateResume with your first tailored pass, then call writeCoverLetter with a tailored cover letter, then summarize what you did in one short paragraph.
 - On follow-up requests: apply the user's asks via updateResume (always pass the FULL resume data, not a fragment) or writeCoverLetter (rewrites replace the whole letter), and reply concisely about what changed.
+- The JSON you pass to updateResume must already contain the reworded text. Never submit the base resume unchanged — describing changes in the changelog without making them in the data is a failure.
 - Keep chat replies short and skimmable. No headers, no long lists unless asked.
 - If updateResume reports issues, fix them and call it again. Do not report failure to the user unless you cannot resolve the issues after a few attempts.
 
@@ -43,7 +44,7 @@ Editing rules — in-place rewording only:
 - Preserve quantitative evidence: if a bullet contains numbers/percentages/currency/scale tokens, keep those metrics in the rewritten bullet.
 
 Immutable fields — copy these exactly, byte-for-byte:
-- header.name, header.phone, header.email, header.links (every label and url)
+- header.name, header.phone, header.email, header.location, header.links (every label and url)
 - experience[].company, experience[].companyMeta
 - experience[].roles[].meta
 - education[].school, education[].location, education[].dates
@@ -125,6 +126,17 @@ const updateResume = createTool({
     const issues = validatePatchedData(args.data, resume.data)
     if (issues.length > 0) {
       return { ok: false, issues }
+    }
+
+    // A byte-identical echo of the base resume passes every constraint but
+    // delivers nothing — reject it so the agent actually rewords.
+    if (stableStringify(args.data) === stableStringify(resume.data)) {
+      return {
+        ok: false,
+        issues: [
+          'The submitted data is identical to the base resume. Apply the actual keyword rewording (bullets, titles, skills ordering) in the JSON you submit — do not re-send the base resume unchanged.',
+        ],
+      }
     }
 
     const docxBytes = renderResumeTemplate(getTemplateBuffer(), args.data)
@@ -231,18 +243,22 @@ const writeCoverLetter = createTool({
       .filter(Boolean)
       .join(' — ')
 
-    const docxBytes = renderCoverLetterTemplate(getCoverLetterBuffer(), {
-      senderName: resume.data.header.name,
-      contactLine: buildContactLine(resume.data.header),
-      date: new Date().toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      }),
-      company: companyLine,
-      greeting: args.greeting,
-      paragraphs: args.paragraphs,
-    })
+    const docxBytes = renderCoverLetterTemplate(
+      getCoverLetterBuffer(),
+      {
+        senderName: resume.data.header.name,
+        contactLine: buildContactLine(resume.data.header),
+        date: new Date().toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }),
+        company: companyLine,
+        greeting: args.greeting,
+        paragraphs: args.paragraphs,
+      },
+      resume.data.header,
+    )
 
     const fileId = await ctx.storage.store(
       new Blob([toArrayBuffer(docxBytes)], {
@@ -362,6 +378,21 @@ async function countPdfPages(
     ignoreEncryption: true,
   })
   return pdf.getPageCount()
+}
+
+// JSON.stringify with sorted object keys, so semantically-equal payloads
+// compare equal regardless of key order.
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(',')}]`
+  }
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([key, val]) => `${JSON.stringify(key)}:${stableStringify(val)}`)
+    return `{${entries.join(',')}}`
+  }
+  return JSON.stringify(value)
 }
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
