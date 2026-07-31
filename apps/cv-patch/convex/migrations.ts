@@ -6,13 +6,14 @@ type LegacyHeader = {
   phone: string
   email: string
   linkedin?: string
+  location?: string
   links?: ResumeData['header']['links']
 }
 
 function migrateHeader(data: ResumeData): ResumeData | null {
   const header = data.header as unknown as LegacyHeader
 
-  if (header.links !== undefined) {
+  if (header.links !== undefined && header.location !== undefined) {
     return null
   }
 
@@ -24,21 +25,32 @@ function migrateHeader(data: ResumeData): ResumeData | null {
       name: header.name,
       phone: header.phone,
       email: header.email,
-      links: linkedin ? [{ label: 'LinkedIn', url: linkedin }] : [],
+      // Not recoverable from legacy data — it was never captured; edit in the
+      // Content tab or re-upload to fill it.
+      location: header.location ?? '',
+      links:
+        header.links ??
+        (linkedin ? [{ label: 'LinkedIn', url: linkedin }] : []),
     },
   }
 }
 
-// One-off: converts header.linkedin to header.links on all resumes and
-// patches. Run with `npx convex run migrations:migrateHeaderLinks` after
-// deploying, then re-enable schemaValidation in convex/schema.ts.
+// One-off: converts legacy headers (header.linkedin → header.links, missing
+// header.location → '') on all resumes, patches, and patch versions. Run with
+// `npx convex run migrations:migrateHeaderLinks` after deploying, then
+// re-enable schemaValidation in convex/schema.ts.
 export const migrateHeaderLinks = internalMutation({
   args: {},
   handler: async (
     ctx,
-  ): Promise<{ resumesMigrated: number; patchesMigrated: number }> => {
+  ): Promise<{
+    resumesMigrated: number
+    patchesMigrated: number
+    versionsMigrated: number
+  }> => {
     let resumesMigrated = 0
     let patchesMigrated = 0
+    let versionsMigrated = 0
 
     const resumes = await ctx.db.query('resumes').collect()
     for (const resume of resumes) {
@@ -64,7 +76,16 @@ export const migrateHeaderLinks = internalMutation({
       }
     }
 
-    return { resumesMigrated, patchesMigrated }
+    const versions = await ctx.db.query('patchVersions').collect()
+    for (const version of versions) {
+      const migrated = migrateHeader(version.data)
+      if (migrated) {
+        await ctx.db.patch(version._id, { data: migrated })
+        versionsMigrated++
+      }
+    }
+
+    return { resumesMigrated, patchesMigrated, versionsMigrated }
   },
 })
 

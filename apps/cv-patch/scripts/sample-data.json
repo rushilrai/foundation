@@ -3,6 +3,7 @@
     "name": "Jane Doe",
     "phone": "+1 555 010 1234",
     "email": "jane.doe@example.com",
+    "location": "London, UK",
     "links": [
       { "label": "LinkedIn", "url": "linkedin.com/in/janedoe" },
       { "label": "GitHub", "url": "github.com/janedoe" }
