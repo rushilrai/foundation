@@ -82,12 +82,17 @@ export const get = query({
   },
 })
 
+export type PatchVersionWithUrls = Doc<'patchVersions'> & {
+  pdfUrl: string | null
+  docxUrl: string | null
+}
+
 export const listVersions = query({
   args: { patchId: v.id('patches') },
   handler: async (
     ctx,
     args,
-  ): Promise<{ versions: Array<Doc<'patchVersions'>> } | { error: string }> => {
+  ): Promise<{ versions: Array<PatchVersionWithUrls> } | { error: string }> => {
     const result = await getByIdWithAuth(ctx, args.patchId)
 
     if ('error' in result) {
@@ -100,7 +105,17 @@ export const listVersions = query({
       .order('desc')
       .collect()
 
-    return { versions }
+    const withUrls = await Promise.all(
+      versions.map(async (version) => ({
+        ...version,
+        pdfUrl: version.pdfFileId
+          ? await ctx.storage.getUrl(version.pdfFileId)
+          : null,
+        docxUrl: await ctx.storage.getUrl(version.patchedFileId),
+      })),
+    )
+
+    return { versions: withUrls }
   },
 })
 

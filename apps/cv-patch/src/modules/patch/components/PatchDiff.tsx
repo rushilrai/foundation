@@ -81,27 +81,27 @@ export const PatchDiff = ({ base, patched }: PatchDiffProps) => {
 
   if (diffs.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         No differences from the base resume.
       </p>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">
         {diffs.length} change{diffs.length === 1 ? '' : 's'} vs the base resume
       </p>
 
       {diffs.map((diff, index) => (
-        <div key={index} className="space-y-1 rounded-lg border p-3">
-          <p className="text-xs font-medium text-muted-foreground">
+        <div key={index} className="space-y-1 rounded-md border p-2.5">
+          <p className="text-[11px] font-medium text-muted-foreground">
             {diff.path}
           </p>
-          <p className="text-sm text-muted-foreground line-through decoration-destructive/50">
+          <p className="text-xs text-muted-foreground line-through decoration-destructive/50">
             {diff.before}
           </p>
-          <p className="text-sm">{diff.after}</p>
+          <p className="text-xs">{diff.after}</p>
         </div>
       ))}
     </div>
