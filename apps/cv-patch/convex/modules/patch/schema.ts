@@ -15,7 +15,7 @@ export const patchFields = {
   roleName: v.string(),
   threadId: v.optional(v.string()),
   activeVersionId: v.optional(v.id('patchVersions')),
-  // Set while an agent run is in flight; guards against concurrent runs.
+  // Guards against concurrent agent runs; stale after 10 minutes.
   agentRunningSince: v.optional(v.number()),
   // Legacy field from the pre-agent flow; no longer written.
   streamingText: v.optional(v.nullable(v.string())),

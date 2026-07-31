@@ -8,8 +8,7 @@ import { DEFAULT_REASONING_EFFORT, setupOpenAI } from '../../configs/ai'
 import { convertFileToPdf } from '../common/cloudconvert'
 import { buildPatchSystem, createPatchAgent } from './agent'
 
-// Mirrored in src/modules/patch/components/PatchChat.tsx, which hides this
-// synthetic kickoff message from the chat.
+// Mirrored in PatchChat.tsx, which hides this synthetic message.
 const FIRST_RUN_PROMPT =
   'Analyze the job description, tailor my resume to it, and write a cover letter.'
 
@@ -90,9 +89,7 @@ export const startPatchAgent = internalAction({
   },
 })
 
-// Converts any missing PDFs for a patch (resume version + cover letter).
-// Recovery path for CloudConvert failures during the agent run:
-// `npx convex run modules/patch/nodeActions:backfillPdfs '{"patchId": "..."}'`
+// Recovery for CloudConvert failures during agent runs.
 export const backfillPdfs = internalAction({
   args: { patchId: v.id('patches') },
   handler: async (

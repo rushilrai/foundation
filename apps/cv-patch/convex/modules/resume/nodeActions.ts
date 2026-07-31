@@ -380,8 +380,7 @@ function parseHyperlinkTargets(relsXml: string): Map<string, string> {
   return targets
 }
 
-// Appends each hyperlink's target after its visible text so the LLM can see
-// real URLs, e.g. "LinkedIn (https://linkedin.com/in/foo)".
+// Surfaces targets to the LLM as "LinkedIn (https://linkedin.com/in/foo)".
 function inlineHyperlinkTargets(
   xml: string,
   targets: Map<string, string>,

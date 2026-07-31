@@ -46,7 +46,6 @@ export const AppSidebar = () => {
             <SidebarMenu className="gap-2">
               {resumes.map((resume) => {
                 const basePath = `/dashboard/resume/${resume._id}`
-                // Also highlights when inside one of the resume's patches.
                 const isActive =
                   location.pathname === basePath ||
                   location.pathname.startsWith(`${basePath}/`)

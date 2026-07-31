@@ -25,8 +25,7 @@ function migrateHeader(data: ResumeData): ResumeData | null {
       name: header.name,
       phone: header.phone,
       email: header.email,
-      // Not recoverable from legacy data — it was never captured; edit in the
-      // Content tab or re-upload to fill it.
+      // Never captured by the legacy schema; not recoverable.
       location: header.location ?? '',
       links:
         header.links ??
@@ -35,10 +34,7 @@ function migrateHeader(data: ResumeData): ResumeData | null {
   }
 }
 
-// One-off: converts legacy headers (header.linkedin → header.links, missing
-// header.location → '') on all resumes, patches, and patch versions. Run with
-// `npx convex run migrations:migrateHeaderLinks` after deploying, then
-// re-enable schemaValidation in convex/schema.ts.
+// One-off legacy-header backfill; run before re-enabling schemaValidation.
 export const migrateHeaderLinks = internalMutation({
   args: {},
   handler: async (
@@ -89,8 +85,7 @@ export const migrateHeaderLinks = internalMutation({
   },
 })
 
-// One-off: backfills a patchVersions row (v1) for patches generated before
-// the agent flow. Run with `npx convex run migrations:migratePatchVersions`.
+// One-off: backfills v1 version rows for pre-agent patches.
 export const migratePatchVersions = internalMutation({
   args: {},
   handler: async (ctx): Promise<{ versionsCreated: number }> => {

@@ -19,7 +19,7 @@ const badgeVariants = cva(
         ghost:
           'hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50',
         link: 'text-primary underline-offset-4 hover:underline',
-        // App status variants, in the preset's soft-tint idiom.
+        // App-specific variants — restore these whenever a preset apply rewrites this file.
         processing:
           'bg-yellow-500/10 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400',
         generating:

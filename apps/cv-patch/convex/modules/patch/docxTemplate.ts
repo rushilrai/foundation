@@ -15,7 +15,6 @@ export type CoverLetterTemplateData = {
   paragraphs: Array<string>
 }
 
-// Fallback display when a link has no label — compact form of the URL.
 export function displayUrl(url: string): string {
   return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
 }
@@ -29,8 +28,7 @@ function withScheme(url: string): string {
   return /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`
 }
 
-// The contact line renders link labels only (like the original resume);
-// linkifyContactLine turns them into real hyperlinks after rendering.
+// Labels only; linkifyContactLine makes them real hyperlinks post-render.
 export function buildContactSegments(
   header: ResumeData['header'],
 ): Array<ContactSegment> {
@@ -96,9 +94,7 @@ function escapeXmlAttr(text: string): string {
   return escapeXmlText(text).replace(/"/g, '&quot;').replace(/'/g, '&apos;')
 }
 
-// Rewrites the rendered contact-line run into a sequence of runs where the
-// email and each link label are real hyperlinks. Purely additive: if the
-// contact line cannot be located, the document is returned unchanged.
+// No-op when the contact-line run cannot be located.
 export function linkifyContactLine(
   docxBytes: Uint8Array,
   header: ResumeData['header'],
@@ -118,8 +114,7 @@ export function linkifyContactLine(
   let documentXml = docFile.asText()
   let relsXml = relsFile.asText()
 
-  // The hyperlink r:id attributes need the relationships namespace, which
-  // neither template declares on its root element.
+  // Neither template declares xmlns:r, which the r:id attributes need.
   if (!documentXml.includes('xmlns:r=')) {
     documentXml = documentXml.replace(
       /<w:document\b/,
