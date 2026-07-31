@@ -38,11 +38,13 @@ Rules:
 3. Put bullets in arrays, and keep bullet order.
 4. Keep section headings out of the data fields.
 5. Use empty strings for missing fields; do not omit keys.
-6. Capture up to ${MAX_HEADER_LINKS} links from the contact/header area (LinkedIn, GitHub, portfolio, website, etc.) as header.links. label is the platform/site name; url is the link text exactly as written in the resume. Use an empty array when there are none.
-7. Output JSON only that matches the schema exactly.`
+6. Capture up to ${MAX_HEADER_LINKS} links from the contact/header area (LinkedIn, GitHub, portfolio, website, etc.) as header.links. label is the platform/site name. Hyperlink targets appear in parentheses after the linked text, e.g. "LinkedIn (https://linkedin.com/in/foo)" — use the URL in parentheses as url when present, otherwise the link text as written. Never use mailto:/tel: targets as links (email and phone are their own fields). Use an empty array when there are none.
+7. Parenthesized hyperlink targets are ONLY for header.links urls — do not copy them into any other field (bullets, project names, degrees, etc.).
+8. Capture the city/location from the contact/header area as header.location, exactly as written (e.g. "London" or "London, UK"). Use an empty string when there is none.
+9. Output JSON only that matches the schema exactly.`
 
 const STRUCTURE_HINT = `Return JSON that matches this structure:
-header: { name, phone, email, links: [{ label, url }] }
+header: { name, phone, email, location, links: [{ label, url }] }
 education: [{ school, location, dates, degree, details }]
 experience: [{ company, companyMeta, roles: [{ title, meta, bullets[] }] }]
 projects: [{ name, dates, bullets[] }]
@@ -125,7 +127,14 @@ export const extractResumeData = internalAction({
             return
           }
 
-          rawText = extractPlainText(documentXml)
+          const relsXml = await zip
+            .file('word/_rels/document.xml.rels')
+            ?.async('string')
+
+          rawText = extractPlainText(
+            documentXml,
+            parseHyperlinkTargets(relsXml ?? ''),
+          )
         } else {
           rawText = await fileBlob.text()
         }
@@ -351,12 +360,59 @@ export const rateResume = internalAction({
   },
 })
 
-function extractPlainText(xml: string): string {
+function parseHyperlinkTargets(relsXml: string): Map<string, string> {
+  const targets = new Map<string, string>()
+  const relRegex = /<Relationship\b[^>]*\/?>/g
+  let match: RegExpExecArray | null
+
+  while ((match = relRegex.exec(relsXml)) !== null) {
+    const element = match[0]
+    if (!element.includes('/hyperlink')) {
+      continue
+    }
+    const id = element.match(/\bId="([^"]+)"/)?.[1]
+    const target = element.match(/\bTarget="([^"]+)"/)?.[1]
+    if (id && target) {
+      targets.set(id, decodeXml(target))
+    }
+  }
+
+  return targets
+}
+
+// Appends each hyperlink's target after its visible text so the LLM can see
+// real URLs, e.g. "LinkedIn (https://linkedin.com/in/foo)".
+function inlineHyperlinkTargets(
+  xml: string,
+  targets: Map<string, string>,
+): string {
+  return xml.replace(
+    /<w:hyperlink\b([^>]*)>([\s\S]*?)<\/w:hyperlink>/g,
+    (whole, attrs: string, inner: string) => {
+      const rid = attrs.match(/r:id="([^"]+)"/)?.[1]
+      const target = rid ? targets.get(rid) : undefined
+      if (!target) {
+        return whole
+      }
+      const escaped = target
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+      return `${inner}<w:t xml:space="preserve"> (${escaped})</w:t>`
+    },
+  )
+}
+
+function extractPlainText(
+  xml: string,
+  hyperlinkTargets: Map<string, string> = new Map(),
+): string {
+  const withTargets = inlineHyperlinkTargets(xml, hyperlinkTargets)
   const paragraphs: Array<string> = []
   const paragraphRegex = /<w:p\b[^>]*>[\s\S]*?<\/w:p>/g
   let match: RegExpExecArray | null
 
-  while ((match = paragraphRegex.exec(xml)) !== null) {
+  while ((match = paragraphRegex.exec(withTargets)) !== null) {
     const paragraphXml = match[0]
     const isBullet = /<w:numPr\b/.test(paragraphXml)
     const text = extractTextFromParagraph(paragraphXml)
