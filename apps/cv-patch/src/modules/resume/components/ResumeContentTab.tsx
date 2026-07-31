@@ -32,10 +32,14 @@ const lineToArray = (value: string) =>
 
 const arrayToLines = (value: Array<string>) => value.join('\n')
 
-// Guards against documents that predate the header.links migration.
+// Guards against documents that predate the header.links/location migration.
 const normalizeResumeData = (data: ResumeData): ResumeData => ({
   ...data,
-  header: { ...data.header, links: data.header.links ?? [] },
+  header: {
+    ...data.header,
+    location: data.header.location ?? '',
+    links: data.header.links ?? [],
+  },
 })
 
 export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
@@ -83,7 +87,10 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
     }
   }
 
-  const updateHeader = (key: 'name' | 'phone' | 'email', value: string) => {
+  const updateHeader = (
+    key: 'name' | 'phone' | 'email' | 'location',
+    value: string,
+  ) => {
     setDraft((prev) => ({
       ...prev,
       header: { ...prev.header, [key]: value },
@@ -385,6 +392,11 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
             value={draft.header.email}
             onChange={(e) => updateHeader('email', e.target.value)}
             placeholder="Email"
+          />
+          <Input
+            value={draft.header.location}
+            onChange={(e) => updateHeader('location', e.target.value)}
+            placeholder="Location (e.g. London, UK)"
           />
         </div>
         <div className="space-y-3">

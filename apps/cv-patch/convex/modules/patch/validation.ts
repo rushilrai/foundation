@@ -26,6 +26,11 @@ export function validatePatchedData(
       `header.phone was changed from "${base.header.phone}" to "${data.header.phone}" — must be identical`,
     )
   }
+  if ((data.header.location ?? '') !== (base.header.location ?? '')) {
+    issues.push(
+      `header.location was changed from "${base.header.location}" to "${data.header.location}" — must be identical`,
+    )
+  }
 
   // ?? [] guards against base resumes that predate the header.links migration
   const baseLinks = base.header.links ?? []
