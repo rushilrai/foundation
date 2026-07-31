@@ -352,6 +352,47 @@ export const saveCoverLetter = internalMutation({
   },
 })
 
+export const setBackfilledPdfs = internalMutation({
+  args: {
+    patchId: v.id('patches'),
+    pdfFileId: v.optional(v.id('_storage')),
+    coverLetterPdfFileId: v.optional(v.id('_storage')),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    const patch = await ctx.db.get(args.patchId)
+    if (!patch) {
+      throw new Error('Patch not found')
+    }
+
+    if (args.pdfFileId) {
+      await ctx.db.patch(args.patchId, {
+        pdfFileId: args.pdfFileId,
+        updatedAt: Date.now(),
+      })
+
+      // Keep the active version row in sync so restores keep the PDF.
+      if (patch.activeVersionId) {
+        const version = await ctx.db.get(patch.activeVersionId)
+        if (version && !version.pdfFileId) {
+          await ctx.db.patch(patch.activeVersionId, {
+            pdfFileId: args.pdfFileId,
+          })
+        }
+      }
+    }
+
+    if (args.coverLetterPdfFileId && patch.coverLetter) {
+      await ctx.db.patch(args.patchId, {
+        coverLetter: {
+          ...patch.coverLetter,
+          pdfFileId: args.coverLetterPdfFileId,
+        },
+        updatedAt: Date.now(),
+      })
+    }
+  },
+})
+
 export const markError = internalMutation({
   args: {
     patchId: v.id('patches'),
