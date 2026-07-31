@@ -1,12 +1,21 @@
+import { createThread, saveMessage } from '@convex-dev/agent'
 import { v } from 'convex/values'
 
-import { internal } from '../../_generated/api'
+import { components, internal } from '../../_generated/api'
 import type { Id } from '../../_generated/dataModel'
 import { internalMutation, mutation } from '../../_generated/server'
-import { nullableResumeDataValidator } from '../common/resumeData'
+import { rateLimiter } from '../../configs/rateLimiter'
+import { resumeDataValidator } from '../common/resumeData'
 import { getById as getResumeById } from '../resume/helpers'
 import { getByExternalId } from '../user/helpers'
 import { getByIdWithAuth } from './helpers'
+
+// A run older than this is considered crashed and no longer blocks new runs.
+const AGENT_RUN_STALE_MS = 10 * 60 * 1000
+
+const isAgentBusy = (agentRunningSince: number | undefined): boolean =>
+  agentRunningSince !== undefined &&
+  Date.now() - agentRunningSince < AGENT_RUN_STALE_MS
 
 export const create = mutation({
   args: {
@@ -43,7 +52,19 @@ export const create = mutation({
       return { error: 'RESUME_NOT_READY' }
     }
 
+    const { ok } = await rateLimiter.limit(ctx, 'createPatch', {
+      key: user._id,
+    })
+    if (!ok) {
+      return { error: 'RATE_LIMITED' }
+    }
+
     try {
+      const threadId = await createThread(ctx, components.agent, {
+        userId: user._id,
+        title: args.title,
+      })
+
       const patchId = await ctx.db.insert('patches', {
         resumeId: args.resumeId,
         userId: user._id,
@@ -51,7 +72,8 @@ export const create = mutation({
         jobDescription: args.jobDescription,
         companyName: args.companyName,
         roleName: args.roleName,
-        streamingText: null,
+        threadId,
+        agentRunningSince: Date.now(),
         templateId: 'resume-v1',
         data: null,
         patchedFileId: null,
@@ -65,7 +87,7 @@ export const create = mutation({
 
       await ctx.scheduler.runAfter(
         0,
-        internal.modules.patch.nodeActions.generatePatch,
+        internal.modules.patch.nodeActions.startPatchAgent,
         {
           patchId,
         },
@@ -75,6 +97,127 @@ export const create = mutation({
     } catch (error) {
       console.error('Error creating patch', error)
       return { error: 'PATCH_CREATE_FAILED' }
+    }
+  },
+})
+
+export const sendMessage = mutation({
+  args: {
+    patchId: v.id('patches'),
+    // Only used by the client-side optimistic update; the server derives the
+    // authoritative thread from the patch.
+    threadId: v.optional(v.string()),
+    prompt: v.string(),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ success: true } | { error: string }> => {
+    const result = await getByIdWithAuth(ctx, args.patchId)
+
+    if ('error' in result) {
+      return result
+    }
+
+    const { patch, user } = result
+
+    if (!args.prompt.trim()) {
+      return { error: 'EMPTY_MESSAGE' }
+    }
+
+    if (isAgentBusy(patch.agentRunningSince)) {
+      return { error: 'AGENT_BUSY' }
+    }
+
+    const { ok } = await rateLimiter.limit(ctx, 'sendAgentMessage', {
+      key: user._id,
+    })
+    if (!ok) {
+      return { error: 'RATE_LIMITED' }
+    }
+
+    try {
+      let threadId = patch.threadId
+
+      // Patches created before the agent flow get a thread on first message.
+      if (!threadId) {
+        threadId = await createThread(ctx, components.agent, {
+          userId: user._id,
+          title: patch.title,
+        })
+        await ctx.db.patch(args.patchId, {
+          threadId,
+          updatedAt: Date.now(),
+        })
+      }
+
+      const { messageId } = await saveMessage(ctx, components.agent, {
+        threadId,
+        userId: user._id,
+        prompt: args.prompt,
+      })
+
+      await ctx.db.patch(args.patchId, {
+        agentRunningSince: Date.now(),
+        updatedAt: Date.now(),
+      })
+
+      await ctx.scheduler.runAfter(
+        0,
+        internal.modules.patch.nodeActions.continuePatchAgent,
+        {
+          patchId: args.patchId,
+          promptMessageId: messageId,
+        },
+      )
+
+      return { success: true }
+    } catch (error) {
+      console.error('Error sending patch message', error)
+      return { error: 'MESSAGE_SEND_FAILED' }
+    }
+  },
+})
+
+export const restoreVersion = mutation({
+  args: {
+    patchId: v.id('patches'),
+    versionId: v.id('patchVersions'),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ success: true } | { error: string }> => {
+    const result = await getByIdWithAuth(ctx, args.patchId)
+
+    if ('error' in result) {
+      return result
+    }
+
+    const version = await ctx.db.get(args.versionId)
+    if (!version || version.patchId !== args.patchId) {
+      return { error: 'VERSION_NOT_FOUND' }
+    }
+
+    if (isAgentBusy(result.patch.agentRunningSince)) {
+      return { error: 'AGENT_BUSY' }
+    }
+
+    try {
+      await ctx.db.patch(args.patchId, {
+        data: version.data,
+        changes: version.changes,
+        patchedFileId: version.patchedFileId,
+        pdfFileId: version.pdfFileId,
+        activeVersionId: args.versionId,
+        status: 'ready',
+        updatedAt: Date.now(),
+      })
+
+      return { success: true }
+    } catch (error) {
+      console.error('Error restoring patch version', error)
+      return { error: 'VERSION_RESTORE_FAILED' }
     }
   },
 })
@@ -105,48 +248,110 @@ export const remove = mutation({
   },
 })
 
-export const updatePdfFileId = internalMutation({
+export const saveVersion = internalMutation({
   args: {
     patchId: v.id('patches'),
+    data: resumeDataValidator,
+    changes: v.array(v.string()),
+    patchedFileId: v.id('_storage'),
     pdfFileId: v.nullable(v.id('_storage')),
+    pageCount: v.nullable(v.number()),
+  },
+  handler: async (ctx, args): Promise<{ versionNumber: number }> => {
+    const patch = await ctx.db.get(args.patchId)
+    if (!patch) {
+      throw new Error('Patch not found')
+    }
+
+    const latest = await ctx.db
+      .query('patchVersions')
+      .withIndex('by_patchId', (q) => q.eq('patchId', args.patchId))
+      .order('desc')
+      .first()
+
+    let versionNumber = (latest?.versionNumber ?? 0) + 1
+
+    // Legacy patches generated before versioning existed: snapshot their
+    // current output as v1 before overwriting the mirror fields, so the
+    // pre-agent result is never lost even if the backfill migration has not
+    // run yet.
+    if (!latest && patch.data && patch.patchedFileId) {
+      await ctx.db.insert('patchVersions', {
+        patchId: args.patchId,
+        userId: patch.userId,
+        versionNumber: 1,
+        data: patch.data,
+        changes: patch.changes ?? [],
+        patchedFileId: patch.patchedFileId,
+        pdfFileId: patch.pdfFileId,
+        pageCount: null,
+        createdAt: patch.createdAt,
+      })
+      versionNumber = 2
+    }
+
+    const versionId = await ctx.db.insert('patchVersions', {
+      patchId: args.patchId,
+      userId: patch.userId,
+      versionNumber,
+      data: args.data,
+      changes: args.changes,
+      patchedFileId: args.patchedFileId,
+      pdfFileId: args.pdfFileId,
+      pageCount: args.pageCount,
+      createdAt: Date.now(),
+    })
+
+    await ctx.db.patch(args.patchId, {
+      data: args.data,
+      changes: args.changes,
+      patchedFileId: args.patchedFileId,
+      pdfFileId: args.pdfFileId,
+      activeVersionId: versionId,
+      status: 'ready',
+      errorMessage: undefined,
+      updatedAt: Date.now(),
+    })
+
+    return { versionNumber }
+  },
+})
+
+export const markError = internalMutation({
+  args: {
+    patchId: v.id('patches'),
+    errorMessage: v.string(),
   },
   handler: async (ctx, args): Promise<void> => {
+    const patch = await ctx.db.get(args.patchId)
+    if (!patch) {
+      return
+    }
+
+    // Do not regress a patch that already has a usable version.
+    if (patch.status === 'ready') {
+      return
+    }
+
     await ctx.db.patch(args.patchId, {
-      pdfFileId: args.pdfFileId,
+      status: 'error',
+      errorMessage: args.errorMessage,
+      agentRunningSince: undefined,
       updatedAt: Date.now(),
     })
   },
 })
 
-export const updateStreamingText = internalMutation({
-  args: {
-    patchId: v.id('patches'),
-    streamingText: v.string(),
-  },
+export const clearAgentRunning = internalMutation({
+  args: { patchId: v.id('patches') },
   handler: async (ctx, args): Promise<void> => {
-    await ctx.db.patch(args.patchId, {
-      streamingText: args.streamingText,
-    })
-  },
-})
+    const patch = await ctx.db.get(args.patchId)
+    if (!patch || patch.agentRunningSince === undefined) {
+      return
+    }
 
-export const updateGeneratedContent = internalMutation({
-  args: {
-    patchId: v.id('patches'),
-    patchedFileId: v.nullable(v.id('_storage')),
-    data: nullableResumeDataValidator,
-    changes: v.nullable(v.array(v.string())),
-    status: v.union(v.literal('ready'), v.literal('error')),
-    errorMessage: v.optional(v.string()),
-  },
-  handler: async (ctx, args): Promise<void> => {
     await ctx.db.patch(args.patchId, {
-      streamingText: null,
-      patchedFileId: args.patchedFileId,
-      data: args.data,
-      changes: args.changes,
-      status: args.status,
-      errorMessage: args.errorMessage,
+      agentRunningSince: undefined,
       updatedAt: Date.now(),
     })
   },

@@ -1,0 +1,256 @@
+'use node'
+
+import { Agent, createTool } from '@convex-dev/agent'
+import { stepCountIs } from 'ai'
+import { PDFDocument } from 'pdf-lib'
+import { z } from 'zod'
+
+import { components, internal } from '../../_generated/api'
+import type { Doc } from '../../_generated/dataModel'
+import { ResumeDataSchema } from '../../../shared/resumeSchema'
+import { decodeBase64Template } from '../../assets/resumeTemplateData'
+import { openai, OpenAIModels } from '../../configs/ai'
+import { convertDocxToPdf } from '../common/cloudconvert'
+import { renderResumeTemplate } from './docxTemplate'
+import { validatePatchedData } from './validation'
+
+export const PATCH_AGENT_INSTRUCTIONS = `You are a resume tailoring assistant. You help the user adapt their base resume to a specific job description through conversation, and you deliver updated resume documents with the updateResume tool.
+
+Behaviour:
+- On the first message of a thread: briefly analyze the job description (key hard skills, tools, domain terminology, seniority signals), explain in a short plan how you will reword the resume, then call updateResume with your first tailored pass, then summarize what you changed in one short paragraph.
+- On follow-up requests: apply the user's asks via updateResume (always pass the FULL resume data, not a fragment), and reply concisely about what changed.
+- Keep chat replies short and skimmable. No headers, no long lists unless asked.
+- If updateResume reports issues, fix them and call it again. Do not report failure to the user unless you cannot resolve the issues after a few attempts.
+
+Editing rules — in-place rewording only:
+- Maximize match quality for both ATS keyword matching and LLM-assisted recruiter screening.
+- Integrate exact JD terminology where it naturally fits the original accomplishment.
+- Add relevant lexical variants (abbreviations, expanded forms, adjacent domain phrasing) when factual meaning stays the same.
+- Prioritize hard skills, tools, domain nouns, and scope/impact language over generic soft-skill wording.
+- Do NOT invent facts, restructure sentences, add new bullets, remove bullets, or add/remove entries.
+- Do NOT reorder bullets.
+- You MAY reorder items within the skills fields (technical, financial, languages) to prioritize JD-relevant skills first.
+- Preserve quantitative evidence: if a bullet contains numbers/percentages/currency/scale tokens, keep those metrics in the rewritten bullet.
+
+Immutable fields — copy these exactly, byte-for-byte:
+- header.name, header.phone, header.email, header.links (every label and url)
+- experience[].company, experience[].companyMeta
+- experience[].roles[].meta
+- education[].school, education[].location, education[].dates
+- projects[].dates
+
+Editable fields — rewrite for ATS keyword alignment while preserving approximate character length:
+- experience[].roles[].title — only adjust if the JD uses a clearly equivalent title; keep length within ~80%-125% of original
+- experience[].roles[].bullets[] — substitute keywords, keep each bullet within ~80%-100% of original character count
+- education[].degree, education[].details — keyword-focused rewrites within ~80%-100% of original length
+- projects[].name — keyword-focused rewrite within ~80%-100% of original length
+- projects[].bullets[] — same rules as experience bullets
+- skills.technical, skills.financial, skills.languages — reorder to front-load JD-relevant terms, may substitute equivalent terms
+- extras[] — preserve as-is unless directly relevant; if edited keep length within ~80%-100% of original
+
+Structural invariants:
+- Same number of experience entries, same number of roles per experience entry, same number of bullets per role.
+- Same number of education entries, project entries, and extras entries.
+
+The rendered document must fit on one page — updateResume rejects output that overflows.`
+
+export function buildPatchSystem(
+  patch: Doc<'patches'>,
+  resume: Doc<'resumes'>,
+): string {
+  const companyContext =
+    patch.companyName || patch.roleName
+      ? `\nTarget company: ${patch.companyName || 'N/A'}\nTarget role: ${patch.roleName || 'N/A'}\nLeverage domain-specific language and terminology from this company/industry where it naturally fits.`
+      : ''
+
+  return `${PATCH_AGENT_INSTRUCTIONS}
+
+Base resume JSON (the immutable source of truth for facts and structure):
+${JSON.stringify(resume.data)}
+
+Job description:
+${patch.jobDescription}
+${companyContext}`
+}
+
+type UpdateResumeResult =
+  | {
+      ok: true
+      versionNumber: number
+      pageCount: number | null
+      warning?: string
+    }
+  | { ok: false; issues: Array<string> }
+
+const updateResume = createTool({
+  description:
+    'Validate, render, and save a new version of the tailored resume. Pass the FULL resume data JSON (matching the base resume structure exactly) plus a short changelog. Returns validation issues to fix if the data breaks the tailoring rules or overflows one page.',
+  inputSchema: z.object({
+    data: ResumeDataSchema,
+    changes: z
+      .array(z.string())
+      .describe('Short bullet list of what changed and why'),
+  }),
+  execute: async (ctx, args): Promise<UpdateResumeResult> => {
+    if (!ctx.threadId) {
+      throw new Error('updateResume called outside a thread')
+    }
+
+    const patch = await ctx.runQuery(
+      internal.modules.patch.queries.getByThreadIdInternal,
+      { threadId: ctx.threadId },
+    )
+    if (!patch) {
+      throw new Error('Patch not found for thread')
+    }
+
+    const resume = await ctx.runQuery(
+      internal.modules.resume.queries.getByIdInternal,
+      { resumeId: patch.resumeId },
+    )
+    if (!resume?.data) {
+      throw new Error('Base resume data not available')
+    }
+
+    const issues = validatePatchedData(args.data, resume.data)
+    if (issues.length > 0) {
+      return { ok: false, issues }
+    }
+
+    const docxBytes = renderResumeTemplate(getTemplateBuffer(), args.data)
+    const patchedFileId = await ctx.storage.store(
+      new Blob([toArrayBuffer(docxBytes)], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      }),
+    )
+
+    let pdfFileId: Doc<'patchVersions'>['pdfFileId'] = null
+    let pageCount: number | null = null
+    try {
+      pdfFileId = await convertDocxToPdf(ctx, patchedFileId)
+      pageCount = await countPdfPages(ctx, pdfFileId)
+    } catch (error) {
+      // PDF preview is best-effort; the DOCX is still valid without it.
+      console.error('[updateResume] PDF conversion failed (non-fatal)', error)
+    }
+
+    if (pageCount !== null && pageCount > 1) {
+      await ctx.storage.delete(patchedFileId)
+      if (pdfFileId) {
+        await ctx.storage.delete(pdfFileId)
+      }
+      return {
+        ok: false,
+        issues: [
+          `The rendered resume is ${pageCount} pages — it must fit on one page. Tighten the wording (shorten the longest bullets) and try again.`,
+        ],
+      }
+    }
+
+    let versionNumber: number
+    try {
+      const saved = await ctx.runMutation(
+        internal.modules.patch.mutations.saveVersion,
+        {
+          patchId: patch._id,
+          data: args.data,
+          changes: args.changes,
+          patchedFileId,
+          pdfFileId,
+          pageCount,
+        },
+      )
+      versionNumber = saved.versionNumber
+    } catch (error) {
+      await ctx.storage.delete(patchedFileId)
+      if (pdfFileId) {
+        await ctx.storage.delete(pdfFileId)
+      }
+      throw error
+    }
+
+    return {
+      ok: true,
+      versionNumber,
+      pageCount,
+      ...(pageCount === null && {
+        warning:
+          'PDF preview generation failed, so the one-page check could not run. Tell the user the PDF preview is unavailable for this version but the DOCX download works.',
+      }),
+    }
+  },
+})
+
+const readBaseResume = createTool({
+  description:
+    'Read the base (original) resume data JSON that all tailoring must stay faithful to.',
+  inputSchema: z.object({}),
+  execute: async (ctx): Promise<unknown> => {
+    if (!ctx.threadId) {
+      throw new Error('readBaseResume called outside a thread')
+    }
+
+    const patch = await ctx.runQuery(
+      internal.modules.patch.queries.getByThreadIdInternal,
+      { threadId: ctx.threadId },
+    )
+    if (!patch) {
+      throw new Error('Patch not found for thread')
+    }
+
+    const resume = await ctx.runQuery(
+      internal.modules.resume.queries.getByIdInternal,
+      { resumeId: patch.resumeId },
+    )
+
+    return resume?.data ?? null
+  },
+})
+
+// The agent is created per-call because the OpenAI provider is initialized
+// asynchronously via setupOpenAI().
+export function createPatchAgent() {
+  return new Agent(components.agent, {
+    name: 'patch-agent',
+    languageModel: openai.responses(OpenAIModels['gpt-5.6-luna']),
+    instructions: PATCH_AGENT_INSTRUCTIONS,
+    tools: { updateResume, readBaseResume },
+    stopWhen: stepCountIs(8),
+  })
+}
+
+let cachedTemplate: Uint8Array | null = null
+
+function getTemplateBuffer(): Uint8Array {
+  if (cachedTemplate) {
+    return cachedTemplate
+  }
+
+  cachedTemplate = decodeBase64Template()
+  return cachedTemplate
+}
+
+async function countPdfPages(
+  ctx: {
+    storage: {
+      get: (id: Doc<'patchVersions'>['patchedFileId']) => Promise<Blob | null>
+    }
+  },
+  pdfFileId: Doc<'patchVersions'>['patchedFileId'],
+): Promise<number | null> {
+  const blob = await ctx.storage.get(pdfFileId)
+  if (!blob) {
+    return null
+  }
+
+  const pdf = await PDFDocument.load(await blob.arrayBuffer(), {
+    ignoreEncryption: true,
+  })
+  return pdf.getPageCount()
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength)
+  new Uint8Array(buffer).set(bytes)
+  return buffer
+}

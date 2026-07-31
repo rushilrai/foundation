@@ -1,11 +1,5 @@
 'use node'
 
-import {
-  DEFAULT_REASONING_EFFORT,
-  openai,
-  OpenAIModels,
-  setupOpenAI,
-} from '@convex/configs/ai'
 import { generateText, Output } from 'ai'
 import { v } from 'convex/values'
 import JSZip from 'jszip'
@@ -17,6 +11,12 @@ import {
   ResumeDataSchema,
   type ResumeData,
 } from '../../../shared/resumeSchema'
+import {
+  DEFAULT_REASONING_EFFORT,
+  openai,
+  OpenAIModels,
+  setupOpenAI,
+} from '../../configs/ai'
 import { convertDocxToPdf } from '../common/cloudconvert'
 
 export const extractResumeData = internalAction({

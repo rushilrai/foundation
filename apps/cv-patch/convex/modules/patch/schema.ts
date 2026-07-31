@@ -1,7 +1,10 @@
 import { defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-import { nullableResumeDataValidator } from '../common/resumeData'
+import {
+  nullableResumeDataValidator,
+  resumeDataValidator,
+} from '../common/resumeData'
 
 export const patchFields = {
   resumeId: v.id('resumes'),
@@ -10,7 +13,12 @@ export const patchFields = {
   jobDescription: v.string(),
   companyName: v.string(),
   roleName: v.string(),
-  streamingText: v.nullable(v.string()),
+  threadId: v.optional(v.string()),
+  activeVersionId: v.optional(v.id('patchVersions')),
+  // Set while an agent run is in flight; guards against concurrent runs.
+  agentRunningSince: v.optional(v.number()),
+  // Legacy field from the pre-agent flow; no longer written.
+  streamingText: v.optional(v.nullable(v.string())),
   templateId: v.string(),
   data: nullableResumeDataValidator,
   patchedFileId: v.nullable(v.id('_storage')),
@@ -32,3 +40,21 @@ export const patchTable = defineTable(patchFields)
   .index('by_userId', ['userId'])
   .index('by_resumeId_deleted', ['resumeId', 'deleted'])
   .index('by_userId_deleted', ['userId', 'deleted'])
+  .index('by_threadId', ['threadId'])
+
+export const patchVersionFields = {
+  patchId: v.id('patches'),
+  userId: v.id('users'),
+  versionNumber: v.number(),
+  data: resumeDataValidator,
+  changes: v.array(v.string()),
+  patchedFileId: v.id('_storage'),
+  pdfFileId: v.nullable(v.id('_storage')),
+  pageCount: v.nullable(v.number()),
+  createdAt: v.number(),
+}
+
+export const patchVersionTable = defineTable(patchVersionFields).index(
+  'by_patchId',
+  ['patchId'],
+)
