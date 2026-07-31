@@ -1,8 +1,19 @@
 import { useSmoothText, type UIMessage } from '@convex-dev/agent/react'
-import { useEffect, useRef, useState } from 'react'
+import { IconCheck, IconLoader2 } from '@tabler/icons-react'
+import { useState } from 'react'
 
-import { cn } from '@/components/lib/utils'
+import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Button } from '@/components/ui/button'
+import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker'
+import { Message, MessageContent } from '@/components/ui/message'
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from '@/components/ui/message-scroller'
 import { Textarea } from '@/components/ui/textarea'
 import { useSendPatchMessage } from '@/modules/patch/mutations'
 import { usePatchThreadMessages } from '@/modules/patch/queries'
@@ -29,7 +40,6 @@ export const PatchChat = ({ patch }: PatchChatProps) => {
 
   const [draft, setDraft] = useState('')
   const [sendError, setSendError] = useState<string | null>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
 
   const results = (messages.results ?? []).filter(
     (message) =>
@@ -37,13 +47,6 @@ export const PatchChat = ({ patch }: PatchChatProps) => {
   )
   const lastMessage = results[results.length - 1]
   const isBusy = patch.agentRunningSince !== undefined
-
-  useEffect(() => {
-    const el = scrollRef.current
-    if (el) {
-      el.scrollTop = el.scrollHeight
-    }
-  }, [results.length, lastMessage?.text])
 
   const handleSend = async () => {
     const prompt = draft.trim()
@@ -77,40 +80,58 @@ export const PatchChat = ({ patch }: PatchChatProps) => {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-6">
-        {!patch.threadId && (
-          <p className="text-sm text-muted-foreground">
-            This variant was generated before chat existed. Send a message to
-            start a conversation about it.
-          </p>
-        )}
+      <MessageScrollerProvider autoScroll defaultScrollPosition="end">
+        <MessageScroller className="flex-1">
+          <MessageScrollerViewport className="p-6">
+            <MessageScrollerContent className="gap-4">
+              {!patch.threadId && (
+                <p className="text-sm text-muted-foreground">
+                  This variant was generated before chat existed. Send a message
+                  to start a conversation about it.
+                </p>
+              )}
 
-        {patch.threadId && results.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            {patch.status === 'generating'
-              ? 'The agent is reading the job description...'
-              : 'No messages yet.'}
-          </p>
-        )}
+              {patch.threadId && results.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {patch.status === 'generating'
+                    ? 'The agent is reading the job description...'
+                    : 'No messages yet.'}
+                </p>
+              )}
 
-        {results.map((message) => (
-          <ChatMessage key={message.key} message={message} />
-        ))}
+              {results.map((message) => (
+                <MessageScrollerItem
+                  key={message.key}
+                  messageId={message.key}
+                  scrollAnchor={message.role === 'user'}
+                >
+                  <ChatMessage message={message} />
+                </MessageScrollerItem>
+              ))}
 
-        {showThinking && (
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-primary" />
-            <p className="text-sm text-muted-foreground">Working...</p>
-          </div>
-        )}
-      </div>
+              {showThinking && (
+                <MessageScrollerItem messageId="thinking">
+                  <Marker>
+                    <MarkerIcon>
+                      <IconLoader2 className="animate-spin" />
+                    </MarkerIcon>
+                    <MarkerContent>Working...</MarkerContent>
+                  </Marker>
+                </MessageScrollerItem>
+              )}
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+
+          <MessageScrollerButton />
+        </MessageScroller>
+      </MessageScrollerProvider>
 
       <div className="border-t p-4">
         {sendError && (
           <p className="mb-2 text-sm text-destructive">{sendError}</p>
         )}
 
-        <div className="flex items-end gap-2">
+        <div className="flex items-stretch gap-2">
           <Textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -125,7 +146,11 @@ export const PatchChat = ({ patch }: PatchChatProps) => {
             rows={2}
           />
 
-          <Button onClick={handleSend} disabled={!draft.trim() || isBusy}>
+          <Button
+            onClick={handleSend}
+            disabled={!draft.trim() || isBusy}
+            className="h-auto"
+          >
             Send
           </Button>
         </div>
@@ -137,36 +162,42 @@ export const PatchChat = ({ patch }: PatchChatProps) => {
 const ChatMessage = ({ message }: { message: UIMessage }) => {
   if (message.role === 'user') {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm whitespace-pre-wrap text-primary-foreground">
-          {message.text}
-        </div>
-      </div>
+      <Message align="end">
+        <MessageContent>
+          <Bubble align="end">
+            <BubbleContent className="whitespace-pre-wrap">
+              {message.text}
+            </BubbleContent>
+          </Bubble>
+        </MessageContent>
+      </Message>
     )
   }
 
-  // Render parts in their actual order so tool chips sit between the text
+  // Render parts in their actual order so tool markers sit between the text
   // they chronologically belong to.
   return (
-    <div className="flex flex-col items-start gap-2">
-      {message.parts.map((part, index) => {
-        if (part.type === 'text') {
-          return (
-            <AssistantText
-              key={`part-${index}`}
-              text={part.text}
-              streaming={message.status === 'streaming'}
-            />
-          )
-        }
+    <Message>
+      <MessageContent>
+        {message.parts.map((part, index) => {
+          if (part.type === 'text') {
+            return (
+              <AssistantText
+                key={`part-${index}`}
+                text={part.text}
+                streaming={message.status === 'streaming'}
+              />
+            )
+          }
 
-        if (part.type.startsWith('tool-')) {
-          return <ToolChip key={`part-${index}`} part={part} />
-        }
+          if (part.type.startsWith('tool-')) {
+            return <ToolMarker key={`part-${index}`} part={part} />
+          }
 
-        return null
-      })}
-    </div>
+          return null
+        })}
+      </MessageContent>
+    </Message>
   )
 }
 
@@ -184,9 +215,11 @@ const AssistantText = ({
   }
 
   return (
-    <div className="max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm whitespace-pre-wrap">
-      {visibleText}
-    </div>
+    <Bubble variant="ghost">
+      <BubbleContent className="whitespace-pre-wrap">
+        {visibleText}
+      </BubbleContent>
+    </Bubble>
   )
 }
 
@@ -203,12 +236,13 @@ const getToolOutput = (part: UIMessage['parts'][number]): ToolOutput | null => {
   return null
 }
 
-const ToolChip = ({ part }: { part: UIMessage['parts'][number] }) => {
+const ToolMarker = ({ part }: { part: UIMessage['parts'][number] }) => {
   const isUpdate = part.type === 'tool-updateResume'
   const isCoverLetter = part.type === 'tool-writeCoverLetter'
   const output = getToolOutput(part)
 
   const hasErrored = 'state' in part && part.state === 'output-error'
+  const isWorking = (isUpdate || isCoverLetter) && !output && !hasErrored
 
   let label: string
   if (hasErrored) {
@@ -230,15 +264,17 @@ const ToolChip = ({ part }: { part: UIMessage['parts'][number] }) => {
   }
 
   return (
-    <span
-      className={cn(
-        'rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground',
-        (isUpdate || isCoverLetter) &&
-          output?.ok &&
-          'border-primary/40 text-foreground',
-      )}
-    >
-      {label}
-    </span>
+    <Marker>
+      <MarkerIcon>
+        {isWorking ? (
+          <IconLoader2 className="animate-spin" />
+        ) : (
+          <IconCheck className={hasErrored ? 'text-destructive' : undefined} />
+        )}
+      </MarkerIcon>
+      <MarkerContent className={hasErrored ? 'text-destructive' : undefined}>
+        {label}
+      </MarkerContent>
+    </Marker>
   )
 }
