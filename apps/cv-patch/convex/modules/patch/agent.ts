@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { components, internal } from '../../_generated/api'
 import type { Doc } from '../../_generated/dataModel'
 import { ResumeDataSchema } from '../../../shared/resumeSchema'
+import { deepStripCitations } from '../../../shared/stripCitations'
 import { decodeCoverLetterTemplate } from '../../assets/coverLetterTemplateData'
 import { decodeBase64Template } from '../../assets/resumeTemplateData'
 import { openai, OpenAIModels } from '../../configs/ai'
@@ -105,12 +106,15 @@ const updateResume = createTool({
       throw new Error('Profile data not available')
     }
 
-    const issues = validatePatchedData(args.data, profile.data)
+    // Web-search citation markers must never reach the document.
+    const data = deepStripCitations(args.data)
+
+    const issues = validatePatchedData(data, profile.data)
     if (issues.length > 0) {
       return { ok: false, issues }
     }
 
-    const docxBytes = renderResumeTemplate(getTemplateBuffer(), args.data)
+    const docxBytes = renderResumeTemplate(getTemplateBuffer(), data)
     const patchedFileId = await ctx.storage.store(
       new Blob([toArrayBuffer(docxBytes)], {
         type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -146,7 +150,7 @@ const updateResume = createTool({
         internal.modules.patch.mutations.saveVersion,
         {
           patchId: patch._id,
-          data: args.data,
+          data,
           changes: args.changes,
           patchedFileId,
           pdfFileId,
@@ -219,6 +223,10 @@ const writeCoverLetter = createTool({
       .filter(Boolean)
       .join(' — ')
 
+    // Web-search citation markers must never reach the document.
+    const greeting = deepStripCitations(args.greeting)
+    const paragraphs = deepStripCitations(args.paragraphs)
+
     const docxBytes = renderCoverLetterTemplate(
       getCoverLetterBuffer(),
       {
@@ -230,8 +238,8 @@ const writeCoverLetter = createTool({
           year: 'numeric',
         }),
         company: companyLine,
-        greeting: args.greeting,
-        paragraphs: args.paragraphs,
+        greeting,
+        paragraphs,
       },
       profile.data.header,
     )
@@ -255,8 +263,8 @@ const writeCoverLetter = createTool({
     try {
       await ctx.runMutation(internal.modules.patch.mutations.saveCoverLetter, {
         patchId: patch._id,
-        greeting: args.greeting,
-        paragraphs: args.paragraphs,
+        greeting,
+        paragraphs,
         fileId,
         pdfFileId,
       })

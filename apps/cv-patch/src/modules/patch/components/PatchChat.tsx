@@ -1,4 +1,5 @@
 import { useSmoothText, type UIMessage } from '@convex-dev/agent/react'
+import { stripCitationMarkers } from '@shared/stripCitations'
 import { IconCheck, IconLoader2 } from '@tabler/icons-react'
 import { useState } from 'react'
 
@@ -208,7 +209,9 @@ const AssistantText = ({
   text: string
   streaming: boolean
 }) => {
-  const [visibleText] = useSmoothText(text, { startStreaming: streaming })
+  const [visibleText] = useSmoothText(stripCitationMarkers(text), {
+    startStreaming: streaming,
+  })
 
   if (!visibleText) {
     return null

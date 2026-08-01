@@ -8,6 +8,7 @@ import { components, internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { ProfileDataSchema } from '../../../shared/profileSchema'
 import { MAX_HEADER_LINKS } from '../../../shared/resumeSchema'
+import { deepStripCitations } from '../../../shared/stripCitations'
 import { openai, OpenAIModels } from '../../configs/ai'
 
 export const PROFILE_AGENT_INSTRUCTIONS = `You are a profile-building assistant. A profile is the master record of the user's career for one family of target roles — deliberately richer than any single resume. A separate tailoring agent later curates this profile into one-page resumes and cover letters per job, so more well-organized content here means better tailored documents there.
@@ -86,7 +87,8 @@ const updateProfile = createTool({
       internal.modules.profile.mutations.updateDataInternal,
       {
         profileId: profile._id,
-        data: args.data,
+        // Web-search citation markers must never reach stored profile facts.
+        data: deepStripCitations(args.data),
       },
     )
 
