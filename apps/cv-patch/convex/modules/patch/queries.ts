@@ -5,17 +5,17 @@ import { v } from 'convex/values'
 import { components } from '../../_generated/api'
 import type { Doc } from '../../_generated/dataModel'
 import { internalQuery, query } from '../../_generated/server'
-import { getById as getResumeById } from '../resume/helpers'
+import { getById as getProfileById } from '../profile/helpers'
 import { getByExternalId } from '../user/helpers'
 import {
   getById,
   getByIdWithAuth,
-  getPatchesForResume,
+  getPatchesForProfile,
   getUserPatches,
 } from './helpers'
 
-export const listForResume = query({
-  args: { resumeId: v.id('resumes') },
+export const listForProfile = query({
+  args: { profileId: v.id('profiles') },
   handler: async (
     ctx,
     args,
@@ -30,16 +30,16 @@ export const listForResume = query({
       return { error: 'USER_NOT_FOUND' }
     }
 
-    // Verify resume belongs to user
-    const resume = await getResumeById(ctx, args.resumeId)
-    if (!resume) {
-      return { error: 'RESUME_NOT_FOUND' }
+    // Verify profile belongs to user
+    const profile = await getProfileById(ctx, args.profileId)
+    if (!profile) {
+      return { error: 'PROFILE_NOT_FOUND' }
     }
-    if (resume.userId !== user._id) {
+    if (profile.userId !== user._id) {
       return { error: 'FORBIDDEN' }
     }
 
-    const patches = await getPatchesForResume(ctx, args.resumeId)
+    const patches = await getPatchesForProfile(ctx, args.profileId)
 
     return { patches }
   },

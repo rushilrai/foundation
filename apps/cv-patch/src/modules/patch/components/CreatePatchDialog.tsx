@@ -21,7 +21,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useCreatePatch } from '@/modules/patch/mutations'
-import type { ResumeId } from '@/modules/resume/schema'
+import type { ProfileId } from '@/modules/profile/schema'
 
 const createPatchSchema = z.object({
   companyName: z.string().min(1, 'Company name is required'),
@@ -30,12 +30,12 @@ const createPatchSchema = z.object({
 })
 
 type CreatePatchDialogProps = {
-  resumeId: ResumeId
+  profileId: ProfileId
   children: React.ReactNode
 }
 
 export const CreatePatchDialog = ({
-  resumeId,
+  profileId,
   children,
 }: CreatePatchDialogProps) => {
   const [open, setOpen] = useState(false)
@@ -64,7 +64,7 @@ export const CreatePatchDialog = ({
 
       try {
         const result = await createPatch({
-          resumeId,
+          profileId,
           title: generateTitle(value.companyName, value.roleName),
           jobDescription: value.jobDescription.trim(),
           companyName: value.companyName.trim(),
@@ -75,14 +75,16 @@ export const CreatePatchDialog = ({
           setOpen(false)
           form.reset()
           navigate({
-            to: '/dashboard/resume/$id/patch/$patchId',
-            params: { id: resumeId, patchId: result.patchId },
+            to: '/dashboard/profile/$id/patch/$patchId',
+            params: { id: profileId, patchId: result.patchId },
           })
         } else {
           setSubmitError(
             result.error === 'RATE_LIMITED'
               ? 'Rate limit reached. Try again in a little while.'
-              : 'Failed to create the variant. Please try again.',
+              : result.error === 'PROFILE_EMPTY'
+                ? 'Add some experience or projects to the profile first.'
+                : 'Failed to create the variant. Please try again.',
           )
         }
       } catch (error) {

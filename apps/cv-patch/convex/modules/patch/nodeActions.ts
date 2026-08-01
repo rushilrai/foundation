@@ -10,7 +10,7 @@ import { buildPatchSystem, createPatchAgent } from './agent'
 
 // Mirrored in PatchChat.tsx, which hides this synthetic message.
 const FIRST_RUN_PROMPT =
-  'Analyze the job description, tailor my resume to it, and write a cover letter.'
+  'Research the company and role, curate my resume from my profile, and write a cover letter.'
 
 export const startPatchAgent = internalAction({
   args: { patchId: v.id('patches') },
@@ -36,13 +36,13 @@ export const startPatchAgent = internalAction({
         throw new Error('Patch has no thread')
       }
 
-      const resume = await ctx.runQuery(
-        internal.modules.resume.queries.getByIdInternal,
-        { resumeId: patch.resumeId },
+      const profile = await ctx.runQuery(
+        internal.modules.profile.queries.getByIdInternal,
+        { profileId: patch.profileId },
       )
 
-      if (!resume?.data) {
-        throw new Error('Resume data not available')
+      if (!profile) {
+        throw new Error('Profile data not available')
       }
 
       const agent = createPatchAgent()
@@ -51,7 +51,7 @@ export const startPatchAgent = internalAction({
         { threadId: patch.threadId, userId: patch.userId },
         {
           prompt: FIRST_RUN_PROMPT,
-          system: buildPatchSystem(patch, resume),
+          system: buildPatchSystem(patch, profile),
           providerOptions: {
             openai: { reasoningEffort: DEFAULT_REASONING_EFFORT },
           },
@@ -165,13 +165,13 @@ export const continuePatchAgent = internalAction({
         return
       }
 
-      const resume = await ctx.runQuery(
-        internal.modules.resume.queries.getByIdInternal,
-        { resumeId: patch.resumeId },
+      const profile = await ctx.runQuery(
+        internal.modules.profile.queries.getByIdInternal,
+        { profileId: patch.profileId },
       )
 
-      if (!resume?.data) {
-        console.error('[continuePatchAgent] Resume data not available', {
+      if (!profile) {
+        console.error('[continuePatchAgent] Profile data not available', {
           patchId: args.patchId,
         })
         return
@@ -183,7 +183,7 @@ export const continuePatchAgent = internalAction({
         { threadId: patch.threadId, userId: patch.userId },
         {
           promptMessageId: args.promptMessageId,
-          system: buildPatchSystem(patch, resume),
+          system: buildPatchSystem(patch, profile),
           providerOptions: {
             openai: { reasoningEffort: DEFAULT_REASONING_EFFORT },
           },

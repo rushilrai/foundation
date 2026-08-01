@@ -18,66 +18,48 @@ import {
   renderResumeTemplate,
 } from './docxTemplate'
 import { validatePatchedData } from './validation'
+import { VOICE_RULES } from './voice'
 
-export const PATCH_AGENT_INSTRUCTIONS = `You are a resume tailoring assistant. You help the user adapt their base resume to a specific job description through conversation, and you deliver updated resume documents with the updateResume tool.
+export const PATCH_AGENT_INSTRUCTIONS = `You are a resume tailoring agent. The user's profile is a rich master record of their career — more projects, roles, and detail than fits on a page. Your job is to curate and rewrite it into the strongest one-page resume and cover letter for one specific job, and to talk with the user about it.
 
 Behaviour:
-- On the first message of a thread: briefly analyze the job description (key hard skills, tools, domain terminology, seniority signals), explain in a short plan how you will reword the resume, then call updateResume with your first tailored pass, then call writeCoverLetter with a tailored cover letter, then summarize what you did in one short paragraph.
-- On follow-up requests: apply the user's asks via updateResume (always pass the FULL resume data, not a fragment) or writeCoverLetter (rewrites replace the whole letter), and reply concisely about what changed.
-- The JSON you pass to updateResume must already contain the reworded text. Never submit the base resume unchanged — describing changes in the changelog without making them in the data is a failure.
+- On the first message of a thread: research the company and role with webSearch (what they build, tech stack, domain language, what this role likely needs — 1-3 focused searches). Analyze the job description. Briefly share what you learned and how you'll tailor (2-4 sentences). Then call updateResume with your curated resume, then writeCoverLetter, then summarize in one short paragraph.
+- On follow-up requests: apply the user's asks via updateResume (always pass the FULL resume data) or writeCoverLetter (rewrites replace the whole letter), and reply concisely about what changed.
 - Keep chat replies short and skimmable. No headers, no long lists unless asked.
-- If updateResume reports issues, fix them and call it again. Do not report failure to the user unless you cannot resolve the issues after a few attempts.
+- If updateResume reports issues, fix them and retry. If it fails twice in a row on the same problem, STOP retrying: keep the last saved version if one exists, and tell the user plainly what is blocking and what you tried. Never loop silently.
+
+Curation — you choose what makes the page:
+- Select the experiences and projects most relevant to this job description and company. Prefer including every work experience; be selective with projects (typically 3-4 of the strongest matches).
+- You may reorder projects and bullets, choose how many bullets each role or project gets (1-4 based on relevance), and rewrite all wording freely.
+- Every FACT (companies, dates, metrics, tools used, outcomes) must come from the profile. Never invent, exaggerate, or blend facts across entries. Wording is yours; facts are not.
+- Integrate the job description's terminology where it truthfully describes profile facts. Prioritize hard skills, tools, and domain nouns over soft-skill wording.
+- Keep every metric (numbers, percentages, currency, scale) from the profile bullets you use.
+- Copy these exactly from the profile, byte-for-byte: header name/phone/email/location, header links (you may select and reorder up to 5, but not edit them), company names and companyMeta, role meta lines, school names, education locations/dates, project dates, and project urls for the projects you include.
+
+One page — hard requirement:
+- The rendered document must fit on one page; updateResume rejects overflow with the real page count.
+- Budget roughly: education entries ~2 lines each; each role ~1 line of header plus ~1 line per bullet (bullets over ~110 characters wrap to 2 lines); each project the same; skills ~3 lines; extras ~1 line each. Aim for ~40-45 content lines total. When trimming, cut whole bullets or projects before compressing wording into keyword soup.
 
 Cover letter rules:
-- 3-4 paragraphs, under 300 words total, professional but not stiff.
-- Ground every claim in facts from the base resume; never invent experience.
-- Mirror the JD's terminology naturally; name the company and role in the opening paragraph.
+- 3-4 paragraphs, under 300 words, addressed to a person not an organization.
+- Anchor it in the role brief and the profile's voice/personal notes — say things the resume cannot. Reference something real about the company from your research (a product, a practice), never generic flattery.
+- Name the company and role naturally in the opening paragraph — but never open with a template line.
 
-Editing rules — in-place rewording only:
-- Maximize match quality for both ATS keyword matching and LLM-assisted recruiter screening.
-- Integrate exact JD terminology where it naturally fits the original accomplishment.
-- Add relevant lexical variants (abbreviations, expanded forms, adjacent domain phrasing) when factual meaning stays the same.
-- Prioritize hard skills, tools, domain nouns, and scope/impact language over generic soft-skill wording.
-- Do NOT invent facts, restructure sentences, add new bullets, remove bullets, or add/remove entries.
-- Do NOT reorder bullets.
-- You MAY reorder items within the skills fields (technical, financial, languages) to prioritize JD-relevant skills first.
-- Preserve quantitative evidence: if a bullet contains numbers/percentages/currency/scale tokens, keep those metrics in the rewritten bullet.
-
-Immutable fields — copy these exactly, byte-for-byte:
-- header.name, header.phone, header.email, header.location, header.links (every label and url)
-- experience[].company, experience[].companyMeta
-- experience[].roles[].meta
-- education[].school, education[].location, education[].dates
-- projects[].dates
-
-Editable fields — rewrite for ATS keyword alignment while preserving approximate character length:
-- experience[].roles[].title — only adjust if the JD uses a clearly equivalent title; keep length within ~80%-125% of original
-- experience[].roles[].bullets[] — substitute keywords, keep each bullet within ~80%-100% of original character count
-- education[].degree, education[].details — keyword-focused rewrites within ~80%-100% of original length
-- projects[].name — keyword-focused rewrite within ~80%-100% of original length
-- projects[].bullets[] — same rules as experience bullets
-- skills.technical, skills.financial, skills.languages — reorder to front-load JD-relevant terms, may substitute equivalent terms
-- extras[] — preserve as-is unless directly relevant; if edited keep length within ~80%-100% of original
-
-Structural invariants:
-- Same number of experience entries, same number of roles per experience entry, same number of bullets per role.
-- Same number of education entries, project entries, and extras entries.
-
-The rendered document must fit on one page — updateResume rejects output that overflows.`
+${VOICE_RULES}`
 
 export function buildPatchSystem(
   patch: Doc<'patches'>,
-  resume: Doc<'resumes'>,
+  profile: Doc<'profiles'>,
 ): string {
   const companyContext =
     patch.companyName || patch.roleName
-      ? `\nTarget company: ${patch.companyName || 'N/A'}\nTarget role: ${patch.roleName || 'N/A'}\nLeverage domain-specific language and terminology from this company/industry where it naturally fits.`
+      ? `\nTarget company: ${patch.companyName || 'N/A'}\nTarget role: ${patch.roleName || 'N/A'}`
       : ''
 
   return `${PATCH_AGENT_INSTRUCTIONS}
 
-Base resume JSON (the immutable source of truth for facts and structure):
-${JSON.stringify(resume.data)}
+Profile JSON (the source of truth for all facts; curate from it, never beyond it):
+${JSON.stringify(profile.data)}
 
 Job description:
 ${patch.jobDescription}
@@ -95,7 +77,7 @@ type UpdateResumeResult =
 
 const updateResume = createTool({
   description:
-    'Validate, render, and save a new version of the tailored resume. Pass the FULL resume data JSON (matching the base resume structure exactly) plus a short changelog. Returns validation issues to fix if the data breaks the tailoring rules or overflows one page.',
+    'Validate, render, and save a new version of the tailored resume. Pass the FULL resume data JSON (curated from the profile) plus a short changelog. Returns issues to fix if facts drift from the profile or the document overflows one page.',
   inputSchema: z.object({
     data: ResumeDataSchema,
     changes: z
@@ -115,27 +97,17 @@ const updateResume = createTool({
       throw new Error('Patch not found for thread')
     }
 
-    const resume = await ctx.runQuery(
-      internal.modules.resume.queries.getByIdInternal,
-      { resumeId: patch.resumeId },
+    const profile = await ctx.runQuery(
+      internal.modules.profile.queries.getByIdInternal,
+      { profileId: patch.profileId },
     )
-    if (!resume?.data) {
-      throw new Error('Base resume data not available')
+    if (!profile) {
+      throw new Error('Profile data not available')
     }
 
-    const issues = validatePatchedData(args.data, resume.data)
+    const issues = validatePatchedData(args.data, profile.data)
     if (issues.length > 0) {
       return { ok: false, issues }
-    }
-
-    // The model sometimes echoes the base resume unchanged; reject no-ops.
-    if (stableStringify(args.data) === stableStringify(resume.data)) {
-      return {
-        ok: false,
-        issues: [
-          'The submitted data is identical to the base resume. Apply the actual keyword rewording (bullets, titles, skills ordering) in the JSON you submit — do not re-send the base resume unchanged.',
-        ],
-      }
     }
 
     const docxBytes = renderResumeTemplate(getTemplateBuffer(), args.data)
@@ -163,7 +135,7 @@ const updateResume = createTool({
       return {
         ok: false,
         issues: [
-          `The rendered resume is ${pageCount} pages — it must fit on one page. Tighten the wording (shorten the longest bullets) and try again.`,
+          `The rendered resume is ${pageCount} pages — it must fit on one page. Cut whole bullets or drop the least relevant project, then try again.`,
         ],
       }
     }
@@ -194,10 +166,15 @@ const updateResume = createTool({
       ok: true,
       versionNumber,
       pageCount,
-      ...(pageCount === null && {
-        warning:
-          'PDF preview generation failed, so the one-page check could not run. Tell the user the PDF preview is unavailable for this version but the DOCX download works.',
-      }),
+      ...(pdfFileId === null
+        ? {
+            warning:
+              'PDF preview generation failed, so the one-page check could not run. Tell the user the PDF preview is unavailable for this version but the DOCX download works.',
+          }
+        : pageCount === null && {
+            warning:
+              'The PDF rendered but the page count could not be read, so the one-page check was skipped. Mention this to the user.',
+          }),
     }
   },
 })
@@ -230,12 +207,12 @@ const writeCoverLetter = createTool({
       throw new Error('Patch not found for thread')
     }
 
-    const resume = await ctx.runQuery(
-      internal.modules.resume.queries.getByIdInternal,
-      { resumeId: patch.resumeId },
+    const profile = await ctx.runQuery(
+      internal.modules.profile.queries.getByIdInternal,
+      { profileId: patch.profileId },
     )
-    if (!resume?.data) {
-      throw new Error('Base resume data not available')
+    if (!profile) {
+      throw new Error('Profile data not available')
     }
 
     const companyLine = [patch.companyName, patch.roleName]
@@ -245,8 +222,8 @@ const writeCoverLetter = createTool({
     const docxBytes = renderCoverLetterTemplate(
       getCoverLetterBuffer(),
       {
-        senderName: resume.data.header.name,
-        contactLine: buildContactLine(resume.data.header),
+        senderName: profile.data.header.name,
+        contactLine: buildContactLine(profile.data.header),
         date: new Date().toLocaleDateString('en-GB', {
           day: 'numeric',
           month: 'long',
@@ -256,7 +233,7 @@ const writeCoverLetter = createTool({
         greeting: args.greeting,
         paragraphs: args.paragraphs,
       },
-      resume.data.header,
+      profile.data.header,
     )
 
     const fileId = await ctx.storage.store(
@@ -301,13 +278,13 @@ const writeCoverLetter = createTool({
   },
 })
 
-const readBaseResume = createTool({
+const readProfile = createTool({
   description:
-    'Read the base (original) resume data JSON that all tailoring must stay faithful to.',
+    'Read the full profile data JSON that all tailoring must stay faithful to.',
   inputSchema: z.object({}),
   execute: async (ctx): Promise<unknown> => {
     if (!ctx.threadId) {
-      throw new Error('readBaseResume called outside a thread')
+      throw new Error('readProfile called outside a thread')
     }
 
     const patch = await ctx.runQuery(
@@ -318,12 +295,12 @@ const readBaseResume = createTool({
       throw new Error('Patch not found for thread')
     }
 
-    const resume = await ctx.runQuery(
-      internal.modules.resume.queries.getByIdInternal,
-      { resumeId: patch.resumeId },
+    const profile = await ctx.runQuery(
+      internal.modules.profile.queries.getByIdInternal,
+      { profileId: patch.profileId },
     )
 
-    return resume?.data ?? null
+    return profile?.data ?? null
   },
 })
 
@@ -333,8 +310,13 @@ export function createPatchAgent() {
     name: 'patch-agent',
     languageModel: openai.responses(OpenAIModels['gpt-5.6-luna']),
     instructions: PATCH_AGENT_INSTRUCTIONS,
-    tools: { updateResume, writeCoverLetter, readBaseResume },
-    stopWhen: stepCountIs(10),
+    tools: {
+      updateResume,
+      writeCoverLetter,
+      readProfile,
+      webSearch: openai.tools.webSearch({ searchContextSize: 'medium' }),
+    },
+    stopWhen: stepCountIs(12),
   })
 }
 
@@ -376,20 +358,6 @@ async function countPdfPages(
     ignoreEncryption: true,
   })
   return pdf.getPageCount()
-}
-
-// Key-order-insensitive comparison form.
-function stableStringify(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map(stableStringify).join(',')}]`
-  }
-  if (value !== null && typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .sort(([a], [b]) => (a < b ? -1 : 1))
-      .map(([key, val]) => `${JSON.stringify(key)}:${stableStringify(val)}`)
-    return `{${entries.join(',')}}`
-  }
-  return JSON.stringify(value)
 }
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {

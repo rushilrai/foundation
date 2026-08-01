@@ -27,6 +27,7 @@ import type * as modules_patch_mutations from "../modules/patch/mutations.js";
 import type * as modules_patch_nodeActions from "../modules/patch/nodeActions.js";
 import type * as modules_patch_queries from "../modules/patch/queries.js";
 import type * as modules_patch_validation from "../modules/patch/validation.js";
+import type * as modules_patch_voice from "../modules/patch/voice.js";
 import type * as modules_profile_actions from "../modules/profile/actions.js";
 import type * as modules_profile_agent from "../modules/profile/agent.js";
 import type * as modules_profile_helpers from "../modules/profile/helpers.js";
@@ -70,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   "modules/patch/nodeActions": typeof modules_patch_nodeActions;
   "modules/patch/queries": typeof modules_patch_queries;
   "modules/patch/validation": typeof modules_patch_validation;
+  "modules/patch/voice": typeof modules_patch_voice;
   "modules/profile/actions": typeof modules_profile_actions;
   "modules/profile/agent": typeof modules_profile_agent;
   "modules/profile/helpers": typeof modules_profile_helpers;

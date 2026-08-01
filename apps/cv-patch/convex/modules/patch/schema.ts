@@ -7,7 +7,7 @@ import {
 } from '../common/resumeData'
 
 export const patchFields = {
-  resumeId: v.id('resumes'),
+  profileId: v.id('profiles'),
   userId: v.id('users'),
   title: v.string(),
   jobDescription: v.string(),
@@ -17,8 +17,6 @@ export const patchFields = {
   activeVersionId: v.optional(v.id('patchVersions')),
   // Guards against concurrent agent runs; stale after 10 minutes.
   agentRunningSince: v.optional(v.number()),
-  // Legacy field from the pre-agent flow; no longer written.
-  streamingText: v.optional(v.nullable(v.string())),
   templateId: v.string(),
   data: nullableResumeDataValidator,
   patchedFileId: v.nullable(v.id('_storage')),
@@ -45,9 +43,9 @@ export const patchFields = {
 }
 
 export const patchTable = defineTable(patchFields)
-  .index('by_resumeId', ['resumeId'])
+  .index('by_profileId', ['profileId'])
   .index('by_userId', ['userId'])
-  .index('by_resumeId_deleted', ['resumeId', 'deleted'])
+  .index('by_profileId_deleted', ['profileId', 'deleted'])
   .index('by_userId_deleted', ['userId', 'deleted'])
   .index('by_threadId', ['threadId'])
 

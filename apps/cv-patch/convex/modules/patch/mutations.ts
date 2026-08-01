@@ -6,7 +6,7 @@ import type { Id } from '../../_generated/dataModel'
 import { internalMutation, mutation } from '../../_generated/server'
 import { rateLimiter } from '../../configs/rateLimiter'
 import { resumeDataValidator } from '../common/resumeData'
-import { getById as getResumeById } from '../resume/helpers'
+import { getById as getProfileById } from '../profile/helpers'
 import { getByExternalId } from '../user/helpers'
 import { getByIdWithAuth } from './helpers'
 
@@ -19,7 +19,7 @@ const isAgentBusy = (agentRunningSince: number | undefined): boolean =>
 
 export const create = mutation({
   args: {
-    resumeId: v.id('resumes'),
+    profileId: v.id('profiles'),
     title: v.string(),
     jobDescription: v.string(),
     companyName: v.string(),
@@ -39,17 +39,22 @@ export const create = mutation({
       return { error: 'USER_NOT_FOUND' }
     }
 
-    const resume = await getResumeById(ctx, args.resumeId)
-    if (!resume) {
-      return { error: 'RESUME_NOT_FOUND' }
+    const profile = await getProfileById(ctx, args.profileId)
+    if (!profile) {
+      return { error: 'PROFILE_NOT_FOUND' }
     }
 
-    if (resume.userId !== user._id) {
+    if (profile.userId !== user._id) {
       return { error: 'FORBIDDEN' }
     }
 
-    if (resume.status !== 'ready') {
-      return { error: 'RESUME_NOT_READY' }
+    // Tailoring needs facts to curate from.
+    if (
+      !profile.data.header.name.trim() ||
+      (profile.data.experience.length === 0 &&
+        profile.data.projects.length === 0)
+    ) {
+      return { error: 'PROFILE_EMPTY' }
     }
 
     const { ok } = await rateLimiter.limit(ctx, 'createPatch', {
@@ -66,7 +71,7 @@ export const create = mutation({
       })
 
       const patchId = await ctx.db.insert('patches', {
-        resumeId: args.resumeId,
+        profileId: args.profileId,
         userId: user._id,
         title: args.title,
         jobDescription: args.jobDescription,

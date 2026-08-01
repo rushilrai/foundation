@@ -2,11 +2,11 @@ import { useUIMessages } from '@convex-dev/agent/react'
 import { api } from '@convex/_generated/api.js'
 import { useQuery } from 'convex/react'
 
-import type { ResumeId } from '@/modules/resume/schema'
+import type { ProfileId } from '@/modules/profile/schema'
 import type { PatchId } from './schema'
 
-export function usePatchesForResume(resumeId: ResumeId) {
-  return useQuery(api.modules.patch.queries.listForResume, { resumeId })
+export function usePatchesForProfile(profileId: ProfileId) {
+  return useQuery(api.modules.patch.queries.listForProfile, { profileId })
 }
 
 export function usePatch(patchId: PatchId) {

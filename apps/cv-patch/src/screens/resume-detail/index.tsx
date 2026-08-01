@@ -2,7 +2,6 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { OriginalTab } from '@/modules/resume/components/OriginalTab'
-import { PatchesTab } from '@/modules/resume/components/PatchesTab'
 import { ResumeContentTab } from '@/modules/resume/components/ResumeContentTab'
 import { ResumeDetails } from '@/modules/resume/components/ResumeDetails'
 import { useGenerateResumeDownloadUrl } from '@/modules/resume/mutations'
@@ -74,7 +73,6 @@ export function ResumeDetailScreen({ resumeId }: { resumeId: string }) {
             <TabsList>
               <TabsTrigger value="original">Original</TabsTrigger>
               <TabsTrigger value="content">Content</TabsTrigger>
-              <TabsTrigger value="patches">Patches</TabsTrigger>
             </TabsList>
 
             <ResumeDetails resume={resume} />
@@ -86,10 +84,6 @@ export function ResumeDetailScreen({ resumeId }: { resumeId: string }) {
 
           <TabsContent value="content" className="mt-6">
             <ResumeContentTab resume={resume} />
-          </TabsContent>
-
-          <TabsContent value="patches" className="mt-6">
-            <PatchesTab resumeId={resume._id} />
           </TabsContent>
         </Tabs>
       </div>

@@ -57,8 +57,8 @@ export const PatchCard = ({ patch }: PatchCardProps) => {
           className="w-full"
           render={
             <Link
-              to="/dashboard/resume/$id/patch/$patchId"
-              params={{ id: patch.resumeId, patchId: patch._id }}
+              to="/dashboard/profile/$id/patch/$patchId"
+              params={{ id: patch.profileId, patchId: patch._id }}
             >
               View
             </Link>

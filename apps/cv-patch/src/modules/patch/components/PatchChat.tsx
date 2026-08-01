@@ -31,7 +31,7 @@ const sendErrorMessages: Record<string, string> = {
 
 // Mirrors FIRST_RUN_PROMPT in convex/modules/patch/nodeActions.ts.
 const FIRST_RUN_PROMPT =
-  'Analyze the job description, tailor my resume to it, and write a cover letter.'
+  'Research the company and role, curate my resume from my profile, and write a cover letter.'
 
 export const PatchChat = ({ patch }: PatchChatProps) => {
   const messages = usePatchThreadMessages(patch.threadId)
@@ -187,7 +187,10 @@ const ChatMessage = ({ message }: { message: UIMessage }) => {
             )
           }
 
-          if (part.type.startsWith('tool-')) {
+          if (
+            part.type.startsWith('tool-') ||
+            part.type.includes('web_search')
+          ) {
             return <ToolMarker key={`part-${index}`} part={part} />
           }
 
@@ -236,10 +239,13 @@ const getToolOutput = (part: UIMessage['parts'][number]): ToolOutput | null => {
 const ToolMarker = ({ part }: { part: UIMessage['parts'][number] }) => {
   const isUpdate = part.type === 'tool-updateResume'
   const isCoverLetter = part.type === 'tool-writeCoverLetter'
+  const isReadProfile = part.type === 'tool-readProfile'
   const output = getToolOutput(part)
 
   const hasErrored = 'state' in part && part.state === 'output-error'
-  const isWorking = (isUpdate || isCoverLetter) && !output && !hasErrored
+  const hasFinished =
+    output !== null || ('state' in part && part.state === 'output-available')
+  const isWorking = !hasFinished && !hasErrored && !isReadProfile
 
   let label: string
   if (hasErrored) {
@@ -250,14 +256,19 @@ const ToolMarker = ({ part }: { part: UIMessage['parts'][number] }) => {
         : 'Tool call failed'
   } else if (isCoverLetter) {
     label = output ? 'Cover letter ready' : 'Writing cover letter...'
-  } else if (!isUpdate) {
-    label = 'Read base resume'
-  } else if (!output) {
-    label = 'Updating resume...'
-  } else if (output.ok) {
-    label = `Saved resume version ${output.versionNumber}`
+  } else if (isReadProfile) {
+    label = 'Read profile'
+  } else if (isUpdate) {
+    if (!output) {
+      label = 'Updating resume...'
+    } else if (output.ok) {
+      label = `Saved resume version ${output.versionNumber}`
+    } else {
+      label = 'Validation caught issues — revising'
+    }
   } else {
-    label = 'Validation caught issues — revising'
+    // Everything else is provider-executed web search.
+    label = hasFinished ? 'Web search' : 'Searching the web...'
   }
 
   return (

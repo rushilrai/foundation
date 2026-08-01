@@ -1,6 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DocumentsTab } from '@/modules/profile/components/DocumentsTab'
+import { PatchesTab } from '@/modules/profile/components/PatchesTab'
 import { ProfileChat } from '@/modules/profile/components/ProfileChat'
 import { ProfileContentTab } from '@/modules/profile/components/ProfileContentTab'
 import { useProfile } from '@/modules/profile/queries'
@@ -62,6 +63,7 @@ export function ProfileDetailScreen({ profileId }: { profileId: string }) {
             <TabsList>
               <TabsTrigger value="content">Content</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="patches">Patches</TabsTrigger>
             </TabsList>
 
             <TabsContent value="content" className="mt-6">
@@ -70,6 +72,10 @@ export function ProfileDetailScreen({ profileId }: { profileId: string }) {
 
             <TabsContent value="documents" className="mt-6">
               <DocumentsTab profileId={profile._id} />
+            </TabsContent>
+
+            <TabsContent value="patches" className="mt-6">
+              <PatchesTab profileId={profile._id} />
             </TabsContent>
           </Tabs>
         </div>

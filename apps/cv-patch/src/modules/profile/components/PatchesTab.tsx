@@ -2,15 +2,15 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CreatePatchDialog } from '@/modules/patch/components/CreatePatchDialog'
 import { PatchCard } from '@/modules/patch/components/PatchCard'
-import { usePatchesForResume } from '@/modules/patch/queries'
-import type { ResumeId } from '@/modules/resume/schema'
+import { usePatchesForProfile } from '@/modules/patch/queries'
+import type { ProfileId } from '@/modules/profile/schema'
 
 type PatchesTabProps = {
-  resumeId: ResumeId
+  profileId: ProfileId
 }
 
-export const PatchesTab = ({ resumeId }: PatchesTabProps) => {
-  const patchesResult = usePatchesForResume(resumeId)
+export const PatchesTab = ({ profileId }: PatchesTabProps) => {
+  const patchesResult = usePatchesForProfile(profileId)
 
   if (patchesResult === undefined) {
     return (
@@ -36,7 +36,7 @@ export const PatchesTab = ({ resumeId }: PatchesTabProps) => {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">Variants ({patches.length})</h3>
 
-        <CreatePatchDialog resumeId={resumeId}>
+        <CreatePatchDialog profileId={profileId}>
           <Button>Create Variant</Button>
         </CreatePatchDialog>
       </div>
@@ -47,7 +47,7 @@ export const PatchesTab = ({ resumeId }: PatchesTabProps) => {
             No variants yet. Create your first tailored resume variant.
           </p>
 
-          <CreatePatchDialog resumeId={resumeId}>
+          <CreatePatchDialog profileId={profileId}>
             <Button>Create Variant</Button>
           </CreatePatchDialog>
         </div>

@@ -12,7 +12,6 @@ import type {
   PatchVersionId,
   PatchVersionWithUrls,
 } from '@/modules/patch/schema'
-import { useResume } from '@/modules/resume/queries'
 import { PatchDiff } from './PatchDiff'
 
 type PatchVersionsProps = {
@@ -21,7 +20,6 @@ type PatchVersionsProps = {
 
 export const PatchVersions = ({ patch }: PatchVersionsProps) => {
   const versionsResult = usePatchVersions(patch._id)
-  const resumeResult = useResume(patch.resumeId)
   const restoreVersion = useRestorePatchVersion()
   const [restoringId, setRestoringId] = useState<PatchVersionId | null>(null)
   const [toggledId, setToggledId] = useState<PatchVersionId | 'none' | null>(
@@ -46,11 +44,6 @@ export const PatchVersions = ({ patch }: PatchVersionsProps) => {
     )
   }
 
-  const baseData =
-    resumeResult !== undefined && 'resume' in resumeResult
-      ? resumeResult.resume.data
-      : null
-
   // Latest stays expanded until the user explicitly toggles something.
   const expandedId = toggledId ?? versions[0]._id
 
@@ -67,7 +60,7 @@ export const PatchVersions = ({ patch }: PatchVersionsProps) => {
 
   return (
     <div className="space-y-3">
-      {versions.map((version) => (
+      {versions.map((version, index) => (
         <VersionItem
           key={version._id}
           version={version}
@@ -75,7 +68,7 @@ export const PatchVersions = ({ patch }: PatchVersionsProps) => {
           isExpanded={expandedId === version._id}
           isRestoring={restoringId === version._id}
           restoreDisabled={restoringId !== null}
-          baseData={baseData}
+          previousData={versions[index + 1]?.data ?? null}
           onToggle={() =>
             setToggledId(expandedId === version._id ? 'none' : version._id)
           }
@@ -92,7 +85,7 @@ type VersionItemProps = {
   isExpanded: boolean
   isRestoring: boolean
   restoreDisabled: boolean
-  baseData: ResumeData | null
+  previousData: ResumeData | null
   onToggle: () => void
   onRestore: () => void
 }
@@ -103,7 +96,7 @@ const VersionItem = ({
   isExpanded,
   isRestoring,
   restoreDisabled,
-  baseData,
+  previousData,
   onToggle,
   onRestore,
 }: VersionItemProps) => {
@@ -200,12 +193,10 @@ const VersionItem = ({
 
           <div>
             <p className="mb-2 text-xs font-medium">Changes</p>
-            {baseData ? (
-              <PatchDiff base={baseData} patched={version.data} />
+            {previousData ? (
+              <PatchDiff base={previousData} patched={version.data} />
             ) : (
-              <p className="text-xs text-muted-foreground">
-                Base resume unavailable — cannot compute changes.
-              </p>
+              <p className="text-xs text-muted-foreground">Initial version</p>
             )}
           </div>
         </div>

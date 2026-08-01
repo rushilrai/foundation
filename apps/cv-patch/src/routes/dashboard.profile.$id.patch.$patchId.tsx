@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { PatchDetailScreen } from '@/screens/patch-detail'
 
-export const Route = createFileRoute('/dashboard/resume/$id/patch/$patchId')({
+export const Route = createFileRoute('/dashboard/profile/$id/patch/$patchId')({
   component: PatchDetailRoute,
 })
 

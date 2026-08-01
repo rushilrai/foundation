@@ -15,7 +15,7 @@ import { Route as SignInSplatRouteImport } from './routes/sign-in.$'
 import { Route as DashboardHomeRouteImport } from './routes/dashboard.home'
 import { Route as DashboardResumeIdIndexRouteImport } from './routes/dashboard.resume.$id.index'
 import { Route as DashboardProfileIdIndexRouteImport } from './routes/dashboard.profile.$id.index'
-import { Route as DashboardResumeIdPatchPatchIdRouteImport } from './routes/dashboard.resume.$id.patch.$patchId'
+import { Route as DashboardProfileIdPatchPatchIdRouteImport } from './routes/dashboard.profile.$id.patch.$patchId'
 
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
@@ -47,10 +47,10 @@ const DashboardProfileIdIndexRoute = DashboardProfileIdIndexRouteImport.update({
   path: '/profile/$id/',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardResumeIdPatchPatchIdRoute =
-  DashboardResumeIdPatchPatchIdRouteImport.update({
-    id: '/resume/$id/patch/$patchId',
-    path: '/resume/$id/patch/$patchId',
+const DashboardProfileIdPatchPatchIdRoute =
+  DashboardProfileIdPatchPatchIdRouteImport.update({
+    id: '/profile/$id/patch/$patchId',
+    path: '/profile/$id/patch/$patchId',
     getParentRoute: () => DashboardRoute,
   } as any)
 
@@ -61,7 +61,7 @@ export interface FileRoutesByFullPath {
   '/sign-in/$': typeof SignInSplatRoute
   '/dashboard/profile/$id/': typeof DashboardProfileIdIndexRoute
   '/dashboard/resume/$id/': typeof DashboardResumeIdIndexRoute
-  '/dashboard/resume/$id/patch/$patchId': typeof DashboardResumeIdPatchPatchIdRoute
+  '/dashboard/profile/$id/patch/$patchId': typeof DashboardProfileIdPatchPatchIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,7 +70,7 @@ export interface FileRoutesByTo {
   '/sign-in/$': typeof SignInSplatRoute
   '/dashboard/profile/$id': typeof DashboardProfileIdIndexRoute
   '/dashboard/resume/$id': typeof DashboardResumeIdIndexRoute
-  '/dashboard/resume/$id/patch/$patchId': typeof DashboardResumeIdPatchPatchIdRoute
+  '/dashboard/profile/$id/patch/$patchId': typeof DashboardProfileIdPatchPatchIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,7 +80,7 @@ export interface FileRoutesById {
   '/sign-in/$': typeof SignInSplatRoute
   '/dashboard/profile/$id/': typeof DashboardProfileIdIndexRoute
   '/dashboard/resume/$id/': typeof DashboardResumeIdIndexRoute
-  '/dashboard/resume/$id/patch/$patchId': typeof DashboardResumeIdPatchPatchIdRoute
+  '/dashboard/profile/$id/patch/$patchId': typeof DashboardProfileIdPatchPatchIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,7 +91,7 @@ export interface FileRouteTypes {
     | '/sign-in/$'
     | '/dashboard/profile/$id/'
     | '/dashboard/resume/$id/'
-    | '/dashboard/resume/$id/patch/$patchId'
+    | '/dashboard/profile/$id/patch/$patchId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,7 +100,7 @@ export interface FileRouteTypes {
     | '/sign-in/$'
     | '/dashboard/profile/$id'
     | '/dashboard/resume/$id'
-    | '/dashboard/resume/$id/patch/$patchId'
+    | '/dashboard/profile/$id/patch/$patchId'
   id:
     | '__root__'
     | '/'
@@ -109,7 +109,7 @@ export interface FileRouteTypes {
     | '/sign-in/$'
     | '/dashboard/profile/$id/'
     | '/dashboard/resume/$id/'
-    | '/dashboard/resume/$id/patch/$patchId'
+    | '/dashboard/profile/$id/patch/$patchId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -162,11 +162,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardProfileIdIndexRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/dashboard/resume/$id/patch/$patchId': {
-      id: '/dashboard/resume/$id/patch/$patchId'
-      path: '/resume/$id/patch/$patchId'
-      fullPath: '/dashboard/resume/$id/patch/$patchId'
-      preLoaderRoute: typeof DashboardResumeIdPatchPatchIdRouteImport
+    '/dashboard/profile/$id/patch/$patchId': {
+      id: '/dashboard/profile/$id/patch/$patchId'
+      path: '/profile/$id/patch/$patchId'
+      fullPath: '/dashboard/profile/$id/patch/$patchId'
+      preLoaderRoute: typeof DashboardProfileIdPatchPatchIdRouteImport
       parentRoute: typeof DashboardRoute
     }
   }
@@ -176,14 +176,14 @@ interface DashboardRouteChildren {
   DashboardHomeRoute: typeof DashboardHomeRoute
   DashboardProfileIdIndexRoute: typeof DashboardProfileIdIndexRoute
   DashboardResumeIdIndexRoute: typeof DashboardResumeIdIndexRoute
-  DashboardResumeIdPatchPatchIdRoute: typeof DashboardResumeIdPatchPatchIdRoute
+  DashboardProfileIdPatchPatchIdRoute: typeof DashboardProfileIdPatchPatchIdRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardHomeRoute: DashboardHomeRoute,
   DashboardProfileIdIndexRoute: DashboardProfileIdIndexRoute,
   DashboardResumeIdIndexRoute: DashboardResumeIdIndexRoute,
-  DashboardResumeIdPatchPatchIdRoute: DashboardResumeIdPatchPatchIdRoute,
+  DashboardProfileIdPatchPatchIdRoute: DashboardProfileIdPatchPatchIdRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
