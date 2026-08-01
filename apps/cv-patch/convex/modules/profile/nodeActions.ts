@@ -289,6 +289,58 @@ export const rateDocument = internalAction({
   },
 })
 
+// Mirrored in ProfileChat.tsx, which hides this synthetic message.
+const FIRST_RUN_PROMPT = 'Kick off my profile.'
+
+export const startProfileAgent = internalAction({
+  args: { profileId: v.id('profiles') },
+  handler: async (ctx, args): Promise<void> => {
+    try {
+      await setupOpenAI()
+
+      const profile = await ctx.runQuery(
+        internal.modules.profile.queries.getByIdInternal,
+        { profileId: args.profileId },
+      )
+
+      if (!profile?.threadId) {
+        console.error('[startProfileAgent] Profile or thread not found', {
+          profileId: args.profileId,
+        })
+        return
+      }
+
+      const documents = await ctx.runQuery(
+        internal.modules.profile.queries.listDocumentsInternal,
+        { profileId: args.profileId },
+      )
+
+      const agent = createProfileAgent()
+      const result = await agent.streamText(
+        ctx,
+        { threadId: profile.threadId, userId: profile.userId },
+        {
+          prompt: FIRST_RUN_PROMPT,
+          system: buildProfileSystem(profile, documents),
+          providerOptions: {
+            openai: { reasoningEffort: DEFAULT_REASONING_EFFORT },
+          },
+        },
+        { saveStreamDeltas: true },
+      )
+      await result.consumeStream()
+    } catch (error) {
+      // The thread keeps its history; the user can still message the agent.
+      console.error('[startProfileAgent] Error', error)
+    } finally {
+      await ctx.runMutation(
+        internal.modules.profile.mutations.clearAgentRunning,
+        { profileId: args.profileId },
+      )
+    }
+  },
+})
+
 export const runProfileAgent = internalAction({
   args: {
     profileId: v.id('profiles'),

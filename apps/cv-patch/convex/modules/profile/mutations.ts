@@ -50,15 +50,37 @@ export const create = mutation({
       roleBrief: args.roleBrief ?? '',
     }
 
+    // Creating a profile starts a builder-agent run, so it shares that limit.
+    const { ok } = await rateLimiter.limit(ctx, 'sendAgentMessage', {
+      key: user._id,
+    })
+    if (!ok) {
+      return { error: 'RATE_LIMITED' }
+    }
+
     try {
+      const threadId = await createThread(ctx, components.agent, {
+        userId: user._id,
+        title: args.title,
+      })
+
       const profileId = await ctx.db.insert('profiles', {
         userId: user._id,
         title: args.title,
+        threadId,
+        agentRunningSince: Date.now(),
         data,
         deleted: false,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       })
+
+      // The agent opens the conversation — the user shouldn't have to.
+      await ctx.scheduler.runAfter(
+        0,
+        internal.modules.profile.nodeActions.startProfileAgent,
+        { profileId },
+      )
 
       return { profileId }
     } catch (error) {

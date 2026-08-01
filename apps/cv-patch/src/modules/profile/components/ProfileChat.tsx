@@ -32,6 +32,9 @@ const sendErrorMessages: Record<string, string> = {
   AGENT_BUSY: 'The agent is still working — wait for it to finish.',
 }
 
+// Mirrors FIRST_RUN_PROMPT in convex/modules/profile/nodeActions.ts.
+const FIRST_RUN_PROMPT = 'Kick off my profile.'
+
 export const ProfileChat = ({ profile }: ProfileChatProps) => {
   const messages = useProfileThreadMessages(profile.threadId)
   const sendMessage = useSendProfileMessage()
@@ -39,7 +42,10 @@ export const ProfileChat = ({ profile }: ProfileChatProps) => {
   const [draft, setDraft] = useState('')
   const [sendError, setSendError] = useState<string | null>(null)
 
-  const results = messages.results ?? []
+  const results = (messages.results ?? []).filter(
+    (message) =>
+      !(message.role === 'user' && message.text === FIRST_RUN_PROMPT),
+  )
   const lastMessage = results[results.length - 1]
   const isBusy =
     profile.agentRunningSince !== undefined &&
@@ -81,10 +87,9 @@ export const ProfileChat = ({ profile }: ProfileChatProps) => {
         <MessageScroller className="flex-1">
           <MessageScrollerViewport className="p-6">
             <MessageScrollerContent className="gap-4">
-              {results.length === 0 && (
+              {results.length === 0 && !isBusy && (
                 <p className="text-sm text-muted-foreground">
-                  Tell the agent what roles this profile targets, then upload
-                  your resume.
+                  No messages yet.
                 </p>
               )}
 
