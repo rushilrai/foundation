@@ -1,11 +1,15 @@
+import { listUIMessages, syncStreams, vStreamArgs } from '@convex-dev/agent'
+import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
+import { components } from '../../_generated/api'
 import type { Doc } from '../../_generated/dataModel'
 import { internalQuery, query } from '../../_generated/server'
 import { getByExternalId } from '../user/helpers'
 import {
   getById,
   getByIdWithAuth,
+  getDocumentById,
   getDocumentsForProfile,
   getUserProfiles,
 } from './helpers'
@@ -65,6 +69,46 @@ export const listDocuments = query({
   },
 })
 
+// Throws on auth failure — paginated query hooks cannot carry error unions.
+export const listThreadMessages = query({
+  args: {
+    threadId: v.string(),
+    paginationOpts: paginationOptsValidator,
+    streamArgs: vStreamArgs,
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error('UNAUTHORIZED')
+    }
+
+    const user = await getByExternalId(ctx, identity.subject)
+    if (!user) {
+      throw new Error('USER_NOT_FOUND')
+    }
+
+    const profile = await ctx.db
+      .query('profiles')
+      .withIndex('by_threadId', (q) => q.eq('threadId', args.threadId))
+      .unique()
+
+    if (!profile || profile.deleted || profile.userId !== user._id) {
+      throw new Error('FORBIDDEN')
+    }
+
+    const paginated = await listUIMessages(ctx, components.agent, {
+      threadId: args.threadId,
+      paginationOpts: args.paginationOpts,
+    })
+    const streams = await syncStreams(ctx, components.agent, {
+      threadId: args.threadId,
+      streamArgs: args.streamArgs,
+    })
+
+    return { ...paginated, streams }
+  },
+})
+
 export const getByIdInternal = internalQuery({
   args: { profileId: v.id('profiles') },
   handler: async (ctx, args): Promise<Doc<'profiles'> | null> => {
@@ -85,5 +129,36 @@ export const getByThreadIdInternal = internalQuery({
     }
 
     return profile
+  },
+})
+
+export const getDocumentOwnedInternal = internalQuery({
+  args: { documentId: v.id('documents'), externalId: v.string() },
+  handler: async (ctx, args): Promise<Doc<'documents'> | null> => {
+    const user = await getByExternalId(ctx, args.externalId)
+    if (!user) {
+      return null
+    }
+
+    const document = await getDocumentById(ctx, args.documentId)
+    if (!document || document.userId !== user._id) {
+      return null
+    }
+
+    return document
+  },
+})
+
+export const getDocumentByIdInternal = internalQuery({
+  args: { documentId: v.id('documents') },
+  handler: async (ctx, args): Promise<Doc<'documents'> | null> => {
+    return await getDocumentById(ctx, args.documentId)
+  },
+})
+
+export const listDocumentsInternal = internalQuery({
+  args: { profileId: v.id('profiles') },
+  handler: async (ctx, args): Promise<Array<Doc<'documents'>>> => {
+    return await getDocumentsForProfile(ctx, args.profileId)
   },
 })
