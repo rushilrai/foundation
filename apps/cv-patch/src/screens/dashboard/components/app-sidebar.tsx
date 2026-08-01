@@ -1,6 +1,5 @@
 import { SignOutButton, useUser } from '@clerk/tanstack-react-start'
 import {
-  IconFileText,
   IconLogout,
   IconPlus,
   IconUserSquareRounded,
@@ -22,13 +21,10 @@ import {
 } from '@/components/ui/sidebar'
 import { CreateProfileDialog } from '@/modules/profile/components/CreateProfileDialog'
 import { useProfileList } from '@/modules/profile/queries'
-import { UploadResumeDialog } from '@/modules/resume/components/UploadResumeDialog'
-import { useResumeList } from '@/modules/resume/queries'
 
 export const AppSidebar = () => {
   const location = useLocation()
   const profilesResult = useProfileList()
-  const resumesResult = useResumeList()
   const { user } = useUser()
 
   const profiles =
@@ -36,32 +32,21 @@ export const AppSidebar = () => {
       ? profilesResult.profiles
       : []
 
-  const resumes =
-    resumesResult && !('error' in resumesResult) ? resumesResult.resumes : []
-
   return (
     <Sidebar variant="inset">
       <SidebarHeader className="flex flex-row items-center justify-between p-4">
         <span className="text-2xl font-bold text-primary">CV Patch</span>
 
-        <UploadResumeDialog>
+        <CreateProfileDialog>
           <Button variant="default" size="icon-sm">
             <IconPlus className="size-4" />
           </Button>
-        </UploadResumeDialog>
+        </CreateProfileDialog>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <div className="flex items-center justify-between">
-            <SidebarGroupLabel>Profiles</SidebarGroupLabel>
-
-            <CreateProfileDialog>
-              <Button variant="ghost" size="icon-sm">
-                <IconPlus className="size-4" />
-              </Button>
-            </CreateProfileDialog>
-          </div>
+          <SidebarGroupLabel>Profiles</SidebarGroupLabel>
 
           <SidebarGroupContent>
             <SidebarMenu className="gap-2">
@@ -92,44 +77,6 @@ export const AppSidebar = () => {
               {profiles.length === 0 && (
                 <p className="px-2 text-sm text-muted-foreground">
                   No profiles yet
-                </p>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Resumes</SidebarGroupLabel>
-
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-2">
-              {resumes.map((resume) => {
-                const basePath = `/dashboard/resume/${resume._id}`
-                const isActive =
-                  location.pathname === basePath ||
-                  location.pathname.startsWith(`${basePath}/`)
-
-                return (
-                  <SidebarMenuItem key={resume._id}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      render={
-                        <Link
-                          to="/dashboard/resume/$id"
-                          params={{ id: resume._id }}
-                        >
-                          <IconFileText className="size-4" />
-                          <span className="truncate">{resume.title}</span>
-                        </Link>
-                      }
-                    />
-                  </SidebarMenuItem>
-                )
-              })}
-
-              {resumes.length === 0 && (
-                <p className="px-2 text-sm text-muted-foreground">
-                  No resumes yet
                 </p>
               )}
             </SidebarMenu>

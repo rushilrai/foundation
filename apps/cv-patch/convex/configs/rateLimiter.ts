@@ -15,5 +15,4 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
     period: HOUR,
     capacity: 10,
   },
-  rateResume: { kind: 'token bucket', rate: 6, period: HOUR, capacity: 3 },
 })

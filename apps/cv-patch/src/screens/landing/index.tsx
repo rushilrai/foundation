@@ -13,7 +13,7 @@ export function LandingScreen() {
             <h1 className="text-4xl font-bold text-primary">CV Patch</h1>
 
             <p className="mt-1 max-w-sm text-muted-foreground">
-              Upload your resume and tailor it to any job.
+              Build a profile once, tailor it to any job.
               <br />
               AI-powered, instant, and effortless.
             </p>
