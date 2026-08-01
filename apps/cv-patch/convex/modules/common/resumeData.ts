@@ -14,42 +14,46 @@ export const resumeHeaderValidator = v.object({
   links: v.array(resumeLinkValidator),
 })
 
+export const resumeEducationValidator = v.object({
+  school: v.string(),
+  location: v.string(),
+  dates: v.string(),
+  degree: v.string(),
+  details: v.string(),
+})
+
+export const resumeExperienceValidator = v.object({
+  company: v.string(),
+  companyMeta: v.string(),
+  roles: v.array(
+    v.object({
+      title: v.string(),
+      meta: v.string(),
+      bullets: v.array(v.string()),
+    }),
+  ),
+})
+
+export const resumeSkillsValidator = v.object({
+  technical: v.string(),
+  financial: v.string(),
+  languages: v.string(),
+})
+
 export const resumeDataValidator = v.object({
   header: resumeHeaderValidator,
-  education: v.array(
-    v.object({
-      school: v.string(),
-      location: v.string(),
-      dates: v.string(),
-      degree: v.string(),
-      details: v.string(),
-    }),
-  ),
-  experience: v.array(
-    v.object({
-      company: v.string(),
-      companyMeta: v.string(),
-      roles: v.array(
-        v.object({
-          title: v.string(),
-          meta: v.string(),
-          bullets: v.array(v.string()),
-        }),
-      ),
-    }),
-  ),
+  education: v.array(resumeEducationValidator),
+  experience: v.array(resumeExperienceValidator),
   projects: v.array(
     v.object({
       name: v.string(),
+      // Optional so documents created before profile support stay valid; absent or empty means no link.
+      url: v.optional(v.string()),
       dates: v.string(),
       bullets: v.array(v.string()),
     }),
   ),
-  skills: v.object({
-    technical: v.string(),
-    financial: v.string(),
-    languages: v.string(),
-  }),
+  skills: resumeSkillsValidator,
   extras: v.array(v.string()),
 })
 

@@ -37,6 +37,8 @@ export const ResumeExperienceSchema = z.object({
 
 export const ResumeProjectSchema = z.object({
   name: z.string(),
+  // Optional so documents created before profile support stay valid; absent or empty means no link.
+  url: z.string().optional(),
   dates: z.string(),
   bullets: z.array(z.string()),
 })
