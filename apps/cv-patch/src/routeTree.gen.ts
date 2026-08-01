@@ -14,6 +14,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SignInSplatRouteImport } from './routes/sign-in.$'
 import { Route as DashboardHomeRouteImport } from './routes/dashboard.home'
 import { Route as DashboardResumeIdIndexRouteImport } from './routes/dashboard.resume.$id.index'
+import { Route as DashboardProfileIdIndexRouteImport } from './routes/dashboard.profile.$id.index'
 import { Route as DashboardResumeIdPatchPatchIdRouteImport } from './routes/dashboard.resume.$id.patch.$patchId'
 
 const DashboardRoute = DashboardRouteImport.update({
@@ -41,6 +42,11 @@ const DashboardResumeIdIndexRoute = DashboardResumeIdIndexRouteImport.update({
   path: '/resume/$id/',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardProfileIdIndexRoute = DashboardProfileIdIndexRouteImport.update({
+  id: '/profile/$id/',
+  path: '/profile/$id/',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardResumeIdPatchPatchIdRoute =
   DashboardResumeIdPatchPatchIdRouteImport.update({
     id: '/resume/$id/patch/$patchId',
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteWithChildren
   '/dashboard/home': typeof DashboardHomeRoute
   '/sign-in/$': typeof SignInSplatRoute
+  '/dashboard/profile/$id/': typeof DashboardProfileIdIndexRoute
   '/dashboard/resume/$id/': typeof DashboardResumeIdIndexRoute
   '/dashboard/resume/$id/patch/$patchId': typeof DashboardResumeIdPatchPatchIdRoute
 }
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRouteWithChildren
   '/dashboard/home': typeof DashboardHomeRoute
   '/sign-in/$': typeof SignInSplatRoute
+  '/dashboard/profile/$id': typeof DashboardProfileIdIndexRoute
   '/dashboard/resume/$id': typeof DashboardResumeIdIndexRoute
   '/dashboard/resume/$id/patch/$patchId': typeof DashboardResumeIdPatchPatchIdRoute
 }
@@ -70,6 +78,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/dashboard/home': typeof DashboardHomeRoute
   '/sign-in/$': typeof SignInSplatRoute
+  '/dashboard/profile/$id/': typeof DashboardProfileIdIndexRoute
   '/dashboard/resume/$id/': typeof DashboardResumeIdIndexRoute
   '/dashboard/resume/$id/patch/$patchId': typeof DashboardResumeIdPatchPatchIdRoute
 }
@@ -80,6 +89,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/dashboard/home'
     | '/sign-in/$'
+    | '/dashboard/profile/$id/'
     | '/dashboard/resume/$id/'
     | '/dashboard/resume/$id/patch/$patchId'
   fileRoutesByTo: FileRoutesByTo
@@ -88,6 +98,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/dashboard/home'
     | '/sign-in/$'
+    | '/dashboard/profile/$id'
     | '/dashboard/resume/$id'
     | '/dashboard/resume/$id/patch/$patchId'
   id:
@@ -96,6 +107,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/dashboard/home'
     | '/sign-in/$'
+    | '/dashboard/profile/$id/'
     | '/dashboard/resume/$id/'
     | '/dashboard/resume/$id/patch/$patchId'
   fileRoutesById: FileRoutesById
@@ -143,6 +155,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardResumeIdIndexRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/profile/$id/': {
+      id: '/dashboard/profile/$id/'
+      path: '/profile/$id'
+      fullPath: '/dashboard/profile/$id/'
+      preLoaderRoute: typeof DashboardProfileIdIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/resume/$id/patch/$patchId': {
       id: '/dashboard/resume/$id/patch/$patchId'
       path: '/resume/$id/patch/$patchId'
@@ -155,12 +174,14 @@ declare module '@tanstack/react-router' {
 
 interface DashboardRouteChildren {
   DashboardHomeRoute: typeof DashboardHomeRoute
+  DashboardProfileIdIndexRoute: typeof DashboardProfileIdIndexRoute
   DashboardResumeIdIndexRoute: typeof DashboardResumeIdIndexRoute
   DashboardResumeIdPatchPatchIdRoute: typeof DashboardResumeIdPatchPatchIdRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardHomeRoute: DashboardHomeRoute,
+  DashboardProfileIdIndexRoute: DashboardProfileIdIndexRoute,
   DashboardResumeIdIndexRoute: DashboardResumeIdIndexRoute,
   DashboardResumeIdPatchPatchIdRoute: DashboardResumeIdPatchPatchIdRoute,
 }
