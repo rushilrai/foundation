@@ -1,7 +1,29 @@
+---
+import { Image } from 'astro:assets'
+
+import LogoLightBg from '../../../assets/images/logo/logo-light-bg.png'
+---
+
 <footer class="flex w-full flex-row items-center justify-center">
-  <div class="flex w-full max-w-5xl flex-row items-center justify-end p-4">
+  <div
+    class="flex w-full max-w-5xl flex-row items-center justify-between p-4 pb-24"
+  >
+    <a href="/" class="-ml-[19px]">
+      <Image
+        src={LogoLightBg}
+        alt="logo with the initials RR"
+        width={200}
+        height={200}
+        densities={[1, 2]}
+        class="h-18 w-18"
+      />
+    </a>
+
     <span class="text-right font-heading text-base font-medium">
-      &copy; {new Date().getFullYear()} Rushil Rai.
+      <span class="relative top-[0.08em] inline-block text-[0.85em]"
+        >&copy;</span
+      >
+      {new Date().getFullYear()} Rushil Rai.
     </span>
   </div>
 </footer>

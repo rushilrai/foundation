@@ -7,7 +7,7 @@ import samPhoto from '../../../assets/images/common/sam.jpeg'
 
 <div
   id="dog-container"
-  class="pointer-events-none fixed bottom-0 left-0 z-100 h-20 w-full"
+  class="pointer-events-none fixed right-(--sheet-inset-x) bottom-[calc(var(--sheet-inset)+var(--sheet-floor))] left-(--sheet-inset-x) z-100 h-20 overflow-hidden"
   aria-hidden="true"
 >
   <div
@@ -69,6 +69,9 @@ import samPhoto from '../../../assets/images/common/sam.jpeg'
 
   type Anim = 'walk' | 'sit' | 'run' | 'sleep'
 
+  const dogContainer = document.getElementById(
+    'dog-container',
+  ) as HTMLDivElement
   const dogWrapper = document.getElementById('dog-wrapper') as HTMLDivElement
   const dogSprite = document.getElementById('dog-sprite') as HTMLDivElement
   const ball = document.getElementById('dog-ball') as HTMLDivElement
@@ -103,6 +106,10 @@ import samPhoto from '../../../assets/images/common/sam.jpeg'
   let ballBounce: ReturnType<typeof animate> | null = null
 
   const DOG_WIDTH = 96
+
+  // The dog lives inside the sheet frame, so all positions are relative to it.
+  const sheetWidth = () => dogContainer.clientWidth
+  const dogLeft = () => dogWrapper.offsetLeft
   const BALL_OFFSET = 40
   const RUN_DURATION = 8
   const WALK_DURATION = 18
@@ -175,12 +182,12 @@ import samPhoto from '../../../assets/images/common/sam.jpeg'
   function startMoving(fromCurrentPosition = false) {
     if (isHovered || isSleeping) return
 
-    const vw = window.innerWidth
+    const vw = sheetWidth()
     const endX = movingRight ? vw : -DOG_WIDTH
 
     let startX: number
     if (fromCurrentPosition) {
-      startX = dogWrapper.getBoundingClientRect().left
+      startX = dogLeft()
     } else {
       startX = movingRight ? -DOG_WIDTH : vw
     }
@@ -252,16 +259,16 @@ import samPhoto from '../../../assets/images/common/sam.jpeg'
     ball.style.opacity = '0'
 
     // Face the center
-    const vw = window.innerWidth
+    const vw = sheetWidth()
     const centerX = vw / 2 - DOG_WIDTH / 2
-    const currentLeft = dogWrapper.getBoundingClientRect().left
+    const currentLeft = dogLeft()
     const goingRight = centerX > currentLeft
     dogSprite.style.transform = goingRight ? 'scaleX(-1)' : 'scaleX(1)'
 
     startFrameCycling('walk', WALK_FRAME_RATE)
 
     const distance = Math.abs(centerX - currentLeft)
-    const walkSpeed = window.innerWidth / WALK_DURATION // px per second
+    const walkSpeed = sheetWidth() / WALK_DURATION // px per second
     const walkToCenterDuration = distance / walkSpeed
 
     moveAnimation = animate(
@@ -300,8 +307,8 @@ import samPhoto from '../../../assets/images/common/sam.jpeg'
       dogSprite.style.transform = 'scaleX(1)'
       startFrameCycling('walk', WALK_FRAME_RATE)
 
-      const currentLeft = dogWrapper.getBoundingClientRect().left
-      const walkSpeed = window.innerWidth / WALK_DURATION
+      const currentLeft = dogLeft()
+      const walkSpeed = sheetWidth() / WALK_DURATION
       const walkOffDuration = (currentLeft + DOG_WIDTH) / walkSpeed
 
       moveAnimation = animate(
@@ -357,10 +364,10 @@ import samPhoto from '../../../assets/images/common/sam.jpeg'
     }
   })
 
-  let lastWidth = window.innerWidth
+  let lastWidth = sheetWidth()
   window.addEventListener('resize', () => {
-    if (window.innerWidth === lastWidth) return
-    lastWidth = window.innerWidth
+    if (sheetWidth() === lastWidth) return
+    lastWidth = sheetWidth()
 
     if (!isHovered && !isSleeping) {
       stopMoving()
