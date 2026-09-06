@@ -1,10 +1,12 @@
 ---
+import { ExternalLinkIcon } from '@lucide/astro'
+
 const { title, org, term, uri } = Astro.props
 ---
 
 <a href={uri} target="_blank">
   <li
-    class="experience-item-card flex w-full max-w-5xl flex-col justify-between rounded-md py-5 sm:flex-row"
+    class="experience-item-card relative flex w-full max-w-5xl flex-col justify-between gap-2 rounded-lg py-5 text-base-content sm:flex-row sm:items-center"
   >
     <div class="flex flex-col gap-1">
       <h2 class="font-body text-xl font-semibold">
@@ -14,6 +16,11 @@ const { title, org, term, uri } = Astro.props
     </div>
 
     <span class="text-lg font-medium sm:text-2xl">{term}</span>
+
+    <ExternalLinkIcon
+      size={20}
+      class="experience-item-icon absolute top-1/2 right-6 -translate-y-1/2 opacity-0"
+    />
   </li>
 </a>
 
@@ -26,38 +33,51 @@ const { title, org, term, uri } = Astro.props
     '.experience-item-card',
   ) as NodeListOf<HTMLDivElement>
 
+  const icon = (element: HTMLElement) =>
+    element.querySelector('.experience-item-icon') as SVGElement
+
+  // Keep every padding value in px: Motion converts mismatched units by
+  // measuring the element, which produced a huge first-run jump.
+  const PAD_Y_REST = 20
+  const PAD_Y_OPEN = 32
+  const ICON_ROOM = 40
+
+  function open(element: HTMLElement, inset: number) {
+    animate(element, {
+      backgroundColor: getCSSVariable('--color-base-content'),
+      color: getCSSVariable('--color-base-100'),
+      paddingLeft: `${inset}px`,
+      paddingRight: `${inset + ICON_ROOM}px`,
+      paddingTop: `${PAD_Y_OPEN}px`,
+      paddingBottom: `${PAD_Y_OPEN}px`,
+    })
+    animate(icon(element), { opacity: 1, x: [8, 0] })
+  }
+
+  function close(element: HTMLElement) {
+    animate(element, {
+      backgroundColor: getCSSVariable('--color-base-100'),
+      color: getCSSVariable('--color-base-content'),
+      paddingLeft: '0px',
+      paddingRight: '0px',
+      paddingTop: `${PAD_Y_REST}px`,
+      paddingBottom: `${PAD_Y_REST}px`,
+    })
+    animate(icon(element), { opacity: 0, x: 8 })
+  }
+
   if (experienceItem) {
     hover(experienceItem, (element) => {
-      animate(element, {
-        backgroundColor: getCSSVariable('--color-base-200'),
-        paddingLeft: '1rem',
-        paddingRight: '1rem',
-      })
+      open(element, 24)
 
-      return () => {
-        animate(element, {
-          backgroundColor: getCSSVariable('--color-base-100'),
-          paddingLeft: '0',
-          paddingRight: '0',
-        })
-      }
+      return () => close(element)
     })
 
     if (isTouchDevice()) {
       press(experienceItem, (element) => {
-        animate(element, {
-          backgroundColor: getCSSVariable('--color-base-200'),
-          paddingLeft: '0.5rem',
-          paddingRight: '0.5rem',
-        })
+        open(element, 16)
 
-        return () => {
-          animate(element, {
-            backgroundColor: getCSSVariable('--color-base-100'),
-            paddingLeft: '0',
-            paddingRight: '0',
-          })
-        }
+        return () => close(element)
       })
     }
   }
