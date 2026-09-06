@@ -22,9 +22,9 @@
   --color-warning-content: oklch(28% 0.04 60);
   --color-error: oklch(65% 0.14 25);
   --color-error-content: oklch(28% 0.06 15);
-  --radius-selector: 0.5rem;
-  --radius-field: 1rem;
-  --radius-box: 1rem;
+  --radius-selector: 0.25rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
   --border: 2px;
@@ -37,11 +37,44 @@
   --font-body: 'Outfit Variable', sans-serif;
 }
 
+/* Drafting sheet: the frame that bounds the whole page */
+:root {
+  --sheet-inset: clamp(0.75rem, 2vw, 1.5rem);
+  --sheet-max-width: 1280px;
+  --sheet-inset-x: max(
+    var(--sheet-inset),
+    calc((100vw - var(--sheet-max-width)) / 2)
+  );
+  --sheet-floor: 1px;
+  --sheet-rule: color-mix(in oklch, var(--color-base-content) 70%, transparent);
+  --sheet-rule-faint: color-mix(
+    in oklch,
+    var(--color-base-content) 24%,
+    transparent
+  );
+  --sheet-rule-hair: color-mix(
+    in oklch,
+    var(--color-base-content) 12%,
+    transparent
+  );
+}
+
+@media (width >= 48rem) {
+  :root {
+    --sheet-floor: 7px;
+  }
+}
+
+.sheet-mark {
+  position: absolute;
+  background-color: var(--sheet-rule-faint);
+}
+
 ::selection {
   background-color: oklch(27% 0.006 286.033);
   color: oklch(92% 0.004 286.32);
 }
 
 html {
-  scroll-padding-top: 6rem;
+  scroll-padding-top: calc(var(--sheet-inset) + 2rem);
 }

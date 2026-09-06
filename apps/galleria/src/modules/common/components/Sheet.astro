@@ -1,0 +1,36 @@
+---
+// Fixed drafting-sheet frame. The outer rule's shadow paints the margin in
+// paper colour so scrolling content disappears behind the mat.
+const MARKS = [
+  'top: 0; right: calc(100% + 3px); width: 8px; height: 1px',
+  'left: 0; bottom: calc(100% + 3px); width: 1px; height: 8px',
+  'top: 0; left: calc(100% + 3px); width: 8px; height: 1px',
+  'right: 0; bottom: calc(100% + 3px); width: 1px; height: 8px',
+  'bottom: 0; right: calc(100% + 3px); width: 8px; height: 1px',
+  'left: 0; top: calc(100% + 3px); width: 1px; height: 8px',
+  'bottom: 0; left: calc(100% + 3px); width: 8px; height: 1px',
+  'right: 0; top: calc(100% + 3px); width: 1px; height: 8px',
+]
+---
+
+<div
+  id="sheet"
+  aria-hidden="true"
+  class="pointer-events-none fixed inset-x-(--sheet-inset-x) inset-y-(--sheet-inset) z-60"
+>
+  <div
+    class="absolute inset-0 border border-(--sheet-rule) shadow-[0_0_0_100vmax_var(--color-base-100)]"
+  >
+  </div>
+
+  <div
+    class="absolute inset-1.5 hidden border border-(--sheet-rule-faint) md:block"
+  >
+  </div>
+
+  {
+    MARKS.map((style) => (
+      <div class="sheet-mark hidden md:block" style={style} />
+    ))
+  }
+</div>
