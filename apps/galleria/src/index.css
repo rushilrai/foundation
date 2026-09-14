@@ -37,15 +37,24 @@
   --font-body: 'Outfit Variable', sans-serif;
 }
 
-/* Drafting sheet: the frame that bounds the whole page */
+/* Drafting sheet: the frame that bounds the whole page. The insets grow by
+   the safe area so the mat also paints behind Safari's floating bars. */
 :root {
   --sheet-inset: clamp(0.75rem, 2vw, 1.5rem);
   --sheet-max-width: 1280px;
+  --sheet-safe-x: max(
+    env(safe-area-inset-left, 0px),
+    env(safe-area-inset-right, 0px)
+  );
+  --sheet-inset-top: calc(var(--sheet-inset) + env(safe-area-inset-top, 0px));
+  --sheet-inset-bottom: calc(
+    var(--sheet-inset) + env(safe-area-inset-bottom, 0px)
+  );
   --sheet-inset-x: max(
-    var(--sheet-inset),
+    calc(var(--sheet-inset) + var(--sheet-safe-x)),
     calc((100vw - var(--sheet-max-width)) / 2)
   );
-  --sheet-floor: 1px;
+  --sheet-floor: 7px;
   --sheet-rule: color-mix(in oklch, var(--color-base-content) 70%, transparent);
   --sheet-rule-faint: color-mix(
     in oklch,
@@ -59,12 +68,6 @@
   );
 }
 
-@media (width >= 48rem) {
-  :root {
-    --sheet-floor: 7px;
-  }
-}
-
 .sheet-mark {
   position: absolute;
   background-color: var(--sheet-rule-faint);
@@ -76,5 +79,5 @@
 }
 
 html {
-  scroll-padding-top: calc(var(--sheet-inset) + 2rem);
+  scroll-padding-top: calc(var(--sheet-inset-top) + 2rem);
 }

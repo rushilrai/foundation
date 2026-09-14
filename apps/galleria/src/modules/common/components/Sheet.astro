@@ -1,6 +1,10 @@
 ---
-// Fixed drafting-sheet frame. The outer rule's shadow paints the margin in
-// paper colour so scrolling content disappears behind the mat.
+// Fixed drafting-sheet frame. The box covers the whole viewport; four mat
+// panels paint the margin in paper colour so scrolling content disappears
+// behind it. The panels bleed a full viewport past every edge because iOS
+// Safari resizes fixed boxes a beat behind its bar animations, and the old
+// spread shadow was clipped to the layout viewport. viewport-fit=cover lets
+// that viewport reach behind the status bar and the floating tab bar.
 const MARKS = [
   'top: 0; right: calc(100% + 3px); width: 8px; height: 1px',
   'left: 0; bottom: calc(100% + 3px); width: 1px; height: 8px',
@@ -16,21 +20,32 @@ const MARKS = [
 <div
   id="sheet"
   aria-hidden="true"
-  class="pointer-events-none fixed inset-x-(--sheet-inset-x) inset-y-(--sheet-inset) z-60"
+  class="pointer-events-none fixed inset-0 z-60"
 >
   <div
-    class="absolute inset-0 border border-(--sheet-rule) shadow-[0_0_0_100vmax_var(--color-base-100)]"
+    class="absolute inset-x-[-100vw] top-[-100vh] h-[calc(100vh+var(--sheet-inset-top))] bg-base-100"
+  >
+  </div>
+  <div
+    class="absolute inset-x-[-100vw] bottom-[-100vh] h-[calc(100vh+var(--sheet-inset-bottom))] bg-base-100"
+  >
+  </div>
+  <div
+    class="absolute inset-y-0 left-[-100vw] w-[calc(100vw+var(--sheet-inset-x))] bg-base-100"
+  >
+  </div>
+  <div
+    class="absolute inset-y-0 right-[-100vw] w-[calc(100vw+var(--sheet-inset-x))] bg-base-100"
   >
   </div>
 
   <div
-    class="absolute inset-1.5 hidden border border-(--sheet-rule-faint) md:block"
+    class="absolute inset-x-(--sheet-inset-x) top-(--sheet-inset-top) bottom-(--sheet-inset-bottom)"
   >
-  </div>
+    <div class="absolute inset-0 border border-(--sheet-rule)"></div>
 
-  {
-    MARKS.map((style) => (
-      <div class="sheet-mark hidden md:block" style={style} />
-    ))
-  }
+    <div class="absolute inset-1.5 border border-(--sheet-rule-faint)"></div>
+
+    {MARKS.map((style) => <div class="sheet-mark" style={style} />)}
+  </div>
 </div>
