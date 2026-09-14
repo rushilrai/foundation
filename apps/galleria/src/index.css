@@ -45,7 +45,7 @@
     var(--sheet-inset),
     calc((100vw - var(--sheet-max-width)) / 2)
   );
-  --sheet-floor: 1px;
+  --sheet-floor: 7px;
   --sheet-rule: color-mix(in oklch, var(--color-base-content) 70%, transparent);
   --sheet-rule-faint: color-mix(
     in oklch,
@@ -57,12 +57,6 @@
     var(--color-base-content) 12%,
     transparent
   );
-}
-
-@media (width >= 48rem) {
-  :root {
-    --sheet-floor: 7px;
-  }
 }
 
 .sheet-mark {

@@ -23,14 +23,7 @@ const MARKS = [
   >
   </div>
 
-  <div
-    class="absolute inset-1.5 hidden border border-(--sheet-rule-faint) md:block"
-  >
-  </div>
+  <div class="absolute inset-1.5 border border-(--sheet-rule-faint)"></div>
 
-  {
-    MARKS.map((style) => (
-      <div class="sheet-mark hidden md:block" style={style} />
-    ))
-  }
+  {MARKS.map((style) => <div class="sheet-mark" style={style} />)}
 </div>
