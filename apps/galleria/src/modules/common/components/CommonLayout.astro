@@ -13,7 +13,10 @@ console.log('galleria running')
 <html data-theme="rr-theme" lang="en" class="scroll-smooth">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
 
     <!-- Theme -->
     <meta name="theme-color" content="#f8f7f3" />
@@ -101,7 +104,7 @@ console.log('galleria running')
   </head>
 
   <body
-    class="flex min-h-screen w-full flex-col items-center bg-base-100 px-(--sheet-inset-x) py-(--sheet-inset)"
+    class="flex min-h-screen w-full flex-col items-center bg-base-100 px-(--sheet-inset-x) pt-(--sheet-inset-top) pb-(--sheet-inset-bottom)"
   >
     <slot />
 
