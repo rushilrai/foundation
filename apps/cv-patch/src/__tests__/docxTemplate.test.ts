@@ -9,6 +9,7 @@ import {
   buildContactSegments,
   linkifyContactLine,
   linkifyProjectNames,
+  linkifySkillLinks,
   renderResumeTemplate,
 } from '../../convex/modules/patch/docxTemplate'
 
@@ -31,12 +32,14 @@ const loadSample = (): ResumeData => {
   return ResumeDataSchema.parse(JSON.parse(readFileSync(samplePath, 'utf-8')))
 }
 
-// Sample data with project links removed, for contact-line-only assertions.
-const loadSampleWithoutProjectLinks = (): ResumeData => {
+// Sample data with project and skill links removed, for contact-line-only
+// assertions.
+const loadSampleWithoutBodyLinks = (): ResumeData => {
   const sample = loadSample()
   return {
     ...sample,
     projects: sample.projects.map((item) => ({ ...item, url: '' })),
+    skills: sample.skills.map((line) => ({ ...line, links: [] })),
   }
 }
 
@@ -120,7 +123,7 @@ describe('buildContactSegments', () => {
 
 describe('renderResumeTemplate', () => {
   it('turns the email and link labels into hyperlinks with matching rels', () => {
-    const data = { ...loadSampleWithoutProjectLinks(), header }
+    const data = { ...loadSampleWithoutBodyLinks(), header }
     const { documentXml, relsXml } = readParts(
       renderResumeTemplate(decodeBase64Template(), data),
     )
@@ -164,7 +167,7 @@ describe('renderResumeTemplate', () => {
 
   it('leaves the document untouched when nothing is linkable', () => {
     const rendered = renderResumeTemplate(decodeBase64Template(), {
-      ...loadSampleWithoutProjectLinks(),
+      ...loadSampleWithoutBodyLinks(),
       header: { ...header, email: '', links: [] },
     })
 
@@ -195,6 +198,10 @@ describe('linkifyProjectNames', () => {
       { text: 'GitHub', target: 'https://github.com/janedoe' },
       { text: 'janedoe.dev', target: 'https://www.janedoe.dev/' },
       { text: 'Risk Engine', target: 'https://github.com/janedoe/risk-engine' },
+      {
+        text: 'AWS Certified Developer',
+        target: 'https://example.com/certs/aws-developer',
+      },
     ])
     expect(new Set(links.map(({ id }) => id)).size).toBe(links.length)
     expect(documentXml.match(/xmlns:r=/g)).toHaveLength(1)
@@ -214,6 +221,7 @@ describe('linkifyProjectNames', () => {
       ...sample,
       header: { ...header, email: '', links: [] },
       experience: [{ ...sample.experience[0], company: 'Twin' }],
+      skills: [],
       projects: [
         project('Twin', 'https://example.com/one'),
         project("Jane's Twin", 'https://example.com/quoted'),
@@ -263,5 +271,184 @@ describe('linkifyProjectNames', () => {
     const once = renderResumeTemplate(decodeBase64Template(), data)
 
     expect(linkifyProjectNames(once, data)).toBe(once)
+  })
+})
+
+// Paragraphs between the SKILLS heading and the next section heading, each as
+// its xml and its concatenated text.
+const readSkillParagraphs = (documentXml: string) => {
+  const start = documentXml.indexOf('>SKILLS</w:t>')
+  const end = documentXml.indexOf('>EXTRA-CURRICULAR', start)
+  const section = documentXml.slice(
+    documentXml.indexOf('</w:p>', start) + '</w:p>'.length,
+    documentXml.lastIndexOf('<w:p', end),
+  )
+  return [...section.matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)].map(([xml]) => ({
+    xml,
+    text: [...xml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
+      .map(([, text]) => text)
+      .join(''),
+  }))
+}
+
+const skillLine = (
+  label: string,
+  value: string,
+  links: ResumeData['skills'][number]['links'] = [],
+): ResumeData['skills'][number] => ({ label, value, links })
+
+describe('linkifySkillLinks', () => {
+  it('renders one paragraph per skill line with a bold label run', () => {
+    const data: ResumeData = {
+      ...loadSampleWithoutBodyLinks(),
+      skills: [
+        skillLine('Quantitative Methods', 'Derivatives Pricing, Greeks'),
+        skillLine('Technical', 'Python, SQL'),
+        skillLine('Financial Systems & Tools', 'Bloomberg Terminal, Excel'),
+        skillLine('Certifications', 'CFA Level I (Passed)'),
+        skillLine('Languages', 'English (native)'),
+      ],
+    }
+    const { documentXml } = readParts(
+      renderResumeTemplate(decodeBase64Template(), data),
+    )
+    const paragraphs = readSkillParagraphs(documentXml)
+
+    expect(paragraphs.map(({ text }) => text)).toEqual([
+      'Quantitative Methods: Derivatives Pricing, Greeks',
+      'Technical: Python, SQL',
+      'Financial Systems &amp; Tools: Bloomberg Terminal, Excel',
+      'Certifications: CFA Level I (Passed)',
+      'Languages: English (native)',
+    ])
+    for (const { xml } of paragraphs) {
+      const runs = [...xml.matchAll(/<w:r>[\s\S]*?<\/w:r>/g)].map(
+        ([run]) => run,
+      )
+      expect(runs[0]).toContain('<w:b />')
+      expect(runs[0]).toMatch(/:<\/w:t>/)
+      expect(runs.slice(1).join('')).not.toContain('<w:b />')
+    }
+    // The old fixed skill labels are gone from the template.
+    expect(documentXml).not.toContain('Technical Skills')
+    expect(documentXml).not.toContain('Financial Skills')
+    expect(documentXml).not.toContain('{skills')
+  })
+
+  it('links the phrase inside its own line only, keeping contact and project links', () => {
+    const sample = loadSample()
+    const certUrl = 'https://example.com/certs/aws-developer'
+    const data: ResumeData = {
+      ...sample,
+      header,
+      experience: [
+        {
+          ...sample.experience[0],
+          roles: [
+            {
+              ...sample.experience[0].roles[0],
+              bullets: ['Earned AWS Certified Developer'],
+            },
+          ],
+        },
+      ],
+      projects: [project('Risk Engine', 'github.com/janedoe/risk-engine')],
+      skills: [
+        skillLine('Technical', 'AWS Certified Developer tooling, Python'),
+        skillLine(
+          'Certifications',
+          'AWS Certified Developer (Associate), Scrum Master (In progress)',
+          [{ text: 'AWS Certified Developer', url: certUrl }],
+        ),
+      ],
+      extras: ['AWS Certified Developer'],
+    }
+    const rendered = renderResumeTemplate(decodeBase64Template(), data)
+    const { documentXml, relsXml } = readParts(rendered)
+    const links = readHyperlinks(rendered)
+
+    expect(links.map(({ text, target }) => ({ text, target }))).toEqual([
+      { text: 'jane.doe@example.com', target: 'mailto:jane.doe@example.com' },
+      { text: 'LinkedIn', target: 'https://www.linkedin.com/in/janedoe' },
+      { text: 'GitHub', target: 'https://github.com/janedoe' },
+      { text: 'janedoe.dev', target: 'https://www.janedoe.dev/' },
+      { text: 'Risk Engine', target: 'https://github.com/janedoe/risk-engine' },
+      { text: 'AWS Certified Developer', target: certUrl },
+    ])
+    expect(new Set(links.map(({ id }) => id)).size).toBe(links.length)
+    expect(relsXml.match(/Id="rCvSkill\d+"/g)).toHaveLength(1)
+
+    const [technical, certifications] = readSkillParagraphs(documentXml)
+    expect(technical.xml).not.toContain('<w:hyperlink')
+    expect(certifications.text).toBe(
+      'Certifications: AWS Certified Developer (Associate), Scrum Master (In progress)',
+    )
+    expect(certifications.xml.match(/<w:hyperlink /g)).toHaveLength(1)
+    // Split runs keep the value run's regular-weight formatting.
+    expect(certifications.xml).toMatch(
+      /<w:hyperlink r:id="rCvSkill\d+" w:history="1"><w:r><w:rPr>(?:(?!<w:b \/>)[\s\S])*?<\/w:rPr><w:t xml:space="preserve">AWS Certified Developer<\/w:t><\/w:r><\/w:hyperlink><w:r><w:rPr>[\s\S]*?<\/w:rPr><w:t xml:space="preserve"> \(Associate\), Scrum Master \(In progress\)<\/w:t><\/w:r>/,
+    )
+    // The bullet and the extras line with the same text stay plain.
+    expect(documentXml).toContain('>Earned AWS Certified Developer</w:t>')
+    const extrasIndex = documentXml.indexOf('>EXTRA-CURRICULAR')
+    expect(
+      documentXml.indexOf('>AWS Certified Developer</w:t>', extrasIndex),
+    ).toBeGreaterThan(extrasIndex)
+  })
+
+  it('links several phrases in value order, skipping links whose text is missing', () => {
+    const data: ResumeData = {
+      ...loadSampleWithoutBodyLinks(),
+      header: { ...header, email: '', links: [] },
+      skills: [
+        skillLine(
+          'Financial Systems & Tools',
+          'Bloomberg Terminal, P&L Attribution, Excel',
+          [
+            { text: 'P&L Attribution', url: 'example.com/pnl' },
+            { text: 'Not In Value', url: 'https://example.com/missing' },
+            { text: 'Bloomberg Terminal', url: 'https://example.com/bbg' },
+          ],
+        ),
+      ],
+    }
+    const rendered = renderResumeTemplate(decodeBase64Template(), data)
+    const [line] = readSkillParagraphs(readParts(rendered).documentXml)
+
+    expect(
+      readHyperlinks(rendered).map(({ text, target }) => ({ text, target })),
+    ).toEqual([
+      { text: 'Bloomberg Terminal', target: 'https://example.com/bbg' },
+      { text: 'P&amp;L Attribution', target: 'https://example.com/pnl' },
+    ])
+    expect(line.text).toBe(
+      'Financial Systems &amp; Tools: Bloomberg Terminal, P&amp;L Attribution, Excel',
+    )
+  })
+
+  it('resolves a repeated label to its own line after an empty one', () => {
+    const data: ResumeData = {
+      ...loadSampleWithoutBodyLinks(),
+      header: { ...header, email: '', links: [] },
+      skills: [
+        skillLine('Certifications', ''),
+        skillLine('Certifications', 'CFA Level I', [
+          { text: 'CFA Level I', url: 'https://example.com/cfa' },
+        ]),
+      ],
+    }
+    const rendered = renderResumeTemplate(decodeBase64Template(), data)
+    const [empty, linked] = readSkillParagraphs(readParts(rendered).documentXml)
+
+    expect(empty.xml).not.toContain('<w:hyperlink')
+    expect(linked.xml.match(/<w:hyperlink /g)).toHaveLength(1)
+    expect(linked.text).toBe('Certifications: CFA Level I')
+  })
+
+  it('is a no-op when no skill line has links', () => {
+    const data = loadSampleWithoutBodyLinks()
+    const rendered = renderResumeTemplate(decodeBase64Template(), data)
+
+    expect(linkifySkillLinks(rendered, data.skills)).toBe(rendered)
   })
 })

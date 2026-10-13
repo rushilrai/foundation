@@ -47,11 +47,13 @@ export const resumeDataValidator = v.object({
       bullets: v.array(v.string()),
     }),
   ),
-  skills: v.object({
-    technical: v.string(),
-    financial: v.string(),
-    languages: v.string(),
-  }),
+  skills: v.array(
+    v.object({
+      label: v.string(),
+      value: v.string(),
+      links: v.array(v.object({ text: v.string(), url: v.string() })),
+    }),
+  ),
   extras: v.array(v.string()),
 })
 
