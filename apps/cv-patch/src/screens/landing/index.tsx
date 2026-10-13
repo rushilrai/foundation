@@ -13,13 +13,14 @@ export function LandingScreen() {
             <h1 className="text-4xl font-bold text-primary">CV Patch</h1>
 
             <p className="mt-1 max-w-sm text-muted-foreground">
-              Build a profile once, tailor it to any job.
+              Upload your resume and tailor it to any job.
               <br />
               AI-powered, instant, and effortless.
             </p>
 
             <Button
               className="mt-4 max-w-36"
+              nativeButton={false}
               render={
                 <Link to="/sign-in/$">
                   Get Started <IconArrowUpRight />

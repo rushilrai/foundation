@@ -1,204 +1,333 @@
 'use node'
 
+import { generateText, Output } from 'ai'
 import { v } from 'convex/values'
+import { z } from 'zod'
 
 import { internal } from '../../_generated/api'
 import { internalAction } from '../../_generated/server'
-import { DEFAULT_REASONING_EFFORT, setupOpenAI } from '../../configs/ai'
-import { convertFileToPdf } from '../common/cloudconvert'
-import { buildPatchSystem, createPatchAgent } from './agent'
+import { ResumeDataSchema } from '../../../shared/resumeSchema'
+import { decodeBase64Template } from '../../assets/resumeTemplateData'
+import {
+  DEFAULT_REASONING_EFFORT,
+  openai,
+  OpenAIModels,
+  setupOpenAI,
+} from '../../configs/ai'
+import { convertDocxToPdf } from '../common/cloudconvert'
+import { renderResumeTemplate } from './docxTemplate'
+import {
+  BULLET_MAX_RATIO,
+  BULLET_MIN_RATIO,
+  EDITABLE_MAX_RATIO,
+  EDITABLE_MIN_RATIO,
+  validatePatchedData,
+} from './validation'
 
-// Mirrored in PatchChat.tsx, which hides this synthetic message.
-const FIRST_RUN_PROMPT =
-  'Research the company and role, curate my resume from my profile, and write a cover letter.'
+// Length hints in the prompt come from the validator's ratios so the two
+// can never disagree.
+const percent = (ratio: number): string => `${Math.round(ratio * 100)}%`
+const BULLET_RANGE = `${percent(BULLET_MIN_RATIO)}-${percent(BULLET_MAX_RATIO)}`
+const EDITABLE_RANGE = `${percent(EDITABLE_MIN_RATIO)}-${percent(EDITABLE_MAX_RATIO)}`
 
-export const startPatchAgent = internalAction({
+const patchOutputSchema = z.object({
+  data: ResumeDataSchema,
+  changes: z.array(z.string()),
+})
+
+export const generatePatch = internalAction({
   args: { patchId: v.id('patches') },
   handler: async (ctx, args): Promise<void> => {
-    console.log('[startPatchAgent] Starting', { patchId: args.patchId })
+    console.log('[generatePatch] Starting', { patchId: args.patchId })
 
     try {
       await setupOpenAI()
 
+      const patch = await ctx.runQuery(
+        internal.modules.patch.queries.getByIdInternal,
+        {
+          patchId: args.patchId,
+        },
+      )
+
+      if (!patch) {
+        console.error('[generatePatch] Patch not found', {
+          patchId: args.patchId,
+        })
+        return
+      }
+
+      const resume = await ctx.runQuery(
+        internal.modules.resume.queries.getByIdInternal,
+        {
+          resumeId: patch.resumeId,
+        },
+      )
+
+      if (!resume) {
+        await ctx.runMutation(
+          internal.modules.patch.mutations.updateGeneratedContent,
+          {
+            patchId: args.patchId,
+            patchedFileId: null,
+            data: null,
+            changes: null,
+            status: 'error',
+            errorMessage: 'Resume not found',
+          },
+        )
+        return
+      }
+
+      if (!resume.data) {
+        await ctx.runMutation(
+          internal.modules.patch.mutations.updateGeneratedContent,
+          {
+            patchId: args.patchId,
+            patchedFileId: null,
+            data: null,
+            changes: null,
+            status: 'error',
+            errorMessage: 'Resume data not available',
+          },
+        )
+        return
+      }
+
+      await ctx.runMutation(
+        internal.modules.patch.mutations.updateStreamingText,
+        {
+          patchId: args.patchId,
+          streamingText: 'Analyzing resume and job description...',
+        },
+      )
+
+      const system = `You are an expert resume editor and ATS optimizer performing in-place keyword optimization on a structured resume JSON.
+
+CRITICAL CONSTRAINT: The output renders into a fixed-layout DOCX template. Keep all rewritten text within tight character bounds so the document layout remains stable.
+
+Strategy — in-place rewriting:
+- Maximize match quality for both ATS keyword matching and LLM-assisted recruiter screening.
+- Integrate exact JD terminology where it naturally fits the original accomplishment.
+- Add relevant lexical variants (abbreviations, expanded forms, adjacent domain phrasing) when factual meaning stays the same.
+- Prioritize hard skills, tools, domain nouns, and scope/impact language over generic soft-skill wording.
+- Do NOT invent facts, restructure sentences, add new bullets, remove bullets, or add/remove entries.
+- Do NOT reorder bullets.
+- You MAY reorder items within each skills[].value to prioritize JD-relevant skills first.
+- Preserve quantitative evidence: if a bullet contains numbers/percentages/currency/scale tokens, keep those metrics in the rewritten bullet.
+
+Immutable fields — copy these exactly, byte-for-byte:
+- header.name, header.phone, header.email, header.location, header.links (every label and url)
+- experience[].company, experience[].companyMeta
+- experience[].roles[].meta
+- education[].school, education[].location, education[].dates
+- projects[].name, projects[].url, projects[].dates (the project name is the hyperlink text — never rewrite it)
+- skills[].label and skills[].links (every text and url, same count and order) — the label is rendered as a bold heading and each link text is hyperlinked inside the value
+
+Editable fields — rewrite for ATS keyword alignment while preserving approximate character length:
+- experience[].roles[].title — only adjust if the JD uses a clearly equivalent title; keep length within ${EDITABLE_RANGE} of original
+- experience[].roles[].bullets[] — substitute keywords, keep each bullet within ${BULLET_RANGE} of original character count
+- education[].degree, education[].details — keyword-focused rewrites within ${EDITABLE_RANGE} of original length
+- projects[].bullets[] — same rules as experience bullets
+- skills[].value — reorder to front-load JD-relevant terms, may substitute equivalent terms; keep length within ${EDITABLE_RANGE} of original; every skills[].links[].text must still appear verbatim in its line's value (once per link: two links with the same text need two occurrences)
+- extras[] — preserve as-is unless directly relevant; if edited keep length within ${EDITABLE_RANGE} of original
+
+Structural invariants:
+- Same number of experience entries, same number of roles per experience entry, same number of bullets per role.
+- Same number of education entries, project entries, skills lines (same order), and extras entries.
+
+Output JSON that strictly matches the schema.`
+
+      const companyContext =
+        patch.companyName || patch.roleName
+          ? `\nTarget company: ${patch.companyName || 'N/A'}\nTarget role: ${patch.roleName || 'N/A'}\nLeverage domain-specific language and terminology from this company/industry where it naturally fits.`
+          : ''
+
+      const prompt = `Base resume JSON:
+${JSON.stringify(resume.data)}
+
+Job description:
+${patch.jobDescription}
+${companyContext}
+
+Return JSON with:
+- data: the updated ResumeData JSON (must match schema exactly)
+- changes: short bullet list of what you changed and why`
+
+      const { output } = await generateText({
+        model: openai.responses(OpenAIModels['gpt-5.6-luna']),
+        output: Output.object({ schema: patchOutputSchema }),
+        system,
+        prompt,
+        providerOptions: {
+          openai: { reasoningEffort: DEFAULT_REASONING_EFFORT },
+        },
+      })
+
+      let data = output.data
+      let changes = output.changes
+
+      let validationIssues = validatePatchedData(data, resume.data)
+      for (
+        let attempt = 1;
+        validationIssues.length > 0 && attempt <= MAX_VALIDATION_RETRY_ATTEMPTS;
+        attempt++
+      ) {
+        await ctx.runMutation(
+          internal.modules.patch.mutations.updateStreamingText,
+          {
+            patchId: args.patchId,
+            streamingText: `QA detected issues. Refining output (${attempt}/${MAX_VALIDATION_RETRY_ATTEMPTS})...`,
+          },
+        )
+
+        const retryPrompt = `${prompt}
+
+Your previous output:
+${JSON.stringify(data)}
+
+The following validation issues were found in your previous output. Fix ONLY these issues and return the corrected JSON:
+${validationIssues.join('\n')}`
+
+        const { output: retryOutput } = await generateText({
+          model: openai.responses(OpenAIModels['gpt-5.6-luna']),
+          output: Output.object({ schema: patchOutputSchema }),
+          system,
+          prompt: retryPrompt,
+          providerOptions: {
+            openai: { reasoningEffort: DEFAULT_REASONING_EFFORT },
+          },
+        })
+
+        data = retryOutput.data
+        changes = mergeChanges(changes, retryOutput.changes)
+        validationIssues = validatePatchedData(data, resume.data)
+      }
+
+      if (validationIssues.length > 0) {
+        throw new Error(
+          `Patched resume failed validation: ${validationIssues.join('; ')}`,
+        )
+      }
+
+      const templateBuffer = getTemplateBuffer()
+      const docxBytes = renderResumeTemplate(templateBuffer, data)
+      const docxBuffer = toArrayBuffer(docxBytes)
+
+      const patchedFileId = await ctx.storage.store(
+        new Blob([docxBuffer], {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        }),
+      )
+
+      await ctx.runMutation(
+        internal.modules.patch.mutations.updateGeneratedContent,
+        {
+          patchId: args.patchId,
+          patchedFileId,
+          data,
+          changes,
+          status: 'ready',
+          errorMessage: undefined,
+        },
+      )
+
+      // Schedule PDF conversion (non-blocking)
+      await ctx.scheduler.runAfter(
+        0,
+        internal.modules.patch.nodeActions.convertPatchToPdf,
+        { patchId: args.patchId },
+      )
+
+      console.log('[generatePatch] Complete', { patchId: args.patchId })
+    } catch (error) {
+      console.error('[generatePatch] Error', error)
+
+      await ctx.runMutation(
+        internal.modules.patch.mutations.updateGeneratedContent,
+        {
+          patchId: args.patchId,
+          patchedFileId: null,
+          data: null,
+          changes: null,
+          status: 'error',
+          errorMessage:
+            error instanceof Error
+              ? error.message
+              : 'Unknown error during patch generation',
+        },
+      )
+    }
+  },
+})
+
+let cachedTemplate: Uint8Array | null = null
+const MAX_VALIDATION_RETRY_ATTEMPTS = 3
+
+function getTemplateBuffer(): Uint8Array {
+  if (cachedTemplate) {
+    return cachedTemplate
+  }
+
+  cachedTemplate = decodeBase64Template()
+  return cachedTemplate
+}
+
+function mergeChanges(
+  primary?: Array<string>,
+  secondary?: Array<string>,
+): Array<string> {
+  const merged = new Set<string>()
+  for (const change of primary ?? []) {
+    merged.add(change)
+  }
+  for (const change of secondary ?? []) {
+    merged.add(change)
+  }
+  return Array.from(merged)
+}
+
+export const convertPatchToPdf = internalAction({
+  args: { patchId: v.id('patches') },
+  handler: async (ctx, args): Promise<void> => {
+    try {
       const patch = await ctx.runQuery(
         internal.modules.patch.queries.getByIdInternal,
         { patchId: args.patchId },
       )
 
       if (!patch) {
-        console.error('[startPatchAgent] Patch not found', {
+        console.error('[convertPatchToPdf] Patch not found', {
           patchId: args.patchId,
         })
         return
       }
 
-      if (!patch.threadId) {
-        throw new Error('Patch has no thread')
+      if (!patch.patchedFileId) {
+        console.error('[convertPatchToPdf] No patchedFileId on patch', {
+          patchId: args.patchId,
+        })
+        return
       }
 
-      const profile = await ctx.runQuery(
-        internal.modules.profile.queries.getByIdInternal,
-        { profileId: patch.profileId },
-      )
+      const pdfFileId = await convertDocxToPdf(ctx, patch.patchedFileId)
 
-      if (!profile) {
-        throw new Error('Profile data not available')
-      }
-
-      const agent = createPatchAgent()
-      const result = await agent.streamText(
-        ctx,
-        { threadId: patch.threadId, userId: patch.userId },
-        {
-          prompt: FIRST_RUN_PROMPT,
-          system: buildPatchSystem(patch, profile),
-          providerOptions: {
-            openai: { reasoningEffort: DEFAULT_REASONING_EFFORT },
-          },
-        },
-        { saveStreamDeltas: true },
-      )
-      await result.consumeStream()
-
-      const updated = await ctx.runQuery(
-        internal.modules.patch.queries.getByIdInternal,
-        { patchId: args.patchId },
-      )
-
-      if (updated && updated.status === 'generating') {
-        throw new Error('Agent finished without producing a resume version')
-      }
-
-      console.log('[startPatchAgent] Complete', { patchId: args.patchId })
-    } catch (error) {
-      console.error('[startPatchAgent] Error', error)
-
-      await ctx.runMutation(internal.modules.patch.mutations.markError, {
+      await ctx.runMutation(internal.modules.patch.mutations.updatePdfFileId, {
         patchId: args.patchId,
-        errorMessage:
-          error instanceof Error
-            ? error.message
-            : 'Unknown error during patch generation',
+        pdfFileId,
       })
-    } finally {
-      await ctx.runMutation(
-        internal.modules.patch.mutations.clearAgentRunning,
-        { patchId: args.patchId },
-      )
-    }
-  },
-})
 
-// Recovery for CloudConvert failures during agent runs.
-export const backfillPdfs = internalAction({
-  args: { patchId: v.id('patches') },
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{ resumePdf: boolean; coverLetterPdf: boolean }> => {
-    const patch = await ctx.runQuery(
-      internal.modules.patch.queries.getByIdInternal,
-      { patchId: args.patchId },
-    )
-
-    if (!patch) {
-      throw new Error('Patch not found')
-    }
-
-    let resumePdf = false
-    let coverLetterPdf = false
-
-    if (patch.patchedFileId && !patch.pdfFileId) {
-      const pdfFileId = await convertFileToPdf(
-        ctx,
-        patch.patchedFileId,
-        'resume.docx',
-      )
-      await ctx.runMutation(
-        internal.modules.patch.mutations.setBackfilledPdfs,
-        {
-          patchId: args.patchId,
-          pdfFileId,
-        },
-      )
-      resumePdf = true
-    }
-
-    if (patch.coverLetter && !patch.coverLetter.pdfFileId) {
-      const coverLetterPdfFileId = await convertFileToPdf(
-        ctx,
-        patch.coverLetter.fileId,
-        'cover-letter.docx',
-      )
-      await ctx.runMutation(
-        internal.modules.patch.mutations.setBackfilledPdfs,
-        {
-          patchId: args.patchId,
-          coverLetterPdfFileId,
-        },
-      )
-      coverLetterPdf = true
-    }
-
-    return { resumePdf, coverLetterPdf }
-  },
-})
-
-export const continuePatchAgent = internalAction({
-  args: {
-    patchId: v.id('patches'),
-    promptMessageId: v.string(),
-  },
-  handler: async (ctx, args): Promise<void> => {
-    try {
-      await setupOpenAI()
-
-      const patch = await ctx.runQuery(
-        internal.modules.patch.queries.getByIdInternal,
-        { patchId: args.patchId },
-      )
-
-      if (!patch?.threadId) {
-        console.error('[continuePatchAgent] Patch or thread not found', {
-          patchId: args.patchId,
-        })
-        return
-      }
-
-      const profile = await ctx.runQuery(
-        internal.modules.profile.queries.getByIdInternal,
-        { profileId: patch.profileId },
-      )
-
-      if (!profile) {
-        console.error('[continuePatchAgent] Profile data not available', {
-          patchId: args.patchId,
-        })
-        return
-      }
-
-      const agent = createPatchAgent()
-      const result = await agent.streamText(
-        ctx,
-        { threadId: patch.threadId, userId: patch.userId },
-        {
-          promptMessageId: args.promptMessageId,
-          system: buildPatchSystem(patch, profile),
-          providerOptions: {
-            openai: { reasoningEffort: DEFAULT_REASONING_EFFORT },
-          },
-        },
-        { saveStreamDeltas: true },
-      )
-      await result.consumeStream()
+      console.log('[convertPatchToPdf] Complete', {
+        patchId: args.patchId,
+      })
     } catch (error) {
-      // The thread keeps its history; the user can retry from the chat.
-      console.error('[continuePatchAgent] Error', error)
-    } finally {
-      await ctx.runMutation(
-        internal.modules.patch.mutations.clearAgentRunning,
-        { patchId: args.patchId },
-      )
+      console.error('[convertPatchToPdf] Error (non-fatal)', error)
     }
   },
 })
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength)
+  new Uint8Array(buffer).set(bytes)
+  return buffer
+}

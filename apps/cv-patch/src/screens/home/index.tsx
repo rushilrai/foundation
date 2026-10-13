@@ -21,11 +21,11 @@ export function HomeScreen() {
               <IconFiles />
             </EmptyMedia>
 
-            <EmptyTitle>No Profile Selected</EmptyTitle>
+            <EmptyTitle>No Resume Selected</EmptyTitle>
 
             <EmptyDescription>
-              Get started by selecting a profile from the sidebar or creating
-              one.
+              Get started by creating selecting a resume from sidebar or
+              uploading one.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

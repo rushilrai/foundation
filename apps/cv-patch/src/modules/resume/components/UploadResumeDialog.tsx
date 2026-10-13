@@ -1,0 +1,209 @@
+import { isDocxFileName } from '@shared/resumeSchema'
+import { useForm } from '@tanstack/react-form'
+import { useNavigate } from '@tanstack/react-router'
+import { useState } from 'react'
+import { z } from 'zod'
+
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { getErrorMessage } from '@/modules/common/errorMessages'
+import {
+  useCreateResume,
+  useGenerateResumeUploadUrl,
+} from '@/modules/resume/mutations'
+
+const uploadResumeSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  file: z
+    .instanceof(File, { message: 'File is required' })
+    .refine((file) => isDocxFileName(file.name), {
+      message: 'Only .docx files are supported',
+    }),
+})
+
+type UploadResumeDialogProps = {
+  children: React.ReactNode
+}
+
+export const UploadResumeDialog = ({ children }: UploadResumeDialogProps) => {
+  const [open, setOpen] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  const generateUploadUrl = useGenerateResumeUploadUrl()
+  const createResume = useCreateResume()
+  const navigate = useNavigate()
+
+  const form = useForm({
+    defaultValues: {
+      title: '',
+      file: null as File | null,
+    },
+    validators: {
+      onSubmit: uploadResumeSchema,
+    },
+    onSubmit: async ({ value }) => {
+      const file = value.file!
+      setIsUploading(true)
+      setUploadError(null)
+      try {
+        const urlResult = await generateUploadUrl()
+        if ('error' in urlResult) {
+          console.error('Failed to get upload URL:', urlResult.error)
+          setUploadError(getErrorMessage('UPLOAD_FAILED'))
+          return
+        }
+
+        const response = await fetch(urlResult.uploadUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': file.type },
+          body: file,
+        })
+        if (!response.ok) {
+          console.error('Failed to upload resume file:', response.status)
+          setUploadError(getErrorMessage('UPLOAD_FAILED'))
+          return
+        }
+        const { storageId } = await response.json()
+
+        const result = await createResume({
+          title: value.title.trim(),
+          fileId: storageId,
+          fileName: file.name,
+          fileSize: file.size,
+        })
+
+        if ('error' in result) {
+          console.error('Failed to create resume:', result.error)
+          setUploadError(getErrorMessage(result.error))
+          return
+        }
+
+        setOpen(false)
+        form.reset()
+        navigate({
+          to: '/dashboard/resume/$id',
+          params: { id: result.resumeId },
+        })
+      } catch (error) {
+        console.error('Error uploading resume:', error)
+        setUploadError(getErrorMessage('UPLOAD_FAILED'))
+      } finally {
+        setIsUploading(false)
+      }
+    },
+  })
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen)
+        setUploadError(null)
+      }}
+    >
+      <DialogTrigger render={children as React.ReactElement} />
+
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Upload Resume</DialogTitle>
+
+          <DialogDescription>
+            Upload a .docx file to get started.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            form.handleSubmit()
+          }}
+        >
+          <FieldGroup>
+            <form.Field
+              name="title"
+              children={(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid
+
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor={field.name}>Title</FieldLabel>
+
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      aria-invalid={isInvalid}
+                      placeholder="My Resume"
+                    />
+
+                    {isInvalid && (
+                      <FieldError errors={field.state.meta.errors} />
+                    )}
+                  </Field>
+                )
+              }}
+            />
+
+            <form.Field
+              name="file"
+              children={(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid
+
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor={field.name}>File</FieldLabel>
+
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      type="file"
+                      accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onBlur={field.handleBlur}
+                      onChange={(e) =>
+                        field.handleChange(e.target.files?.[0] ?? null)
+                      }
+                      aria-invalid={isInvalid}
+                    />
+
+                    {isInvalid && (
+                      <FieldError errors={field.state.meta.errors} />
+                    )}
+                  </Field>
+                )
+              }}
+            />
+
+            {uploadError && (
+              <p role="alert" className="text-sm text-destructive">
+                {uploadError}
+              </p>
+            )}
+
+            <Button type="submit" disabled={isUploading} className="w-full">
+              {isUploading ? 'Uploading...' : 'Upload'}
+            </Button>
+          </FieldGroup>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}

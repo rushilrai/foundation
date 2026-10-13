@@ -1,221 +1,220 @@
-import { getEmptyProfileData, type ProfileData } from '@shared/profileSchema'
-import type { ResumeData } from '@shared/resumeSchema'
+import { readFileSync } from 'node:fs'
+import { ResumeDataSchema, type ResumeData } from '@shared/resumeSchema'
 import { describe, expect, it } from 'vitest'
 
 import { validatePatchedData } from '../../convex/modules/patch/validation'
 
-function buildProfile(): ProfileData {
-  const profile = getEmptyProfileData()
-  profile.header = {
-    name: 'Ada Lovelace',
-    phone: '+44 1234 567890',
-    email: 'ada@example.com',
-    location: 'London, UK',
-    links: [
-      { label: 'LinkedIn', url: 'https://linkedin.com/in/ada' },
-      { label: 'GitHub', url: 'https://github.com/ada' },
-    ],
-  }
-  profile.education = [
-    {
-      school: 'University of London',
-      location: 'London',
-      dates: '2018 – 2021',
-      degree: 'BSc Mathematics',
-      details: 'First-class honours',
-    },
-  ]
-  profile.experience = [
-    {
-      company: 'Analytical Engines Ltd',
-      companyMeta: 'London · Fintech',
-      roles: [
-        {
-          title: 'Software Engineer',
-          meta: 'Jan 2022 – Present',
-          bullets: ['Built the trading engine', 'Cut latency 40%'],
-        },
-      ],
-    },
-    {
-      company: 'Babbage & Co',
-      companyMeta: 'Remote',
-      roles: [
-        {
-          title: 'Analyst',
-          meta: '2021 – 2022',
-          bullets: ['Modelled risk for 12 desks'],
-        },
-      ],
-    },
-  ]
-  profile.projects = [
-    {
-      name: 'Difference Engine',
-      url: 'https://github.com/ada/difference-engine',
-      dates: '2023',
-      bullets: ['Simulated mechanical computation'],
-    },
-    {
-      name: 'Notes Translator',
-      url: '',
-      dates: '2024',
-      bullets: ['Translated scientific memoirs'],
-    },
-  ]
-  profile.skills = {
-    technical: 'TypeScript, Python',
-    financial: 'Risk modelling',
-    languages: 'English, French',
-  }
-  return profile
+const loadSample = (): ResumeData => {
+  const samplePath = new URL('../../scripts/sample-data.json', import.meta.url)
+  return ResumeDataSchema.parse(JSON.parse(readFileSync(samplePath, 'utf-8')))
 }
 
-// A legitimate curation: subset of entries, reworded titles/names/bullets.
-function buildCuratedResume(profile: ProfileData): ResumeData {
-  return {
-    header: {
-      ...profile.header,
-      // Links may be selected and reordered.
-      links: [profile.header.links[1], profile.header.links[0]],
-    },
-    education: [
-      {
-        school: profile.education[0].school,
-        location: profile.education[0].location,
-        dates: profile.education[0].dates,
-        degree: 'BSc Mathematics (reworded for the JD)',
-        details: 'Graduated first in class',
-      },
-    ],
-    experience: [
-      {
-        company: profile.experience[0].company,
-        companyMeta: profile.experience[0].companyMeta,
-        roles: [
-          {
-            title: 'Backend Engineer',
-            meta: profile.experience[0].roles[0].meta,
-            bullets: ['Shipped a trading engine that cut latency 40%'],
-          },
-        ],
-      },
-    ],
-    projects: [
-      {
-        name: 'Difference Engine simulator',
-        url: profile.projects[0].url,
-        dates: profile.projects[0].dates,
-        bullets: ['Recreated mechanical computation in software'],
-      },
-    ],
-    skills: profile.skills,
-    extras: [],
-  }
-}
-
-describe('validatePatchedData (grounding)', () => {
-  it('accepts a legitimate curated subset with reworded text', () => {
-    const profile = buildProfile()
-    expect(validatePatchedData(buildCuratedResume(profile), profile)).toEqual(
-      [],
-    )
+describe('validatePatchedData', () => {
+  it('passes identical data', () => {
+    const base = loadSample()
+    expect(validatePatchedData(structuredClone(base), base)).toEqual([])
   })
 
-  it('rejects changed contact facts', () => {
-    const profile = buildProfile()
-    const data = buildCuratedResume(profile)
-    data.header.email = 'other@example.com'
-    data.header.location = 'Paris'
+  it('flags a changed header.location', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.header.location = 'London'
 
-    const issues = validatePatchedData(data, profile)
-    expect(issues.some((issue) => issue.includes('header.email'))).toBe(true)
-    expect(issues.some((issue) => issue.includes('header.location'))).toBe(true)
+    const issues = validatePatchedData(patched, base)
+
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toMatch(/^header\.location was changed/)
   })
 
-  it('rejects invented header links but allows selection/reorder', () => {
-    const profile = buildProfile()
-    const data = buildCuratedResume(profile)
-    expect(validatePatchedData(data, profile)).toEqual([])
+  it('flags a location added where the base had none', () => {
+    const base = loadSample()
+    base.header.location = ''
+    const patched = structuredClone(base)
+    patched.header.location = 'Remote'
 
-    data.header.links = [{ label: 'Portfolio', url: 'https://ada.dev' }]
-    const issues = validatePatchedData(data, profile)
-    expect(issues.some((issue) => issue.includes('Portfolio'))).toBe(true)
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^header\.location was changed/),
+    ])
   })
 
-  it('rejects companies that are not in the profile', () => {
-    const profile = buildProfile()
-    const data = buildCuratedResume(profile)
-    data.experience[0] = {
-      ...data.experience[0],
-      company: 'Invented Corp',
-    }
+  it('flags a changed header link url', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.header.links[0].url = 'linkedin.com/in/someone-else'
 
-    const issues = validatePatchedData(data, profile)
-    expect(issues.some((issue) => issue.includes('Invented Corp'))).toBe(true)
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^header\.links\[0\] was changed/),
+    ])
   })
 
-  it('rejects role meta that does not exist at that company', () => {
-    const profile = buildProfile()
-    const data = buildCuratedResume(profile)
-    data.experience[0].roles[0].meta = 'Mar 2019 – Dec 2021'
+  it('flags a dropped header link', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.header.links.pop()
 
-    const issues = validatePatchedData(data, profile)
-    expect(issues.some((issue) => issue.includes('roles[0].meta'))).toBe(true)
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^header\.links has 1 entries, expected 2/),
+    ])
   })
 
-  it('accepts duplicate-company profiles by checking every entry', () => {
-    const profile = buildProfile()
-    // Boomerang employment: same company twice with different meta.
-    profile.experience.push({
-      company: 'Analytical Engines Ltd',
-      companyMeta: 'London · Second stint',
-      roles: [
-        { title: 'Staff Engineer', meta: '2025', bullets: ['Led infra'] },
-      ],
-    })
+  it('flags a changed company name', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.experience[0].company = 'Another Co'
 
-    const data = buildCuratedResume(profile)
-    data.experience.push({
-      company: 'Analytical Engines Ltd',
-      companyMeta: 'London · Second stint',
-      roles: [
-        { title: 'Staff Engineer', meta: '2025', bullets: ['Led infra'] },
-      ],
-    })
-
-    expect(validatePatchedData(data, profile)).toEqual([])
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^experience\[0\]\.company was changed/),
+    ])
   })
 
-  it('rejects project facts blended across profile entries', () => {
-    const profile = buildProfile()
-    const data = buildCuratedResume(profile)
-    // Project 0's url with project 1's dates.
-    data.projects[0].dates = profile.projects[1].dates
+  it('flags a bullet that grows past its original length', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    const bullets = patched.experience[0].roles[0].bullets
+    bullets[0] = `${bullets[0]} and more`
 
-    const issues = validatePatchedData(data, profile)
-    expect(issues.some((issue) => issue.includes('projects[0]'))).toBe(true)
-  })
-
-  it('rejects empty bullets and an empty resume', () => {
-    const profile = buildProfile()
-    const data = buildCuratedResume(profile)
-    data.experience[0].roles[0].bullets = []
-    expect(
-      validatePatchedData(data, profile).some((issue) =>
-        issue.includes('no bullets'),
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(
+        /^experience\[0\]\.roles\[0\]\.bullets\[0\] is \d+ chars/,
       ),
-    ).toBe(true)
+    ])
+  })
 
-    const empty = {
-      ...buildCuratedResume(profile),
-      experience: [],
-      projects: [],
-    }
-    expect(
-      validatePatchedData(empty, profile).some((issue) =>
-        issue.includes('no experience and no projects'),
+  it('flags a changed project name, even within the old length range', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.projects[0].name = 'Open Source Analytics'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^projects\[0\]\.name was changed/),
+    ])
+  })
+
+  it('flags a changed project url', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.projects[0].url = 'https://github.com/janedoe/other'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^projects\[0\]\.url was changed/),
+    ])
+  })
+
+  it('flags a project url added where the base had none', () => {
+    const base = loadSample()
+    base.projects[0].url = ''
+    const patched = structuredClone(base)
+    patched.projects[0].url = 'https://github.com/janedoe/oss-dashboard'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^projects\[0\]\.url was changed/),
+    ])
+  })
+
+  it('flags a removed bullet', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.experience[0].roles[0].bullets.pop()
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^experience\[0\]\.roles\[0\]\.bullets has/),
+    ])
+  })
+
+  it('passes a skill value reordered within the length range', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills[1].value =
+      'Scrum Master (In progress), AWS Certified Developer (Associate)'
+    patched.skills[0].value = 'Docker, PostgreSQL, Node.js, React, TypeScript'
+
+    expect(validatePatchedData(patched, base)).toEqual([])
+  })
+
+  it('flags a changed skill label', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills[0].label = 'Tech Stack'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^skills\[0\]\.label was changed/),
+    ])
+  })
+
+  it('flags a changed skill link', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills[1].links[0].url = 'https://example.com/other'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^skills\[1\]\.links\[0\] was changed/),
+    ])
+  })
+
+  it('flags a dropped skill link', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills[1].links = []
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^skills\[1\]\.links has 0 entries, expected 1/),
+    ])
+  })
+
+  it('flags a skill value that no longer contains its link text', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills[1].value =
+      'AWS Certified Dev (Associate), Scrum Master (In progress)'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(
+        /^skills\[1\]\.value must contain the link text "AWS Certified Developer"/,
       ),
-    ).toBe(true)
+    ])
+  })
+
+  it('flags a value with fewer occurrences than links sharing a text', () => {
+    const base = loadSample()
+    base.skills[1] = {
+      label: 'Certifications',
+      value: 'CFA (Passed), CFA (Level II candidate)',
+      links: [
+        { text: 'CFA', url: 'https://example.com/cfa-1' },
+        { text: 'CFA', url: 'https://example.com/cfa-2' },
+      ],
+    }
+    const patched = structuredClone(base)
+    patched.skills[1].value = 'CFA (Passed), Level II candidate (CFA)'
+
+    expect(validatePatchedData(patched, base)).toEqual([])
+
+    patched.skills[1].value = 'CFA (Passed), Level II candidate (CF.)'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(
+        /^skills\[1\]\.value must contain the link text "CFA" verbatim 2 times/,
+      ),
+    ])
+  })
+
+  it('flags a changed skill line count', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills.pop()
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^skills has 2 lines, expected 3/),
+    ])
+  })
+
+  it('flags a skill value that grows past its original length', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills[0].value = `${patched.skills[0].value}, Kubernetes`
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^skills\[0\]\.value is \d+ chars/),
+    ])
   })
 })

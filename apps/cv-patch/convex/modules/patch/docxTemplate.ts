@@ -3,32 +3,35 @@ import expressions from 'docxtemplater/expressions.js'
 import PizZip from 'pizzip'
 
 import type { ResumeData } from '../../../shared/resumeSchema'
+import { locateSkillLinks } from '../../../shared/skillLinks'
 
-const CONTACT_SEPARATOR = '    '
+// Six spaces between contact items, as in the original resume.
+const CONTACT_SEPARATOR = '      '
 
-export type CoverLetterTemplateData = {
-  senderName: string
-  contactLine: string
-  date: string
-  company: string
-  greeting: string
-  paragraphs: Array<string>
-}
-
+// Fallback display when a link has no label — compact form of the URL.
 export function displayUrl(url: string): string {
   return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
 }
 
-type ContactSegment = {
+export type ContactSegment = {
   text: string
   href?: string
 }
 
-function withScheme(url: string): string {
-  return /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`
+// A real scheme: a known one ("tel:5551234" included) or any other scheme
+// not followed by a digit — so a host:port such as "localhost:3000/x" or
+// "www.site.com:8080/x" still gets "https://".
+const KNOWN_SCHEME_PATTERN = /^(https?|mailto|tel|sms|ftp):/i
+const OTHER_SCHEME_PATTERN = /^[a-z][a-z0-9+.-]*:(?!\d)/i
+
+export function withScheme(url: string): string {
+  return KNOWN_SCHEME_PATTERN.test(url) || OTHER_SCHEME_PATTERN.test(url)
+    ? url
+    : `https://${url}`
 }
 
-// Labels only; linkifyContactLine makes them real hyperlinks post-render.
+// The contact line renders link labels only (like the original resume);
+// linkifyContactLine turns them into real hyperlinks after rendering.
 export function buildContactSegments(
   header: ResumeData['header'],
 ): Array<ContactSegment> {
@@ -60,6 +63,19 @@ export function buildContactSegments(
   return segments
 }
 
+// A trailing parenthetical in a company name renders italic and not bold,
+// e.g. "Morgan Stanley (via Accolite)" -> bold "Morgan Stanley " + italic
+// "(via Accolite)". Names without one render whole in companyName.
+export function splitCompany(company: string): {
+  companyName: string
+  companySuffix: string
+} {
+  const match = company.match(/^(.*\S\s+)(\([^()]*\))\s*$/)
+  return match
+    ? { companyName: match[1], companySuffix: match[2] }
+    : { companyName: company, companySuffix: '' }
+}
+
 export function buildContactLine(header: ResumeData['header']): string {
   return buildContactSegments(header)
     .map((segment) => segment.text)
@@ -70,20 +86,37 @@ export function renderResumeTemplate(
   templateBuffer: ArrayBuffer | Uint8Array,
   data: ResumeData,
 ): Uint8Array {
-  const rendered = renderTemplate(templateBuffer, {
+  const buffer =
+    templateBuffer instanceof Uint8Array
+      ? templateBuffer
+      : new Uint8Array(templateBuffer)
+  const zip = new PizZip(buffer)
+
+  // oxlint-disable-next-line typescript/no-explicit-any -- accessing docxtemplater's undocumented internal FileTypeConfig static
+  const fileTypeConfig = (Docxtemplater as any).FileTypeConfig.docx()
+  fileTypeConfig.getTemplatedFiles = () => ['word/document.xml']
+
+  const doc = new Docxtemplater(zip, {
+    paragraphLoop: true,
+    linebreaks: true,
+    parser: expressions,
+    fileTypeConfig,
+  })
+
+  doc.render({
     ...data,
     header: { ...data.header, contactLine: buildContactLine(data.header) },
+    experience: data.experience.map((entry) => ({
+      ...entry,
+      ...splitCompany(entry.company),
+    })),
   })
-  return linkifyProjectNames(linkifyContactLine(rendered, data.header), data)
-}
 
-export function renderCoverLetterTemplate(
-  templateBuffer: ArrayBuffer | Uint8Array,
-  data: CoverLetterTemplateData,
-  header?: ResumeData['header'],
-): Uint8Array {
-  const rendered = renderTemplate(templateBuffer, data)
-  return header ? linkifyContactLine(rendered, header) : rendered
+  const rendered = doc.getZip().generate({ type: 'uint8array' })
+  return linkifySkillLinks(
+    linkifyProjectNames(linkifyContactLine(rendered, data.header), data),
+    data.skills,
+  )
 }
 
 function escapeXmlText(text: string): string {
@@ -94,7 +127,47 @@ function escapeXmlAttr(text: string): string {
   return escapeXmlText(text).replace(/"/g, '&quot;').replace(/'/g, '&apos;')
 }
 
-// No-op when the contact-line run cannot be located.
+// docxtemplater escapes quotes as well as &<>, so rendered text must be
+// searched for in that form (e.g. an apostrophe in a project name).
+function escapeRenderedText(text: string): string {
+  return escapeXmlAttr(text)
+}
+
+const RELATIONSHIPS_NS =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+
+// The template does not declare xmlns:r on its root element, which the
+// hyperlink r:id attributes need. Idempotent across linkify passes.
+function ensureRelationshipsNamespace(documentXml: string): string {
+  return documentXml.includes('xmlns:r=')
+    ? documentXml
+    : documentXml.replace(
+        /<w:document\b/,
+        `<w:document xmlns:r="${RELATIONSHIPS_NS}"`,
+      )
+}
+
+function hyperlinkRelationship(id: string, target: string): string {
+  return `<Relationship Id="${id}" Type="${RELATIONSHIPS_NS}/hyperlink" Target="${escapeXmlAttr(target)}" TargetMode="External"/>`
+}
+
+// Next free relationship id with the given prefix; the counter is shared
+// across calls in one pass so ids stay unique before they are written.
+function nextRelId(
+  relsXml: string,
+  prefix: string,
+  counter: { value: number },
+): string {
+  let id = `${prefix}${++counter.value}`
+  while (relsXml.includes(`Id="${id}"`)) {
+    id = `${prefix}${++counter.value}`
+  }
+  return id
+}
+
+// Rewrites the rendered contact-line run into a sequence of runs where the
+// email and each link label are real hyperlinks. Purely additive: if the
+// contact line cannot be located, the document is returned unchanged.
 export function linkifyContactLine(
   docxBytes: Uint8Array,
   header: ResumeData['header'],
@@ -114,16 +187,10 @@ export function linkifyContactLine(
   let documentXml = docFile.asText()
   let relsXml = relsFile.asText()
 
-  // Neither template declares xmlns:r, which the r:id attributes need.
-  if (!documentXml.includes('xmlns:r=')) {
-    documentXml = documentXml.replace(
-      /<w:document\b/,
-      '<w:document xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
-    )
-  }
+  documentXml = ensureRelationshipsNamespace(documentXml)
 
   const line = segments.map((segment) => segment.text).join('')
-  const tIndex = documentXml.indexOf(`>${escapeXmlText(line)}</w:t>`)
+  const tIndex = documentXml.indexOf(`>${escapeRenderedText(line)}</w:t>`)
   if (tIndex === -1) {
     return docxBytes
   }
@@ -140,7 +207,7 @@ export function linkifyContactLine(
   const runXml = documentXml.slice(runStart, runEnd + '</w:r>'.length)
   const rPr = runXml.match(/<w:rPr>[\s\S]*?<\/w:rPr>/)?.[0] ?? ''
 
-  let linkCounter = 0
+  const counter = { value: 0 }
   const relEntries: Array<string> = []
 
   const replacement = segments
@@ -150,13 +217,8 @@ export function linkifyContactLine(
         return `<w:r>${rPr}${textElement}</w:r>`
       }
 
-      let id = `rCvLink${++linkCounter}`
-      while (relsXml.includes(`Id="${id}"`)) {
-        id = `rCvLink${++linkCounter}`
-      }
-      relEntries.push(
-        `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escapeXmlAttr(segment.href)}" TargetMode="External"/>`,
-      )
+      const id = nextRelId(relsXml, 'rCvLink', counter)
+      relEntries.push(hyperlinkRelationship(id, segment.href))
       return `<w:hyperlink r:id="${id}" w:history="1"><w:r>${rPr}${textElement}</w:r></w:hyperlink>`
     })
     .join('')
@@ -177,13 +239,13 @@ export function linkifyContactLine(
 }
 
 // Wraps each linked project's name run in a real hyperlink post-render,
-// keeping the run's original formatting. No-op for runs it cannot locate.
+// keeping the run's original formatting. Projects without a url are skipped;
+// runs that cannot be located are left as plain text.
 export function linkifyProjectNames(
   docxBytes: Uint8Array,
   data: ResumeData,
 ): Uint8Array {
-  const linked = data.projects.filter((project) => project.url?.trim())
-  if (linked.length === 0) {
+  if (!data.projects.some((project) => project.url.trim())) {
     return docxBytes
   }
 
@@ -194,27 +256,25 @@ export function linkifyProjectNames(
     return docxBytes
   }
 
-  let documentXml = docFile.asText()
+  let documentXml = ensureRelationshipsNamespace(docFile.asText())
   let relsXml = relsFile.asText()
 
-  // Neither template declares xmlns:r, which the r:id attributes need.
-  if (!documentXml.includes('xmlns:r=')) {
-    documentXml = documentXml.replace(
-      /<w:document\b/,
-      '<w:document xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
-    )
-  }
-
-  let linkCounter = 0
+  const counter = { value: 0 }
   const relEntries: Array<string> = []
-  let changed = false
-  // Projects render in order, so advance the search cursor past each match —
-  // this also keeps duplicate names from resolving to the same run twice.
-  let searchFrom = 0
+  // Projects render in order after the PROJECTS heading, so start there and
+  // advance the cursor past each match — an identical company name earlier in
+  // the document is never linked, and duplicate project names each resolve
+  // to their own run. Every project advances the cursor, linked or not.
+  const headingIndex = documentXml.indexOf('>PROJECTS</w:t>')
+  let searchFrom = Math.max(0, headingIndex)
 
-  for (const project of linked) {
+  for (const project of data.projects) {
+    if (!project.name) {
+      continue
+    }
+
     const tIndex = documentXml.indexOf(
-      `>${escapeXmlText(project.name)}</w:t>`,
+      `>${escapeRenderedText(project.name)}</w:t>`,
       searchFrom,
     )
     if (tIndex === -1) {
@@ -229,7 +289,13 @@ export function linkifyProjectNames(
     if (runStart === -1 || runEnd === -1) {
       continue
     }
-    searchFrom = runEnd
+    const runEndClose = runEnd + '</w:r>'.length
+    searchFrom = runEndClose
+
+    const url = project.url.trim()
+    if (!url) {
+      continue
+    }
 
     // Already inside a hyperlink — nesting would be schema-invalid. Scan back
     // to the containing paragraph start so the guard is not depth-limited.
@@ -244,25 +310,16 @@ export function linkifyProjectNames(
       continue
     }
 
-    let id = `rCvProj${++linkCounter}`
-    while (relsXml.includes(`Id="${id}"`)) {
-      id = `rCvProj${++linkCounter}`
-    }
-    relEntries.push(
-      `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escapeXmlAttr(withScheme((project.url ?? '').trim()))}" TargetMode="External"/>`,
-    )
+    const id = nextRelId(relsXml, 'rCvProj', counter)
+    relEntries.push(hyperlinkRelationship(id, withScheme(url)))
 
-    const runXml = documentXml.slice(runStart, runEnd + '</w:r>'.length)
-    const wrapped = `<w:hyperlink r:id="${id}" w:history="1">${runXml}</w:hyperlink>`
+    const wrapped = `<w:hyperlink r:id="${id}" w:history="1">${documentXml.slice(runStart, runEndClose)}</w:hyperlink>`
     documentXml =
-      documentXml.slice(0, runStart) +
-      wrapped +
-      documentXml.slice(runEnd + '</w:r>'.length)
+      documentXml.slice(0, runStart) + wrapped + documentXml.slice(runEndClose)
     searchFrom = runStart + wrapped.length
-    changed = true
   }
 
-  if (!changed) {
+  if (relEntries.length === 0) {
     return docxBytes
   }
 
@@ -277,28 +334,134 @@ export function linkifyProjectNames(
   return zip.generate({ type: 'uint8array' })
 }
 
-function renderTemplate(
-  templateBuffer: ArrayBuffer | Uint8Array,
-  data: Record<string, unknown>,
+// Character ranges of each linkable skill link (text found in the value and
+// a non-empty url), sorted by position.
+function skillLinkRanges(
+  value: string,
+  links: ResumeData['skills'][number]['links'],
+): Array<{ start: number; end: number; url: string }> {
+  const located = locateSkillLinks(value, links)
+
+  return links
+    .flatMap((link, index) => {
+      const range = located[index]
+      const url = link.url.trim()
+      return range && url ? [{ ...range, url: withScheme(url) }] : []
+    })
+    .sort((a, b) => a.start - b.start)
+}
+
+// Splits each skill line's value run into before / hyperlink / after runs
+// (same formatting) for every inline link. The search starts at the SKILLS
+// heading and walks the lines in order, so identical text elsewhere in the
+// document is never linked; links whose text is not found are skipped.
+export function linkifySkillLinks(
+  docxBytes: Uint8Array,
+  skills: ResumeData['skills'],
 ): Uint8Array {
-  const buffer =
-    templateBuffer instanceof Uint8Array
-      ? templateBuffer
-      : new Uint8Array(templateBuffer)
-  const zip = new PizZip(buffer)
+  if (!skills.some((line) => line.links.length > 0)) {
+    return docxBytes
+  }
 
-  // oxlint-disable-next-line typescript/no-explicit-any -- accessing docxtemplater's undocumented internal FileTypeConfig static
-  const fileTypeConfig = (Docxtemplater as any).FileTypeConfig.docx()
-  fileTypeConfig.getTemplatedFiles = () => ['word/document.xml']
+  const zip = new PizZip(docxBytes)
+  const docFile = zip.file('word/document.xml')
+  const relsFile = zip.file('word/_rels/document.xml.rels')
+  if (!docFile || !relsFile) {
+    return docxBytes
+  }
 
-  const doc = new Docxtemplater(zip, {
-    paragraphLoop: true,
-    linebreaks: true,
-    parser: expressions,
-    fileTypeConfig,
-  })
+  let documentXml = ensureRelationshipsNamespace(docFile.asText())
+  let relsXml = relsFile.asText()
 
-  doc.render(data)
+  const headingIndex = documentXml.indexOf('>SKILLS</w:t>')
+  if (headingIndex === -1) {
+    return docxBytes
+  }
 
-  return doc.getZip().generate({ type: 'uint8array' })
+  const counter = { value: 0 }
+  const relEntries: Array<string> = []
+  let searchFrom = headingIndex
+
+  for (const line of skills) {
+    // The label run ("Label:") anchors the line; the value run follows it.
+    const labelIndex = documentXml.indexOf(
+      `>${escapeRenderedText(`${line.label}:`)}</w:t>`,
+      searchFrom,
+    )
+    if (labelIndex === -1) {
+      continue
+    }
+    // Past this label even if the line is skipped, so a repeated label
+    // resolves to the next line.
+    searchFrom = labelIndex + 1
+
+    if (!line.value) {
+      continue
+    }
+
+    const paragraphEnd = documentXml.indexOf('</w:p>', labelIndex)
+    const tIndex = documentXml.indexOf(
+      `>${escapeRenderedText(line.value)}</w:t>`,
+      labelIndex,
+    )
+    if (tIndex === -1 || (paragraphEnd !== -1 && tIndex > paragraphEnd)) {
+      continue
+    }
+
+    const runStart = Math.max(
+      documentXml.lastIndexOf('<w:r>', tIndex),
+      documentXml.lastIndexOf('<w:r ', tIndex),
+    )
+    const runEnd = documentXml.indexOf('</w:r>', tIndex)
+    if (runStart === -1 || runEnd === -1) {
+      continue
+    }
+    const runEndClose = runEnd + '</w:r>'.length
+    searchFrom = runEndClose
+
+    const ranges = skillLinkRanges(line.value, line.links)
+    if (ranges.length === 0) {
+      continue
+    }
+
+    const runXml = documentXml.slice(runStart, runEndClose)
+    const rPr = runXml.match(/<w:rPr>[\s\S]*?<\/w:rPr>/)?.[0] ?? ''
+    const textRun = (text: string) =>
+      `<w:r>${rPr}<w:t xml:space="preserve">${escapeXmlText(text)}</w:t></w:r>`
+
+    let replacement = ''
+    let cursor = 0
+    for (const range of ranges) {
+      if (range.start > cursor) {
+        replacement += textRun(line.value.slice(cursor, range.start))
+      }
+      const id = nextRelId(relsXml, 'rCvSkill', counter)
+      relEntries.push(hyperlinkRelationship(id, range.url))
+      replacement += `<w:hyperlink r:id="${id}" w:history="1">${textRun(line.value.slice(range.start, range.end))}</w:hyperlink>`
+      cursor = range.end
+    }
+    if (cursor < line.value.length) {
+      replacement += textRun(line.value.slice(cursor))
+    }
+
+    documentXml =
+      documentXml.slice(0, runStart) +
+      replacement +
+      documentXml.slice(runEndClose)
+    searchFrom = runStart + replacement.length
+  }
+
+  if (relEntries.length === 0) {
+    return docxBytes
+  }
+
+  relsXml = relsXml.replace(
+    '</Relationships>',
+    `${relEntries.join('')}</Relationships>`,
+  )
+
+  zip.file('word/document.xml', documentXml)
+  zip.file('word/_rels/document.xml.rels', relsXml)
+
+  return zip.generate({ type: 'uint8array' })
 }

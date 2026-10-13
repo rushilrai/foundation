@@ -43,14 +43,14 @@ export const getByIdWithAuth = async (
   return { patch, user }
 }
 
-export const getPatchesForProfile = async (
+export const getPatchesForResume = async (
   ctx: QueryCtx | MutationCtx,
-  profileId: Id<'profiles'>,
+  resumeId: Id<'resumes'>,
 ) => {
   const patches = await ctx.db
     .query('patches')
-    .withIndex('by_profileId_deleted', (q) =>
-      q.eq('profileId', profileId).eq('deleted', false),
+    .withIndex('by_resumeId_deleted', (q) =>
+      q.eq('resumeId', resumeId).eq('deleted', false),
     )
     .order('desc')
     .collect()

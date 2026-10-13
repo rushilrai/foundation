@@ -37,16 +37,34 @@
   "projects": [
     {
       "name": "Open Source Dashboard",
+      "url": "https://github.com/janedoe/oss-dashboard",
       "dates": "2023",
       "bullets": [
         "Created an analytics dashboard with 1k+ GitHub stars and 40 contributors."
       ]
     }
   ],
-  "skills": {
-    "technical": "TypeScript, React, Node.js, PostgreSQL, Docker",
-    "financial": "Financial modelling, forecasting",
-    "languages": "English (native), French (conversational)"
-  },
+  "skills": [
+    {
+      "label": "Technical",
+      "value": "TypeScript, React, Node.js, PostgreSQL, Docker",
+      "links": []
+    },
+    {
+      "label": "Certifications",
+      "value": "AWS Certified Developer (Associate), Scrum Master (In progress)",
+      "links": [
+        {
+          "text": "AWS Certified Developer",
+          "url": "https://example.com/certs/aws-developer"
+        }
+      ]
+    },
+    {
+      "label": "Languages",
+      "value": "English (native), French (conversational)",
+      "links": []
+    }
+  ],
   "extras": ["Volunteer mentor at local coding bootcamp."]
 }
