@@ -1,5 +1,9 @@
 import { readFileSync } from 'node:fs'
-import { getEmptyResumeData, ResumeDataSchema } from '@shared/resumeSchema'
+import {
+  getEmptyResumeData,
+  isDocxFileName,
+  ResumeDataSchema,
+} from '@shared/resumeSchema'
 import { describe, expect, it } from 'vitest'
 
 describe('ResumeDataSchema', () => {
@@ -67,5 +71,16 @@ describe('ResumeDataSchema', () => {
   it('has no skill lines in empty data', () => {
     expect(getEmptyResumeData().skills).toEqual([])
     expect(ResumeDataSchema.safeParse(getEmptyResumeData()).success).toBe(true)
+  })
+})
+
+describe('isDocxFileName', () => {
+  it('accepts .docx names only', () => {
+    expect(isDocxFileName('resume.docx')).toBe(true)
+    expect(isDocxFileName('Resume.DOCX')).toBe(true)
+    expect(isDocxFileName('notes.txt')).toBe(false)
+    expect(isDocxFileName('resume.pdf')).toBe(false)
+    expect(isDocxFileName('resume.doc')).toBe(false)
+    expect(isDocxFileName('docx')).toBe(false)
   })
 })

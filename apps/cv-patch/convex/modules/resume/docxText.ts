@@ -98,6 +98,13 @@ export function decodeXml(text: string): string {
     .replace(/&amp;/g, '&')
 }
 
+// A tab separates the left text from the right-aligned column (e.g.
+// "Acme Ltd<tab>London | 2021 - Present"), so it is kept as one tab for the
+// LLM to see the column boundary; other whitespace collapses to a space.
 function normalizeWhitespace(text: string): string {
-  return text.replace(/\s+/g, ' ').trim()
+  return text
+    .split(/\s*\t\s*/)
+    .map((part) => part.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\t')
 }

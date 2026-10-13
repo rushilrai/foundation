@@ -17,20 +17,17 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  cleanListFields,
+  joinLines,
+  splitLines,
+} from '@/modules/resume/contentLines'
 import { useUpdateResumeData } from '@/modules/resume/mutations'
 import type { Resume } from '@/modules/resume/schema'
 
 type ResumeContentTabProps = {
   resume: Resume
 }
-
-const lineToArray = (value: string) =>
-  value
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-
-const arrayToLines = (value: Array<string>) => value.join('\n')
 
 export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
   const [draft, setDraft] = useState<ResumeData>(
@@ -69,7 +66,10 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      await updateData({ resumeId: resume._id, data: draft })
+      await updateData({
+        resumeId: resume._id,
+        data: cleanListFields(draft),
+      })
     } catch (error) {
       console.error('Failed to save resume data', error)
     } finally {
@@ -182,7 +182,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
         return {
           ...exp,
           roles: exp.roles.map((role, r) =>
-            r === roleIndex ? { ...role, bullets: lineToArray(value) } : role,
+            r === roleIndex ? { ...role, bullets: splitLines(value) } : role,
           ),
         }
       }),
@@ -268,7 +268,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
     setDraft((prev) => ({
       ...prev,
       projects: prev.projects.map((project, i) =>
-        i === index ? { ...project, bullets: lineToArray(value) } : project,
+        i === index ? { ...project, bullets: splitLines(value) } : project,
       ),
     }))
   }
@@ -363,7 +363,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
   const updateExtras = (value: string) => {
     setDraft((prev) => ({
       ...prev,
-      extras: lineToArray(value),
+      extras: splitLines(value),
     }))
   }
 
@@ -623,7 +623,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
                   placeholder="Role meta (location | dates)"
                 />
                 <Textarea
-                  value={arrayToLines(role.bullets)}
+                  value={joinLines(role.bullets)}
                   onChange={(e) =>
                     updateRoleBullets(index, roleIndex, e.target.value)
                   }
@@ -674,7 +674,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
               placeholder="Dates"
             />
             <Textarea
-              value={arrayToLines(project.bullets)}
+              value={joinLines(project.bullets)}
               onChange={(e) => updateProjectBullets(index, e.target.value)}
               placeholder="Bullets (one per line)"
               className="min-h-24"
@@ -765,7 +765,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
       <section className="space-y-4">
         <h4 className="text-md font-semibold">Extras</h4>
         <Textarea
-          value={arrayToLines(draft.extras)}
+          value={joinLines(draft.extras)}
           onChange={(e) => updateExtras(e.target.value)}
           placeholder="Extras (one per line)"
         />

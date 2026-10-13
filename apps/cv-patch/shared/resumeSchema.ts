@@ -2,6 +2,11 @@ import { z } from 'zod'
 
 export const MAX_HEADER_LINKS = 5
 
+// Resumes are uploaded as .docx only.
+export function isDocxFileName(fileName: string): boolean {
+  return /\.docx$/i.test(fileName.trim())
+}
+
 export const ResumeLinkSchema = z.object({
   label: z.string(),
   url: z.string(),

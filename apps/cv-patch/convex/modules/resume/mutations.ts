@@ -3,7 +3,7 @@ import { v } from 'convex/values'
 import { internal } from '../../_generated/api'
 import type { Id } from '../../_generated/dataModel'
 import { internalMutation, mutation } from '../../_generated/server'
-import { MAX_HEADER_LINKS } from '../../../shared/resumeSchema'
+import { isDocxFileName, MAX_HEADER_LINKS } from '../../../shared/resumeSchema'
 import {
   nullableResumeDataValidator,
   resumeDataValidator,
@@ -30,6 +30,11 @@ export const create = mutation({
     const user = await getByExternalId(ctx, identity.subject)
     if (!user) {
       return { error: 'USER_NOT_FOUND' }
+    }
+
+    if (!isDocxFileName(args.fileName)) {
+      await ctx.storage.delete(args.fileId)
+      return { error: 'UNSUPPORTED_FILE_TYPE' }
     }
 
     try {
