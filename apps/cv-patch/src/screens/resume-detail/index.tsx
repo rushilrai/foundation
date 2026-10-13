@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { OriginalTab } from '@/modules/resume/components/OriginalTab'
 import { PatchesTab } from '@/modules/resume/components/PatchesTab'
 import { ResumeContentTab } from '@/modules/resume/components/ResumeContentTab'
+import { ResumeDetails } from '@/modules/resume/components/ResumeDetails'
 import { useGenerateResumeDownloadUrl } from '@/modules/resume/mutations'
 import { useResume } from '@/modules/resume/queries'
 import type { ResumeId } from '@/modules/resume/schema'
@@ -62,18 +63,22 @@ export function ResumeDetailScreen({ resumeId }: { resumeId: string }) {
             onClick={handleDownload}
             disabled={resume.status !== 'ready'}
           >
-            Download DOCX
+            Download
           </Button>
         </div>
       </DashboardHeader>
 
       <div className="p-6">
         <Tabs defaultValue="original">
-          <TabsList>
-            <TabsTrigger value="original">Original</TabsTrigger>
-            <TabsTrigger value="content">Content</TabsTrigger>
-            <TabsTrigger value="patches">Patches</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between gap-6">
+            <TabsList>
+              <TabsTrigger value="original">Original</TabsTrigger>
+              <TabsTrigger value="content">Content</TabsTrigger>
+              <TabsTrigger value="patches">Patches</TabsTrigger>
+            </TabsList>
+
+            <ResumeDetails resume={resume} />
+          </div>
 
           <TabsContent value="original" className="mt-6">
             <OriginalTab resume={resume} />

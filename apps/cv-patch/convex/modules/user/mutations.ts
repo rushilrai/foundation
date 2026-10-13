@@ -1,8 +1,58 @@
 import { v } from 'convex/values'
 
 import type { Id } from '../../_generated/dataModel'
-import { internalMutation } from '../../_generated/server'
+import { internalMutation, mutation } from '../../_generated/server'
 import { getByExternalId } from './helpers'
+
+// Upserts the signed-in user from their JWT claims. Called by the app on
+// sign-in so user rows exist even if the Clerk webhook never fired (e.g.
+// local/dev deployments the webhook cannot reach).
+export const ensureUser = mutation({
+  args: {},
+  handler: async (
+    ctx,
+  ): Promise<{ userId: Id<'users'> } | { error: string }> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return { error: 'UNAUTHORIZED' }
+    }
+
+    // Raw lookup (no deleted filter) so a soft-deleted user is revived
+    // instead of duplicated.
+    const existing = await ctx.db
+      .query('users')
+      .withIndex('by_externalId', (q) => q.eq('externalId', identity.subject))
+      .unique()
+
+    try {
+      if (existing) {
+        if (existing.deleted) {
+          await ctx.db.patch(existing._id, {
+            deleted: false,
+            updatedAt: Date.now(),
+          })
+        }
+        return { userId: existing._id }
+      }
+
+      const userId = await ctx.db.insert('users', {
+        externalId: identity.subject,
+        email: identity.email ?? '',
+        firstName: identity.givenName ?? '',
+        lastName: identity.familyName ?? '',
+        imageUrl: identity.pictureUrl ?? null,
+        deleted: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+
+      return { userId }
+    } catch (error) {
+      console.error('Error ensuring user', error)
+      return { error: 'USER_ENSURE_FAILED' }
+    }
+  },
+})
 
 export const upsertFromClerk = internalMutation({
   args: {
