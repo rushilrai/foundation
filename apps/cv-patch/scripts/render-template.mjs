@@ -25,10 +25,16 @@ const doc = new Docxtemplater(zip, {
 
 const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'))
 
+// Mirrors buildContactLine in convex/modules/patch/docxTemplate.ts (labels
+// only; the real render additionally hyperlinks email and links).
+const displayUrl = (url) =>
+  url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
+
 const contactLine = [
   data.header.phone,
   data.header.email,
-  ...data.header.links.map((link) => link.url),
+  ...data.header.links.map((link) => link.label.trim() || displayUrl(link.url)),
+  data.header.location,
 ]
   .map((part) => part.trim())
   .filter(Boolean)

@@ -11,6 +11,7 @@ export const resumeHeaderValidator = v.object({
   name: v.string(),
   phone: v.string(),
   email: v.string(),
+  location: v.string(),
   links: v.array(resumeLinkValidator),
 })
 

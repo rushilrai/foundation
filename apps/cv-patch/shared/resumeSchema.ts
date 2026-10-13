@@ -11,6 +11,7 @@ export const ResumeHeaderSchema = z.object({
   name: z.string(),
   phone: z.string(),
   email: z.string(),
+  location: z.string(),
   links: z.array(ResumeLinkSchema).max(MAX_HEADER_LINKS),
 })
 
@@ -64,6 +65,7 @@ export function getEmptyResumeData(): ResumeData {
       name: '',
       phone: '',
       email: '',
+      location: '',
       links: [],
     },
     education: [],
