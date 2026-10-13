@@ -16,7 +16,19 @@ import {
 } from '../../configs/ai'
 import { convertDocxToPdf } from '../common/cloudconvert'
 import { renderResumeTemplate } from './docxTemplate'
-import { validatePatchedData } from './validation'
+import {
+  BULLET_MAX_RATIO,
+  BULLET_MIN_RATIO,
+  EDITABLE_MAX_RATIO,
+  EDITABLE_MIN_RATIO,
+  validatePatchedData,
+} from './validation'
+
+// Length hints in the prompt come from the validator's ratios so the two
+// can never disagree.
+const percent = (ratio: number): string => `${Math.round(ratio * 100)}%`
+const BULLET_RANGE = `${percent(BULLET_MIN_RATIO)}-${percent(BULLET_MAX_RATIO)}`
+const EDITABLE_RANGE = `${percent(EDITABLE_MIN_RATIO)}-${percent(EDITABLE_MAX_RATIO)}`
 
 const patchOutputSchema = z.object({
   data: ResumeDataSchema,
@@ -113,12 +125,12 @@ Immutable fields — copy these exactly, byte-for-byte:
 - skills[].label and skills[].links (every text and url, same count and order) — the label is rendered as a bold heading and each link text is hyperlinked inside the value
 
 Editable fields — rewrite for ATS keyword alignment while preserving approximate character length:
-- experience[].roles[].title — only adjust if the JD uses a clearly equivalent title; keep length within ~80%-125% of original
-- experience[].roles[].bullets[] — substitute keywords, keep each bullet within ~80%-100% of original character count
-- education[].degree, education[].details — keyword-focused rewrites within ~80%-100% of original length
+- experience[].roles[].title — only adjust if the JD uses a clearly equivalent title; keep length within ${EDITABLE_RANGE} of original
+- experience[].roles[].bullets[] — substitute keywords, keep each bullet within ${BULLET_RANGE} of original character count
+- education[].degree, education[].details — keyword-focused rewrites within ${EDITABLE_RANGE} of original length
 - projects[].bullets[] — same rules as experience bullets
-- skills[].value — reorder to front-load JD-relevant terms, may substitute equivalent terms; keep length within ~80%-100% of original; every skills[].links[].text must still appear verbatim in its line's value
-- extras[] — preserve as-is unless directly relevant; if edited keep length within ~80%-100% of original
+- skills[].value — reorder to front-load JD-relevant terms, may substitute equivalent terms; keep length within ${EDITABLE_RANGE} of original; every skills[].links[].text must still appear verbatim in its line's value (once per link: two links with the same text need two occurrences)
+- extras[] — preserve as-is unless directly relevant; if edited keep length within ${EDITABLE_RANGE} of original
 
 Structural invariants:
 - Same number of experience entries, same number of roles per experience entry, same number of bullets per role.

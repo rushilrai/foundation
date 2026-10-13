@@ -10,6 +10,7 @@
 
 import type * as assets_resumeTemplateData from "../assets/resumeTemplateData.js";
 import type * as configs_ai from "../configs/ai.js";
+import type * as configs_rateLimiter from "../configs/rateLimiter.js";
 import type * as http from "../http.js";
 import type * as modules_common_cloudconvert from "../modules/common/cloudconvert.js";
 import type * as modules_common_resumeData from "../modules/common/resumeData.js";
@@ -41,6 +42,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "assets/resumeTemplateData": typeof assets_resumeTemplateData;
   "configs/ai": typeof configs_ai;
+  "configs/rateLimiter": typeof configs_rateLimiter;
   http: typeof http;
   "modules/common/cloudconvert": typeof modules_common_cloudconvert;
   "modules/common/resumeData": typeof modules_common_resumeData;
@@ -90,4 +92,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+};

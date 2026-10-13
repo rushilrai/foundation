@@ -20,6 +20,7 @@ import {
   FieldLabel,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { getErrorMessage } from '@/modules/common/errorMessages'
 import {
   useCreateResume,
   useGenerateResumeUploadUrl,
@@ -41,6 +42,7 @@ type UploadResumeDialogProps = {
 export const UploadResumeDialog = ({ children }: UploadResumeDialogProps) => {
   const [open, setOpen] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const generateUploadUrl = useGenerateResumeUploadUrl()
   const createResume = useCreateResume()
@@ -57,10 +59,12 @@ export const UploadResumeDialog = ({ children }: UploadResumeDialogProps) => {
     onSubmit: async ({ value }) => {
       const file = value.file!
       setIsUploading(true)
+      setUploadError(null)
       try {
         const urlResult = await generateUploadUrl()
         if ('error' in urlResult) {
           console.error('Failed to get upload URL:', urlResult.error)
+          setUploadError(getErrorMessage('UPLOAD_FAILED'))
           return
         }
 
@@ -69,6 +73,11 @@ export const UploadResumeDialog = ({ children }: UploadResumeDialogProps) => {
           headers: { 'Content-Type': file.type },
           body: file,
         })
+        if (!response.ok) {
+          console.error('Failed to upload resume file:', response.status)
+          setUploadError(getErrorMessage('UPLOAD_FAILED'))
+          return
+        }
         const { storageId } = await response.json()
 
         const result = await createResume({
@@ -78,16 +87,21 @@ export const UploadResumeDialog = ({ children }: UploadResumeDialogProps) => {
           fileSize: file.size,
         })
 
-        if ('resumeId' in result) {
-          setOpen(false)
-          form.reset()
-          navigate({
-            to: '/dashboard/resume/$id',
-            params: { id: result.resumeId },
-          })
+        if ('error' in result) {
+          console.error('Failed to create resume:', result.error)
+          setUploadError(getErrorMessage(result.error))
+          return
         }
+
+        setOpen(false)
+        form.reset()
+        navigate({
+          to: '/dashboard/resume/$id',
+          params: { id: result.resumeId },
+        })
       } catch (error) {
         console.error('Error uploading resume:', error)
+        setUploadError(getErrorMessage('UPLOAD_FAILED'))
       } finally {
         setIsUploading(false)
       }
@@ -95,7 +109,13 @@ export const UploadResumeDialog = ({ children }: UploadResumeDialogProps) => {
   })
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen)
+        setUploadError(null)
+      }}
+    >
       <DialogTrigger render={children as React.ReactElement} />
 
       <DialogContent>
@@ -171,6 +191,12 @@ export const UploadResumeDialog = ({ children }: UploadResumeDialogProps) => {
                 )
               }}
             />
+
+            {uploadError && (
+              <p role="alert" className="text-sm text-destructive">
+                {uploadError}
+              </p>
+            )}
 
             <Button type="submit" disabled={isUploading} className="w-full">
               {isUploading ? 'Uploading...' : 'Upload'}

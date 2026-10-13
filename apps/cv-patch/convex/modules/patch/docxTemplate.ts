@@ -3,6 +3,7 @@ import expressions from 'docxtemplater/expressions.js'
 import PizZip from 'pizzip'
 
 import type { ResumeData } from '../../../shared/resumeSchema'
+import { locateSkillLinks } from '../../../shared/skillLinks'
 
 // Six spaces between contact items, as in the original resume.
 const CONTACT_SEPARATOR = '      '
@@ -17,8 +18,16 @@ export type ContactSegment = {
   href?: string
 }
 
-function withScheme(url: string): string {
-  return /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`
+// A real scheme: a known one ("tel:5551234" included) or any other scheme
+// not followed by a digit — so a host:port such as "localhost:3000/x" or
+// "www.site.com:8080/x" still gets "https://".
+const KNOWN_SCHEME_PATTERN = /^(https?|mailto|tel|sms|ftp):/i
+const OTHER_SCHEME_PATTERN = /^[a-z][a-z0-9+.-]*:(?!\d)/i
+
+export function withScheme(url: string): string {
+  return KNOWN_SCHEME_PATTERN.test(url) || OTHER_SCHEME_PATTERN.test(url)
+    ? url
+    : `https://${url}`
 }
 
 // The contact line renders link labels only (like the original resume);
@@ -325,38 +334,21 @@ export function linkifyProjectNames(
   return zip.generate({ type: 'uint8array' })
 }
 
-// Character ranges of each link's text within a skill value: first
-// occurrence not overlapping an earlier link, sorted by position. Links whose
-// text is missing (or empty) are dropped.
-function locateSkillLinks(
+// Character ranges of each linkable skill link (text found in the value and
+// a non-empty url), sorted by position.
+function skillLinkRanges(
   value: string,
   links: ResumeData['skills'][number]['links'],
 ): Array<{ start: number; end: number; url: string }> {
-  const ranges: Array<{ start: number; end: number; url: string }> = []
+  const located = locateSkillLinks(value, links)
 
-  for (const link of links) {
-    const url = link.url.trim()
-    if (!link.text || !url) {
-      continue
-    }
-
-    let start = value.indexOf(link.text)
-    while (
-      start !== -1 &&
-      ranges.some(
-        (range) => start < range.end && start + link.text.length > range.start,
-      )
-    ) {
-      start = value.indexOf(link.text, start + 1)
-    }
-    if (start === -1) {
-      continue
-    }
-
-    ranges.push({ start, end: start + link.text.length, url: withScheme(url) })
-  }
-
-  return ranges.sort((a, b) => a.start - b.start)
+  return links
+    .flatMap((link, index) => {
+      const range = located[index]
+      const url = link.url.trim()
+      return range && url ? [{ ...range, url: withScheme(url) }] : []
+    })
+    .sort((a, b) => a.start - b.start)
 }
 
 // Splits each skill line's value run into before / hyperlink / after runs
@@ -427,7 +419,7 @@ export function linkifySkillLinks(
     const runEndClose = runEnd + '</w:r>'.length
     searchFrom = runEndClose
 
-    const ranges = locateSkillLinks(line.value, line.links)
+    const ranges = skillLinkRanges(line.value, line.links)
     if (ranges.length === 0) {
       continue
     }

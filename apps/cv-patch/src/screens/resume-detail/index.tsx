@@ -1,6 +1,9 @@
+import { useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { getErrorMessage } from '@/modules/common/errorMessages'
 import { OriginalTab } from '@/modules/resume/components/OriginalTab'
 import { PatchesTab } from '@/modules/resume/components/PatchesTab'
 import { ResumeContentTab } from '@/modules/resume/components/ResumeContentTab'
@@ -13,11 +16,23 @@ import { DashboardHeader } from '@/screens/dashboard/components/dashboard-header
 export function ResumeDetailScreen({ resumeId }: { resumeId: string }) {
   const resumeResult = useResume(resumeId as ResumeId)
   const generateDownloadUrl = useGenerateResumeDownloadUrl()
+  const [downloadError, setDownloadError] = useState<string | null>(null)
 
   const handleDownload = async () => {
-    const result = await generateDownloadUrl({ resumeId: resumeId as ResumeId })
-    if ('downloadUrl' in result) {
+    setDownloadError(null)
+    try {
+      const result = await generateDownloadUrl({
+        resumeId: resumeId as ResumeId,
+      })
+      if ('error' in result) {
+        console.error('Failed to get resume download URL', result.error)
+        setDownloadError(getErrorMessage(result.error, 'Download failed.'))
+        return
+      }
       window.open(result.downloadUrl, '_blank')
+    } catch (error) {
+      console.error('Failed to get resume download URL', error)
+      setDownloadError('Download failed.')
     }
   }
 
@@ -57,6 +72,12 @@ export function ResumeDetailScreen({ resumeId }: { resumeId: string }) {
     <>
       <DashboardHeader title={resume.title}>
         <div className="flex items-center gap-2">
+          {downloadError && (
+            <p role="alert" className="text-sm text-destructive">
+              {downloadError}
+            </p>
+          )}
+
           <Button
             variant="default"
             size="sm"

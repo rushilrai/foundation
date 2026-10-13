@@ -1,4 +1,5 @@
 import type { ResumeData } from '../../../shared/resumeSchema'
+import { findMissingSkillLinks } from '../../../shared/skillLinks'
 
 // Pure one-shot patch validator: compares a patched ResumeData against its
 // base and returns human-readable issues fed back to the model on retry.
@@ -244,17 +245,34 @@ export function validatePatchedData(
           `skills[${i}].links has ${dLine.links.length} entries, expected ${bLine.links.length}`,
         )
       } else {
+        let linksUnchanged = true
         for (let l = 0; l < bLine.links.length; l++) {
           const bLink = bLine.links[l]
           const dLink = dLine.links[l]
 
           if (dLink.text !== bLink.text || dLink.url !== bLink.url) {
+            linksUnchanged = false
             issues.push(
               `skills[${i}].links[${l}] was changed from "${bLink.text}: ${bLink.url}" to "${dLink.text}: ${dLink.url}" — must be identical`,
             )
-          } else if (!dLine.value.includes(dLink.text)) {
+          }
+        }
+
+        if (linksUnchanged) {
+          const reported = new Set<string>()
+          for (const l of findMissingSkillLinks(dLine)) {
+            const text = dLine.links[l].text
+            if (reported.has(text)) {
+              continue
+            }
+            reported.add(text)
+            const needed = dLine.links.filter(
+              (link) => link.text === text,
+            ).length
             issues.push(
-              `skills[${i}].value must contain the link text "${dLink.text}" verbatim`,
+              needed > 1
+                ? `skills[${i}].value must contain the link text "${text}" verbatim ${needed} times (once per link)`
+                : `skills[${i}].value must contain the link text "${text}" verbatim`,
             )
           }
         }

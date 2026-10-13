@@ -3,6 +3,7 @@ import { v } from 'convex/values'
 import { internal } from '../../_generated/api'
 import type { Id } from '../../_generated/dataModel'
 import { internalMutation, mutation } from '../../_generated/server'
+import { rateLimiter } from '../../configs/rateLimiter'
 import { nullableResumeDataValidator } from '../common/resumeData'
 import { getById as getResumeById } from '../resume/helpers'
 import { getByExternalId } from '../user/helpers'
@@ -41,6 +42,13 @@ export const create = mutation({
 
     if (resume.status !== 'ready') {
       return { error: 'RESUME_NOT_READY' }
+    }
+
+    const { ok } = await rateLimiter.limit(ctx, 'createPatch', {
+      key: user._id,
+    })
+    if (!ok) {
+      return { error: 'RATE_LIMITED' }
     }
 
     try {

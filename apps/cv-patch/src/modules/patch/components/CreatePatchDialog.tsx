@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { getErrorMessage } from '@/modules/common/errorMessages'
 import { useCreatePatch } from '@/modules/patch/mutations'
 import type { ResumeId } from '@/modules/resume/schema'
 
@@ -40,6 +41,7 @@ export const CreatePatchDialog = ({
 }: CreatePatchDialogProps) => {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const createPatch = useCreatePatch()
   const navigate = useNavigate()
@@ -59,6 +61,7 @@ export const CreatePatchDialog = ({
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true)
+      setSubmitError(null)
 
       try {
         const result = await createPatch({
@@ -69,16 +72,21 @@ export const CreatePatchDialog = ({
           roleName: value.roleName.trim(),
         })
 
-        if ('patchId' in result) {
-          setOpen(false)
-          form.reset()
-          navigate({
-            to: '/dashboard/resume/$id/patch/$patchId',
-            params: { id: resumeId, patchId: result.patchId },
-          })
+        if ('error' in result) {
+          console.error('Failed to create patch:', result.error)
+          setSubmitError(getErrorMessage(result.error))
+          return
         }
+
+        setOpen(false)
+        form.reset()
+        navigate({
+          to: '/dashboard/resume/$id/patch/$patchId',
+          params: { id: resumeId, patchId: result.patchId },
+        })
       } catch (error) {
         console.error('Error creating patch:', error)
+        setSubmitError(getErrorMessage('PATCH_CREATE_FAILED'))
       } finally {
         setIsSubmitting(false)
       }
@@ -86,7 +94,13 @@ export const CreatePatchDialog = ({
   })
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen)
+        setSubmitError(null)
+      }}
+    >
       <DialogTrigger render={children as React.ReactElement} />
 
       <DialogContent className="max-w-2xl">
@@ -184,6 +198,12 @@ export const CreatePatchDialog = ({
                 )
               }}
             />
+
+            {submitError && (
+              <p role="alert" className="text-sm text-destructive">
+                {submitError}
+              </p>
+            )}
 
             <Button type="submit" disabled={isSubmitting} className="w-full">
               {isSubmitting ? 'Generating...' : 'Generate Variant'}
