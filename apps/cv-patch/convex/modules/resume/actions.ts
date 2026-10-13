@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 
-import { internal } from '../../_generated/api'
+import { api } from '../../_generated/api'
 import { action } from '../../_generated/server'
 
 export const generateUploadUrl = action({
@@ -32,16 +32,14 @@ export const generateDownloadUrl = action({
       return { error: 'UNAUTHORIZED' }
     }
 
-    const resume = await ctx.runQuery(
-      internal.modules.resume.queries.getByIdInternal,
-      {
-        resumeId: args.resumeId,
-      },
-    )
-
-    if (!resume) {
-      return { error: 'RESUME_NOT_FOUND' }
+    // The public query enforces ownership with the caller's identity.
+    const result = await ctx.runQuery(api.modules.resume.queries.get, {
+      resumeId: args.resumeId,
+    })
+    if ('error' in result) {
+      return { error: result.error }
     }
+    const { resume } = result
 
     try {
       const downloadUrl = await ctx.storage.getUrl(resume.fileId)
@@ -68,16 +66,14 @@ export const generatePdfDownloadUrl = action({
       return { error: 'UNAUTHORIZED' }
     }
 
-    const resume = await ctx.runQuery(
-      internal.modules.resume.queries.getByIdInternal,
-      {
-        resumeId: args.resumeId,
-      },
-    )
-
-    if (!resume) {
-      return { error: 'RESUME_NOT_FOUND' }
+    // The public query enforces ownership with the caller's identity.
+    const result = await ctx.runQuery(api.modules.resume.queries.get, {
+      resumeId: args.resumeId,
+    })
+    if ('error' in result) {
+      return { error: result.error }
     }
+    const { resume } = result
 
     if (!resume.pdfFileId) {
       return { error: 'PDF_NOT_AVAILABLE' }
