@@ -18,6 +18,7 @@ import {
   setupOpenAI,
 } from '../../configs/ai'
 import { convertDocxToPdf } from '../common/cloudconvert'
+import { extractPlainText, parseHyperlinkTargets } from './docxText'
 
 export const extractResumeData = internalAction({
   args: { resumeId: v.id('resumes') },
@@ -72,7 +73,14 @@ export const extractResumeData = internalAction({
         return
       }
 
-      const rawText = extractPlainText(documentXml)
+      const relsXml = await zip
+        .file('word/_rels/document.xml.rels')
+        ?.async('string')
+
+      const rawText = extractPlainText(
+        documentXml,
+        parseHyperlinkTargets(relsXml ?? ''),
+      )
 
       if (!rawText.trim()) {
         await ctx.runMutation(
@@ -96,14 +104,16 @@ Rules:
 3. Put bullets in arrays, and keep bullet order.
 4. Keep section headings out of the data fields.
 5. Use empty strings for missing fields; do not omit keys.
-6. Capture up to 5 links from the contact/header area (LinkedIn, GitHub, portfolio, website, etc.) as header.links. label is the platform/site name; url is the link text exactly as written in the resume. Use an empty array when there are none.
-7. Output JSON only that matches the schema exactly.`
+6. Capture up to ${MAX_HEADER_LINKS} links from the contact/header area (LinkedIn, GitHub, portfolio, website, etc.) as header.links. label is the platform/site name. Hyperlink targets appear in parentheses after the linked text, e.g. "LinkedIn (https://linkedin.com/in/foo)" — use the URL in parentheses as url when present, otherwise the link text as written. Never use mailto:/tel: targets as links (email and phone are their own fields). Use an empty array when there are none.
+7. Parenthesized hyperlink targets are ONLY for header.links urls — do not copy them into any other field (bullets, project names, degrees, etc.).
+8. Capture the city/location from the contact/header area as header.location, exactly as written (e.g. "London" or "London, UK"). Use an empty string when there is none.
+9. Output JSON only that matches the schema exactly.`
 
       const prompt = `Resume text:
 ${rawText}
 
 Return JSON that matches this structure:
-header: { name, phone, email, links: [{ label, url }] }
+header: { name, phone, email, location, links: [{ label, url }] }
 education: [{ school, location, dates, degree, details }]
 experience: [{ company, companyMeta, roles: [{ title, meta, bullets[] }] }]
 projects: [{ name, dates, bullets[] }]
@@ -185,59 +195,6 @@ extras: string[]`
     }
   },
 })
-
-function extractPlainText(xml: string): string {
-  const paragraphs: Array<string> = []
-  const paragraphRegex = /<w:p\b[^>]*>[\s\S]*?<\/w:p>/g
-  let match: RegExpExecArray | null
-
-  while ((match = paragraphRegex.exec(xml)) !== null) {
-    const paragraphXml = match[0]
-    const isBullet = /<w:numPr\b/.test(paragraphXml)
-    const text = extractTextFromParagraph(paragraphXml)
-    const cleaned = normalizeWhitespace(text)
-    if (!cleaned) {
-      continue
-    }
-    paragraphs.push(isBullet ? `• ${cleaned}` : cleaned)
-  }
-
-  return paragraphs.join('\n')
-}
-
-function extractTextFromParagraph(paragraphXml: string): string {
-  const normalized = paragraphXml
-    .replace(/<w:tab[^>]*\/>/g, '<w:t>\t</w:t>')
-    .replace(/<w:br[^>]*\/>/g, '<w:t>\n</w:t>')
-  const textRegex = /<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g
-  const parts: Array<string> = []
-  let match: RegExpExecArray | null
-
-  while ((match = textRegex.exec(normalized)) !== null) {
-    parts.push(decodeXml(match[1]))
-  }
-
-  return parts.join('')
-}
-
-function decodeXml(text: string): string {
-  return text
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
-      String.fromCodePoint(parseInt(hex, 16)),
-    )
-    .replace(/&#([0-9]+);/g, (_, num) =>
-      String.fromCodePoint(parseInt(num, 10)),
-    )
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-}
-
-function normalizeWhitespace(text: string): string {
-  return text.replace(/\s+/g, ' ').trim()
-}
 
 export const convertResumeToPdf = internalAction({
   args: { resumeId: v.id('resumes') },
