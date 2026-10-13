@@ -12,6 +12,7 @@ import {
   linkifySkillLinks,
   renderResumeTemplate,
   splitCompany,
+  withScheme,
 } from '../../convex/modules/patch/docxTemplate'
 
 // Six spaces, matching the original resume's contact line.
@@ -577,5 +578,27 @@ describe('linkifySkillLinks', () => {
     const rendered = renderResumeTemplate(decodeBase64Template(), data)
 
     expect(linkifySkillLinks(rendered, data.skills)).toBe(rendered)
+  })
+})
+
+describe('withScheme', () => {
+  it('keeps urls that already have a real scheme', () => {
+    expect(withScheme('https://example.com/x')).toBe('https://example.com/x')
+    expect(withScheme('http://example.com')).toBe('http://example.com')
+    expect(withScheme('mailto:jane@example.com')).toBe(
+      'mailto:jane@example.com',
+    )
+    expect(withScheme('tel:+15551234')).toBe('tel:+15551234')
+    expect(withScheme('tel:5551234')).toBe('tel:5551234')
+  })
+
+  it('adds https:// to bare hosts, including host:port', () => {
+    expect(withScheme('linkedin.com/in/jane')).toBe(
+      'https://linkedin.com/in/jane',
+    )
+    expect(withScheme('localhost:3000/x')).toBe('https://localhost:3000/x')
+    expect(withScheme('www.site.com:8080/x')).toBe(
+      'https://www.site.com:8080/x',
+    )
   })
 })

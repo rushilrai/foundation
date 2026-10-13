@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { getErrorMessage } from '@/modules/common/errorMessages'
 import {
   cleanListFields,
   joinLines,
@@ -24,6 +25,8 @@ import {
 } from '@/modules/resume/contentLines'
 import { useUpdateResumeData } from '@/modules/resume/mutations'
 import type { Resume } from '@/modules/resume/schema'
+
+const SAVED_NOTICE_MS = 3000
 
 type ResumeContentTabProps = {
   resume: Resume
@@ -34,6 +37,8 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
     resume.data ?? getEmptyResumeData(),
   )
   const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [justSaved, setJustSaved] = useState(false)
   const [jsonOpen, setJsonOpen] = useState(false)
   const [jsonDraft, setJsonDraft] = useState('')
   const updateData = useUpdateResumeData()
@@ -43,6 +48,14 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
       setDraft(resume.data)
     }
   }, [resume.data])
+
+  useEffect(() => {
+    if (!justSaved) {
+      return
+    }
+    const timeout = setTimeout(() => setJustSaved(false), SAVED_NOTICE_MS)
+    return () => clearTimeout(timeout)
+  }, [justSaved])
 
   const jsonValue = useMemo(() => JSON.stringify(draft, null, 2), [draft])
 
@@ -65,13 +78,24 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
 
   const handleSave = async () => {
     setIsSaving(true)
+    setSaveError(null)
+    setJustSaved(false)
     try {
-      await updateData({
+      const result = await updateData({
         resumeId: resume._id,
         data: cleanListFields(draft),
       })
+      if ('error' in result) {
+        console.error('Failed to save resume data', result.error)
+        setSaveError(
+          getErrorMessage(result.error, 'Failed to save changes. Try again.'),
+        )
+        return
+      }
+      setJustSaved(true)
     } catch (error) {
       console.error('Failed to save resume data', error)
+      setSaveError('Failed to save changes. Try again.')
     } finally {
       setIsSaving(false)
     }
@@ -430,6 +454,17 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
           </Button>
         </div>
       </div>
+
+      {saveError && (
+        <p role="alert" className="-mt-4 text-sm text-destructive">
+          {saveError}
+        </p>
+      )}
+      {justSaved && (
+        <p role="status" className="-mt-4 text-sm text-muted-foreground">
+          Changes saved.
+        </p>
+      )}
 
       <section className="space-y-4">
         <h4 className="text-md font-semibold">Header</h4>

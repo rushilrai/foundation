@@ -1,9 +1,15 @@
+import { useState } from 'react'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
+import { getErrorMessage } from '@/modules/common/errorMessages'
 import { PatchPreview } from '@/modules/patch/components/PatchPreview'
-import { useGeneratePatchDownloadUrl } from '@/modules/patch/mutations'
+import {
+  useGeneratePatchDownloadUrl,
+  useGeneratePatchPdfDownloadUrl,
+} from '@/modules/patch/mutations'
 import { usePatch } from '@/modules/patch/queries'
 import type { PatchId } from '@/modules/patch/schema'
 import { DashboardHeader } from '@/screens/dashboard/components/dashboard-header'
@@ -19,14 +25,22 @@ export function PatchDetailScreen({ patchId }: { patchId: string }) {
   const patchResult = usePatch(patchId as PatchId)
 
   const generateDownloadUrl = useGeneratePatchDownloadUrl()
+  const generatePdfDownloadUrl = useGeneratePatchPdfDownloadUrl()
+  const [downloadError, setDownloadError] = useState<string | null>(null)
 
-  const handleDownload = async () => {
-    const result = await generateDownloadUrl({
-      patchId: patchId as PatchId,
-    })
-
-    if ('downloadUrl' in result) {
+  const download = async (generate: typeof generateDownloadUrl) => {
+    setDownloadError(null)
+    try {
+      const result = await generate({ patchId: patchId as PatchId })
+      if ('error' in result) {
+        console.error('Failed to get patch download URL', result.error)
+        setDownloadError(getErrorMessage(result.error, 'Download failed.'))
+        return
+      }
       window.open(result.downloadUrl, '_blank')
+    } catch (error) {
+      console.error('Failed to get patch download URL', error)
+      setDownloadError('Download failed.')
     }
   }
 
@@ -81,13 +95,28 @@ export function PatchDetailScreen({ patchId }: { patchId: string }) {
             {patch.status}
           </Badge>
 
+          {downloadError && (
+            <p role="alert" className="text-sm text-destructive">
+              {downloadError}
+            </p>
+          )}
+
           <Button
             variant="outline"
             size="sm"
-            onClick={handleDownload}
-            disabled={patch.status !== 'ready'}
+            onClick={() => download(generateDownloadUrl)}
+            disabled={patch.status !== 'ready' || !patch.patchedFileId}
           >
             Download DOCX
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => download(generatePdfDownloadUrl)}
+            disabled={patch.status !== 'ready' || !patch.pdfFileId}
+          >
+            Download PDF
           </Button>
         </div>
       </DashboardHeader>

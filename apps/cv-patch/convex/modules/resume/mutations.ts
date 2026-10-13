@@ -4,6 +4,7 @@ import { internal } from '../../_generated/api'
 import type { Id } from '../../_generated/dataModel'
 import { internalMutation, mutation } from '../../_generated/server'
 import { isDocxFileName, MAX_HEADER_LINKS } from '../../../shared/resumeSchema'
+import { hasMissingSkillLinks } from '../../../shared/skillLinks'
 import {
   nullableResumeDataValidator,
   resumeDataValidator,
@@ -174,6 +175,12 @@ export const updateData = mutation({
 
     if (args.data.header.links.length > MAX_HEADER_LINKS) {
       return { error: 'TOO_MANY_HEADER_LINKS' }
+    }
+
+    // Every skill link must point at text in its line, or each later patch
+    // would fail validation on it.
+    if (hasMissingSkillLinks(args.data)) {
+      return { error: 'SKILL_LINK_TEXT_MISSING' }
     }
 
     try {

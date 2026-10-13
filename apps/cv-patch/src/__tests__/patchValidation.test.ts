@@ -174,6 +174,30 @@ describe('validatePatchedData', () => {
     ])
   })
 
+  it('flags a value with fewer occurrences than links sharing a text', () => {
+    const base = loadSample()
+    base.skills[1] = {
+      label: 'Certifications',
+      value: 'CFA (Passed), CFA (Level II candidate)',
+      links: [
+        { text: 'CFA', url: 'https://example.com/cfa-1' },
+        { text: 'CFA', url: 'https://example.com/cfa-2' },
+      ],
+    }
+    const patched = structuredClone(base)
+    patched.skills[1].value = 'CFA (Passed), Level II candidate (CFA)'
+
+    expect(validatePatchedData(patched, base)).toEqual([])
+
+    patched.skills[1].value = 'CFA (Passed), Level II candidate (CF.)'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(
+        /^skills\[1\]\.value must contain the link text "CFA" verbatim 2 times/,
+      ),
+    ])
+  })
+
   it('flags a changed skill line count', () => {
     const base = loadSample()
     const patched = structuredClone(base)

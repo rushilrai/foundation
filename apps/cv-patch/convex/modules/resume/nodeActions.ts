@@ -11,6 +11,7 @@ import {
   ResumeDataSchema,
   type ResumeData,
 } from '../../../shared/resumeSchema'
+import { dropMissingSkillLinks } from '../../../shared/skillLinks'
 import {
   DEFAULT_REASONING_EFFORT,
   openai,
@@ -178,6 +179,17 @@ extras: string[]`
         throw new Error(
           `Resume data failed validation: ${finalIssues.join('; ')}`,
         )
+      }
+
+      // A skill link whose text is not in its value can never be rendered
+      // and would fail every later patch, so drop it here.
+      const skillLinks = dropMissingSkillLinks(data)
+      if (skillLinks.dropped.length > 0) {
+        console.warn('[extractResumeData] Dropped skill links not in value', {
+          resumeId: args.resumeId,
+          dropped: skillLinks.dropped,
+        })
+        data = skillLinks.data
       }
 
       await ctx.runMutation(

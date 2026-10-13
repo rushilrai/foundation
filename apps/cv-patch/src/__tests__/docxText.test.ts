@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  decodeXml,
   extractPlainText,
   parseHyperlinkTargets,
 } from '../../convex/modules/resume/docxText'
@@ -93,5 +94,24 @@ describe('extractPlainText', () => {
     expect(plain[1]).toBe(
       '+1 555 010 1234 jane.doe@example.com LinkedIn Site Top London',
     )
+  })
+})
+
+describe('decodeXml', () => {
+  it('decodes named and numeric entities', () => {
+    expect(decodeXml('a &amp; b &lt;c&gt; &quot;d&quot; &apos;e&apos;')).toBe(
+      'a & b <c> "d" \'e\'',
+    )
+    expect(decodeXml('&#233;t&#xE9;')).toBe('été')
+  })
+
+  it('decodes in a single pass', () => {
+    expect(decodeXml('&#38;lt;')).toBe('&lt;')
+    expect(decodeXml('&amp;lt;')).toBe('&lt;')
+    expect(decodeXml('&#x26;amp;')).toBe('&amp;')
+  })
+
+  it('leaves unknown entities untouched', () => {
+    expect(decodeXml('&nbsp; &#99999999;')).toBe('&nbsp; &#99999999;')
   })
 })

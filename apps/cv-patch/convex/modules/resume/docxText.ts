@@ -83,19 +83,27 @@ export function extractTextFromParagraph(paragraphXml: string): string {
   return parts.join('')
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  quot: '"',
+  apos: "'",
+  lt: '<',
+  gt: '>',
+  amp: '&',
+}
+
+// One pass, so a decoded "&" never starts a new entity: "&#38;lt;" is
+// "&lt;", not "<".
 export function decodeXml(text: string): string {
-  return text
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
-      String.fromCodePoint(parseInt(hex, 16)),
-    )
-    .replace(/&#([0-9]+);/g, (_, num) =>
-      String.fromCodePoint(parseInt(num, 10)),
-    )
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
+  return text.replace(
+    /&(?:#x([0-9a-fA-F]+)|#([0-9]+)|(quot|apos|lt|gt|amp));/g,
+    (whole, hex?: string, num?: string, named?: string) => {
+      if (named) {
+        return NAMED_ENTITIES[named]
+      }
+      const codePoint = hex ? parseInt(hex, 16) : parseInt(num ?? '', 10)
+      return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : whole
+    },
+  )
 }
 
 // A tab separates the left text from the right-aligned column (e.g.
