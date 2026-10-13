@@ -25,14 +25,10 @@ const doc = new Docxtemplater(zip, {
 
 const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'))
 
-const displayUrl = (url) =>
-  url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
-
 const contactLine = [
   data.header.phone,
   data.header.email,
-  ...data.header.links.map((link) => link.label.trim() || displayUrl(link.url)),
-  data.header.location,
+  ...data.header.links.map((link) => link.url),
 ]
   .map((part) => part.trim())
   .filter(Boolean)
