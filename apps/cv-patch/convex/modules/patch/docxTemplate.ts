@@ -86,7 +86,10 @@ export function renderResumeTemplate(
   })
 
   const rendered = doc.getZip().generate({ type: 'uint8array' })
-  return linkifyProjectNames(linkifyContactLine(rendered, data.header), data)
+  return linkifySkillLinks(
+    linkifyProjectNames(linkifyContactLine(rendered, data.header), data),
+    data.skills,
+  )
 }
 
 function escapeXmlText(text: string): string {
@@ -287,6 +290,155 @@ export function linkifyProjectNames(
     documentXml =
       documentXml.slice(0, runStart) + wrapped + documentXml.slice(runEndClose)
     searchFrom = runStart + wrapped.length
+  }
+
+  if (relEntries.length === 0) {
+    return docxBytes
+  }
+
+  relsXml = relsXml.replace(
+    '</Relationships>',
+    `${relEntries.join('')}</Relationships>`,
+  )
+
+  zip.file('word/document.xml', documentXml)
+  zip.file('word/_rels/document.xml.rels', relsXml)
+
+  return zip.generate({ type: 'uint8array' })
+}
+
+// Character ranges of each link's text within a skill value: first
+// occurrence not overlapping an earlier link, sorted by position. Links whose
+// text is missing (or empty) are dropped.
+function locateSkillLinks(
+  value: string,
+  links: ResumeData['skills'][number]['links'],
+): Array<{ start: number; end: number; url: string }> {
+  const ranges: Array<{ start: number; end: number; url: string }> = []
+
+  for (const link of links) {
+    const url = link.url.trim()
+    if (!link.text || !url) {
+      continue
+    }
+
+    let start = value.indexOf(link.text)
+    while (
+      start !== -1 &&
+      ranges.some(
+        (range) => start < range.end && start + link.text.length > range.start,
+      )
+    ) {
+      start = value.indexOf(link.text, start + 1)
+    }
+    if (start === -1) {
+      continue
+    }
+
+    ranges.push({ start, end: start + link.text.length, url: withScheme(url) })
+  }
+
+  return ranges.sort((a, b) => a.start - b.start)
+}
+
+// Splits each skill line's value run into before / hyperlink / after runs
+// (same formatting) for every inline link. The search starts at the SKILLS
+// heading and walks the lines in order, so identical text elsewhere in the
+// document is never linked; links whose text is not found are skipped.
+export function linkifySkillLinks(
+  docxBytes: Uint8Array,
+  skills: ResumeData['skills'],
+): Uint8Array {
+  if (!skills.some((line) => line.links.length > 0)) {
+    return docxBytes
+  }
+
+  const zip = new PizZip(docxBytes)
+  const docFile = zip.file('word/document.xml')
+  const relsFile = zip.file('word/_rels/document.xml.rels')
+  if (!docFile || !relsFile) {
+    return docxBytes
+  }
+
+  let documentXml = ensureRelationshipsNamespace(docFile.asText())
+  let relsXml = relsFile.asText()
+
+  const headingIndex = documentXml.indexOf('>SKILLS</w:t>')
+  if (headingIndex === -1) {
+    return docxBytes
+  }
+
+  const counter = { value: 0 }
+  const relEntries: Array<string> = []
+  let searchFrom = headingIndex
+
+  for (const line of skills) {
+    // The label run ("Label:") anchors the line; the value run follows it.
+    const labelIndex = documentXml.indexOf(
+      `>${escapeRenderedText(`${line.label}:`)}</w:t>`,
+      searchFrom,
+    )
+    if (labelIndex === -1) {
+      continue
+    }
+    // Past this label even if the line is skipped, so a repeated label
+    // resolves to the next line.
+    searchFrom = labelIndex + 1
+
+    if (!line.value) {
+      continue
+    }
+
+    const paragraphEnd = documentXml.indexOf('</w:p>', labelIndex)
+    const tIndex = documentXml.indexOf(
+      `>${escapeRenderedText(line.value)}</w:t>`,
+      labelIndex,
+    )
+    if (tIndex === -1 || (paragraphEnd !== -1 && tIndex > paragraphEnd)) {
+      continue
+    }
+
+    const runStart = Math.max(
+      documentXml.lastIndexOf('<w:r>', tIndex),
+      documentXml.lastIndexOf('<w:r ', tIndex),
+    )
+    const runEnd = documentXml.indexOf('</w:r>', tIndex)
+    if (runStart === -1 || runEnd === -1) {
+      continue
+    }
+    const runEndClose = runEnd + '</w:r>'.length
+    searchFrom = runEndClose
+
+    const ranges = locateSkillLinks(line.value, line.links)
+    if (ranges.length === 0) {
+      continue
+    }
+
+    const runXml = documentXml.slice(runStart, runEndClose)
+    const rPr = runXml.match(/<w:rPr>[\s\S]*?<\/w:rPr>/)?.[0] ?? ''
+    const textRun = (text: string) =>
+      `<w:r>${rPr}<w:t xml:space="preserve">${escapeXmlText(text)}</w:t></w:r>`
+
+    let replacement = ''
+    let cursor = 0
+    for (const range of ranges) {
+      if (range.start > cursor) {
+        replacement += textRun(line.value.slice(cursor, range.start))
+      }
+      const id = nextRelId(relsXml, 'rCvSkill', counter)
+      relEntries.push(hyperlinkRelationship(id, range.url))
+      replacement += `<w:hyperlink r:id="${id}" w:history="1">${textRun(line.value.slice(range.start, range.end))}</w:hyperlink>`
+      cursor = range.end
+    }
+    if (cursor < line.value.length) {
+      replacement += textRun(line.value.slice(cursor))
+    }
+
+    documentXml =
+      documentXml.slice(0, runStart) +
+      replacement +
+      documentXml.slice(runEndClose)
+    searchFrom = runStart + replacement.length
   }
 
   if (relEntries.length === 0) {

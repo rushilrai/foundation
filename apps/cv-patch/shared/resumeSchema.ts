@@ -43,10 +43,18 @@ export const ResumeProjectSchema = z.object({
   bullets: z.array(z.string()),
 })
 
-export const ResumeSkillsSchema = z.object({
-  technical: z.string(),
-  financial: z.string(),
-  languages: z.string(),
+// An inline hyperlink inside a skill line's value (e.g. a certification);
+// text must appear verbatim in the value.
+export const ResumeSkillLinkSchema = z.object({
+  text: z.string(),
+  url: z.string(),
+})
+
+// One labelled line of the SKILLS section, rendered as "Label: value".
+export const ResumeSkillLineSchema = z.object({
+  label: z.string(),
+  value: z.string(),
+  links: z.array(ResumeSkillLinkSchema),
 })
 
 export const ResumeDataSchema = z.object({
@@ -54,11 +62,13 @@ export const ResumeDataSchema = z.object({
   education: z.array(ResumeEducationSchema),
   experience: z.array(ResumeExperienceSchema),
   projects: z.array(ResumeProjectSchema),
-  skills: ResumeSkillsSchema,
+  skills: z.array(ResumeSkillLineSchema),
   extras: z.array(z.string()),
 })
 
 export type ResumeLink = z.infer<typeof ResumeLinkSchema>
+export type ResumeSkillLink = z.infer<typeof ResumeSkillLinkSchema>
+export type ResumeSkillLine = z.infer<typeof ResumeSkillLineSchema>
 export type ResumeData = z.infer<typeof ResumeDataSchema>
 
 export function getEmptyResumeData(): ResumeData {
@@ -73,11 +83,7 @@ export function getEmptyResumeData(): ResumeData {
     education: [],
     experience: [],
     projects: [],
-    skills: {
-      technical: '',
-      financial: '',
-      languages: '',
-    },
+    skills: [],
     extras: [],
   }
 }

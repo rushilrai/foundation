@@ -96,24 +96,38 @@ def set_text_with_tabs(paragraph, left_text, right_text):
             paragraph.append(new_run)
 
 
-def replace_after_colon(paragraph, placeholder):
-    t_nodes = paragraph.findall('.//w:t', NS)
-    colon_found = False
-    placeholder_set = False
+def make_skill_line_paragraph(source):
+    """One "{label}: {value}" line for the {#skills} paragraph loop, built
+    from an existing skill paragraph: bold label run, then a regular-weight
+    value run. The top border is dropped so the last line never merges
+    borders with the following section heading; jc=both matches BodyText2."""
+    p = ET.Element(f"{{{NS['w']}}}p")
 
-    for t in t_nodes:
-        text = t.text or ""
-        if not colon_found:
-            if ":" in text:
-                colon_found = True
-            continue
+    ppr = copy.deepcopy(source.find('./w:pPr', NS))
+    if ppr is None:
+        ppr = ET.Element(f"{{{NS['w']}}}pPr")
+    for border in ppr.findall('./w:pBdr', NS):
+        ppr.remove(border)
+    jc = ET.Element(f"{{{NS['w']}}}jc")
+    jc.set(f"{{{NS['w']}}}val", "both")
+    # jc precedes rPr in the pPr sequence.
+    ppr_rpr = ppr.find('./w:rPr', NS)
+    ppr.insert(list(ppr).index(ppr_rpr) if ppr_rpr is not None else len(ppr), jc)
+    p.append(ppr)
 
-        if not placeholder_set:
-            t.text = placeholder
-            set_space_preserve(t, placeholder)
-            placeholder_set = True
-        else:
-            t.text = ""
+    rprs = [r.find('./w:rPr', NS) for r in source.findall('./w:r', NS)]
+    rprs = [rpr for rpr in rprs if rpr is not None]
+    label_rpr = next(rpr for rpr in rprs if rpr.find('./w:b', NS) is not None)
+    value_rpr = next(rpr for rpr in rprs if rpr.find('./w:b', NS) is None)
+
+    for rpr, text in ((label_rpr, '{label}:'), (value_rpr, ' '), (value_rpr, '{value}')):
+        r = ET.SubElement(p, f"{{{NS['w']}}}r")
+        r.append(copy.deepcopy(rpr))
+        t = ET.SubElement(r, f"{{{NS['w']}}}t")
+        t.text = text
+        set_space_preserve(t, text)
+
+    return p
 
 
 def make_tag_paragraph(tag_text):
@@ -192,9 +206,12 @@ def main():
     insert_after(body, paragraphs[37], make_tag_paragraph('{/projects}'))
     insert_after(body, paragraphs[37], make_tag_paragraph('{/bullets}'))
 
-    replace_after_colon(paragraphs[45], '{skills.technical}')
-    replace_after_colon(paragraphs[46], '{skills.financial}')
-    replace_after_colon(paragraphs[47], '{skills.languages}')
+    # Skills: one labelled line per entry, replacing the fixed paragraphs
+    # 45-47 (removed below).
+    skill_line = make_skill_line_paragraph(paragraphs[45])
+    insert_before(body, paragraphs[45], make_tag_paragraph('{#skills}'))
+    insert_before(body, paragraphs[45], skill_line)
+    insert_before(body, paragraphs[45], make_tag_paragraph('{/skills}'))
 
     insert_before(body, paragraphs[50], make_tag_paragraph('{#extras}'))
     set_text_simple(paragraphs[50], '{.}')
@@ -203,6 +220,7 @@ def main():
     # Remove extra blocks (reverse order)
     remove_indices = [
         51,  # extra-curricular second bullet
+        47, 46, 45,              # fixed skill lines (now the {#skills} loop)
         43, 42, 41, 40, 39, 38,  # projects extra lines
         33, 32, 31, 30, 29,      # AntPod
         27, 26, 25, 24,          # Girl Up Heron

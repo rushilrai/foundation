@@ -224,30 +224,52 @@ export function validatePatchedData(
     }
   }
 
-  validateLengthRange(
-    issues,
-    'skills.technical',
-    base.skills.technical,
-    data.skills.technical,
-    EDITABLE_MIN_RATIO,
-    EDITABLE_MAX_RATIO,
-  )
-  validateLengthRange(
-    issues,
-    'skills.financial',
-    base.skills.financial,
-    data.skills.financial,
-    EDITABLE_MIN_RATIO,
-    EDITABLE_MAX_RATIO,
-  )
-  validateLengthRange(
-    issues,
-    'skills.languages',
-    base.skills.languages,
-    data.skills.languages,
-    EDITABLE_MIN_RATIO,
-    EDITABLE_MAX_RATIO,
-  )
+  if (data.skills.length !== base.skills.length) {
+    issues.push(
+      `skills has ${data.skills.length} lines, expected ${base.skills.length}`,
+    )
+  } else {
+    for (let i = 0; i < base.skills.length; i++) {
+      const bLine = base.skills[i]
+      const dLine = data.skills[i]
+
+      if (dLine.label !== bLine.label) {
+        issues.push(
+          `skills[${i}].label was changed from "${bLine.label}" to "${dLine.label}" — must be identical`,
+        )
+      }
+
+      if (dLine.links.length !== bLine.links.length) {
+        issues.push(
+          `skills[${i}].links has ${dLine.links.length} entries, expected ${bLine.links.length}`,
+        )
+      } else {
+        for (let l = 0; l < bLine.links.length; l++) {
+          const bLink = bLine.links[l]
+          const dLink = dLine.links[l]
+
+          if (dLink.text !== bLink.text || dLink.url !== bLink.url) {
+            issues.push(
+              `skills[${i}].links[${l}] was changed from "${bLink.text}: ${bLink.url}" to "${dLink.text}: ${dLink.url}" — must be identical`,
+            )
+          } else if (!dLine.value.includes(dLink.text)) {
+            issues.push(
+              `skills[${i}].value must contain the link text "${dLink.text}" verbatim`,
+            )
+          }
+        }
+      }
+
+      validateLengthRange(
+        issues,
+        `skills[${i}].value`,
+        bLine.value,
+        dLine.value,
+        EDITABLE_MIN_RATIO,
+        EDITABLE_MAX_RATIO,
+      )
+    }
+  }
 
   return issues
 }

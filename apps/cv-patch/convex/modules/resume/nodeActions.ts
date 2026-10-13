@@ -106,9 +106,10 @@ Rules:
 5. Use empty strings for missing fields; do not omit keys.
 6. Capture up to ${MAX_HEADER_LINKS} links from the contact/header area (LinkedIn, GitHub, portfolio, website, etc.) as header.links. label is the platform/site name. Hyperlink targets appear in parentheses after the linked text, e.g. "LinkedIn (https://linkedin.com/in/foo)" — use the URL in parentheses as url when present, otherwise the link text as written. Never use mailto:/tel: targets as links (email and phone are their own fields). Use an empty array when there are none.
 7. For each project, set projects[].url to the hyperlink target on the project title — e.g. "Trading Engine (https://github.com/foo/engine)" gives name "Trading Engine" and url "https://github.com/foo/engine". Use an empty string when the project title has no link.
-8. Parenthesized hyperlink targets may ONLY be used as header.links urls and projects[].url — never copy the "(https://…)" text into names, bullets, degrees or any other field.
-9. Capture the city/location from the contact/header area as header.location, exactly as written (e.g. "London" or "London, UK"). Use an empty string when there is none.
-10. Output JSON only that matches the schema exactly.`
+8. Each line of the SKILLS section written as "Label: value" becomes one skills entry, in order: label is the text before the first colon, exactly as written and without the colon (e.g. "Quantitative Methods", "Financial Systems & Tools", "Certifications"); value is the rest of the line, trimmed. links lists the hyperlinks inside the value, in order: text is the visible link text and url the parenthesized target — e.g. "Certifications: CFA Level I (https://cfa.org/cert) (Passed)" gives label "Certifications", value "CFA Level I (Passed)" and links [{ text: "CFA Level I", url: "https://cfa.org/cert" }]. Remove the "(https://…)" target from value. Use an empty links array when the line has no hyperlinks.
+9. Parenthesized hyperlink targets may ONLY be used as header.links urls, projects[].url and skills[].links[].url — never copy the "(https://…)" text into names, bullets, degrees, skill values or any other field.
+10. Capture the city/location from the contact/header area as header.location, exactly as written (e.g. "London" or "London, UK"). Use an empty string when there is none.
+11. Output JSON only that matches the schema exactly.`
 
       const prompt = `Resume text:
 ${rawText}
@@ -118,7 +119,7 @@ header: { name, phone, email, location, links: [{ label, url }] }
 education: [{ school, location, dates, degree, details }]
 experience: [{ company, companyMeta, roles: [{ title, meta, bullets[] }] }]
 projects: [{ name, url, dates, bullets[] }]
-skills: { technical, financial, languages }
+skills: [{ label, value, links: [{ text, url }] }]
 extras: string[]`
 
       const { output } = await generateText({

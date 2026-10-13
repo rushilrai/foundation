@@ -290,10 +290,73 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
     }))
   }
 
-  const updateSkills = (key: keyof ResumeData['skills'], value: string) => {
+  const updateSkillLine = (
+    index: number,
+    key: 'label' | 'value',
+    value: string,
+  ) => {
     setDraft((prev) => ({
       ...prev,
-      skills: { ...prev.skills, [key]: value },
+      skills: prev.skills.map((line, i) =>
+        i === index ? { ...line, [key]: value } : line,
+      ),
+    }))
+  }
+
+  const addSkillLine = () => {
+    setDraft((prev) => ({
+      ...prev,
+      skills: [...prev.skills, { label: '', value: '', links: [] }],
+    }))
+  }
+
+  const removeSkillLine = (index: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      skills: prev.skills.filter((_, i) => i !== index),
+    }))
+  }
+
+  const updateSkillLink = (
+    lineIndex: number,
+    linkIndex: number,
+    key: 'text' | 'url',
+    value: string,
+  ) => {
+    setDraft((prev) => ({
+      ...prev,
+      skills: prev.skills.map((line, i) =>
+        i === lineIndex
+          ? {
+              ...line,
+              links: line.links.map((link, l) =>
+                l === linkIndex ? { ...link, [key]: value } : link,
+              ),
+            }
+          : line,
+      ),
+    }))
+  }
+
+  const addSkillLink = (lineIndex: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      skills: prev.skills.map((line, i) =>
+        i === lineIndex
+          ? { ...line, links: [...line.links, { text: '', url: '' }] }
+          : line,
+      ),
+    }))
+  }
+
+  const removeSkillLink = (lineIndex: number, linkIndex: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      skills: prev.skills.map((line, i) =>
+        i === lineIndex
+          ? { ...line, links: line.links.filter((_, l) => l !== linkIndex) }
+          : line,
+      ),
     }))
   }
 
@@ -621,22 +684,82 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
       </section>
 
       <section className="space-y-4">
-        <h4 className="text-md font-semibold">Skills</h4>
-        <Textarea
-          value={draft.skills.technical}
-          onChange={(e) => updateSkills('technical', e.target.value)}
-          placeholder="Technical skills"
-        />
-        <Textarea
-          value={draft.skills.financial}
-          onChange={(e) => updateSkills('financial', e.target.value)}
-          placeholder="Financial skills"
-        />
-        <Textarea
-          value={draft.skills.languages}
-          onChange={(e) => updateSkills('languages', e.target.value)}
-          placeholder="Languages"
-        />
+        <div className="flex items-center justify-between">
+          <h4 className="text-md font-semibold">Skills</h4>
+          <Button variant="outline" size="sm" onClick={addSkillLine}>
+            Add Skill Line
+          </Button>
+        </div>
+        {draft.skills.map((line, index) => (
+          <div
+            key={`skill-${index}`}
+            className="space-y-3 rounded-lg border p-4"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Line {index + 1}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => removeSkillLine(index)}
+              >
+                Remove
+              </Button>
+            </div>
+            <Input
+              value={line.label}
+              onChange={(e) => updateSkillLine(index, 'label', e.target.value)}
+              placeholder="Label (e.g. Technical, Certifications)"
+            />
+            <Textarea
+              value={line.value}
+              onChange={(e) => updateSkillLine(index, 'value', e.target.value)}
+              placeholder="Skills (e.g. Python, SQL, Excel)"
+            />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium">
+                  Links ({line.links.length})
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addSkillLink(index)}
+                >
+                  Add Link
+                </Button>
+              </div>
+              {line.links.map((link, linkIndex) => (
+                <div
+                  key={`skill-${index}-link-${linkIndex}`}
+                  className="flex items-center gap-2"
+                >
+                  <Input
+                    value={link.text}
+                    onChange={(e) =>
+                      updateSkillLink(index, linkIndex, 'text', e.target.value)
+                    }
+                    placeholder="Linked text (as it appears above)"
+                    className="w-64"
+                  />
+                  <Input
+                    value={link.url}
+                    onChange={(e) =>
+                      updateSkillLink(index, linkIndex, 'url', e.target.value)
+                    }
+                    placeholder="URL"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeSkillLink(index, linkIndex)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
 
       <section className="space-y-4">

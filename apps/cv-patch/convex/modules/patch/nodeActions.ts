@@ -101,7 +101,7 @@ Strategy — in-place rewriting:
 - Prioritize hard skills, tools, domain nouns, and scope/impact language over generic soft-skill wording.
 - Do NOT invent facts, restructure sentences, add new bullets, remove bullets, or add/remove entries.
 - Do NOT reorder bullets.
-- You MAY reorder items within the skills fields (technical, financial, languages) to prioritize JD-relevant skills first.
+- You MAY reorder items within each skills[].value to prioritize JD-relevant skills first.
 - Preserve quantitative evidence: if a bullet contains numbers/percentages/currency/scale tokens, keep those metrics in the rewritten bullet.
 
 Immutable fields — copy these exactly, byte-for-byte:
@@ -110,18 +110,19 @@ Immutable fields — copy these exactly, byte-for-byte:
 - experience[].roles[].meta
 - education[].school, education[].location, education[].dates
 - projects[].name, projects[].url, projects[].dates (the project name is the hyperlink text — never rewrite it)
+- skills[].label and skills[].links (every text and url, same count and order) — the label is rendered as a bold heading and each link text is hyperlinked inside the value
 
 Editable fields — rewrite for ATS keyword alignment while preserving approximate character length:
 - experience[].roles[].title — only adjust if the JD uses a clearly equivalent title; keep length within ~80%-125% of original
 - experience[].roles[].bullets[] — substitute keywords, keep each bullet within ~80%-100% of original character count
 - education[].degree, education[].details — keyword-focused rewrites within ~80%-100% of original length
 - projects[].bullets[] — same rules as experience bullets
-- skills.technical, skills.financial, skills.languages — reorder to front-load JD-relevant terms, may substitute equivalent terms
+- skills[].value — reorder to front-load JD-relevant terms, may substitute equivalent terms; keep length within ~80%-100% of original; every skills[].links[].text must still appear verbatim in its line's value
 - extras[] — preserve as-is unless directly relevant; if edited keep length within ~80%-100% of original
 
 Structural invariants:
 - Same number of experience entries, same number of roles per experience entry, same number of bullets per role.
-- Same number of education entries, project entries, and extras entries.
+- Same number of education entries, project entries, skills lines (same order), and extras entries.
 
 Output JSON that strictly matches the schema.`
 

@@ -120,4 +120,77 @@ describe('validatePatchedData', () => {
       expect.stringMatching(/^experience\[0\]\.roles\[0\]\.bullets has/),
     ])
   })
+
+  it('passes a skill value reordered within the length range', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills[1].value =
+      'Scrum Master (In progress), AWS Certified Developer (Associate)'
+    patched.skills[0].value = 'Docker, PostgreSQL, Node.js, React, TypeScript'
+
+    expect(validatePatchedData(patched, base)).toEqual([])
+  })
+
+  it('flags a changed skill label', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills[0].label = 'Tech Stack'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^skills\[0\]\.label was changed/),
+    ])
+  })
+
+  it('flags a changed skill link', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills[1].links[0].url = 'https://example.com/other'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^skills\[1\]\.links\[0\] was changed/),
+    ])
+  })
+
+  it('flags a dropped skill link', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills[1].links = []
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^skills\[1\]\.links has 0 entries, expected 1/),
+    ])
+  })
+
+  it('flags a skill value that no longer contains its link text', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills[1].value =
+      'AWS Certified Dev (Associate), Scrum Master (In progress)'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(
+        /^skills\[1\]\.value must contain the link text "AWS Certified Developer"/,
+      ),
+    ])
+  })
+
+  it('flags a changed skill line count', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills.pop()
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^skills has 2 lines, expected 3/),
+    ])
+  })
+
+  it('flags a skill value that grows past its original length', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.skills[0].value = `${patched.skills[0].value}, Kubernetes`
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^skills\[0\]\.value is \d+ chars/),
+    ])
+  })
 })
