@@ -253,7 +253,7 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
 
   const updateProject = (
     index: number,
-    key: 'name' | 'dates',
+    key: 'name' | 'url' | 'dates',
     value: string,
   ) => {
     setDraft((prev) => ({
@@ -276,7 +276,10 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
   const addProject = () => {
     setDraft((prev) => ({
       ...prev,
-      projects: [...prev.projects, { name: '', dates: '', bullets: [] }],
+      projects: [
+        ...prev.projects,
+        { name: '', url: '', dates: '', bullets: [] },
+      ],
     }))
   }
 
@@ -596,6 +599,11 @@ export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
               value={project.name}
               onChange={(e) => updateProject(index, 'name', e.target.value)}
               placeholder="Project name"
+            />
+            <Input
+              value={project.url}
+              onChange={(e) => updateProject(index, 'url', e.target.value)}
+              placeholder="Project URL (optional; links the project name)"
             />
             <Input
               value={project.dates}

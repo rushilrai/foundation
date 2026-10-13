@@ -86,7 +86,7 @@ export function renderResumeTemplate(
   })
 
   const rendered = doc.getZip().generate({ type: 'uint8array' })
-  return linkifyContactLine(rendered, data.header)
+  return linkifyProjectNames(linkifyContactLine(rendered, data.header), data)
 }
 
 function escapeXmlText(text: string): string {
@@ -95,6 +95,44 @@ function escapeXmlText(text: string): string {
 
 function escapeXmlAttr(text: string): string {
   return escapeXmlText(text).replace(/"/g, '&quot;').replace(/'/g, '&apos;')
+}
+
+// docxtemplater escapes quotes as well as &<>, so rendered text must be
+// searched for in that form (e.g. an apostrophe in a project name).
+function escapeRenderedText(text: string): string {
+  return escapeXmlAttr(text)
+}
+
+const RELATIONSHIPS_NS =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+
+// The template does not declare xmlns:r on its root element, which the
+// hyperlink r:id attributes need. Idempotent across linkify passes.
+function ensureRelationshipsNamespace(documentXml: string): string {
+  return documentXml.includes('xmlns:r=')
+    ? documentXml
+    : documentXml.replace(
+        /<w:document\b/,
+        `<w:document xmlns:r="${RELATIONSHIPS_NS}"`,
+      )
+}
+
+function hyperlinkRelationship(id: string, target: string): string {
+  return `<Relationship Id="${id}" Type="${RELATIONSHIPS_NS}/hyperlink" Target="${escapeXmlAttr(target)}" TargetMode="External"/>`
+}
+
+// Next free relationship id with the given prefix; the counter is shared
+// across calls in one pass so ids stay unique before they are written.
+function nextRelId(
+  relsXml: string,
+  prefix: string,
+  counter: { value: number },
+): string {
+  let id = `${prefix}${++counter.value}`
+  while (relsXml.includes(`Id="${id}"`)) {
+    id = `${prefix}${++counter.value}`
+  }
+  return id
 }
 
 // Rewrites the rendered contact-line run into a sequence of runs where the
@@ -119,17 +157,10 @@ export function linkifyContactLine(
   let documentXml = docFile.asText()
   let relsXml = relsFile.asText()
 
-  // The hyperlink r:id attributes need the relationships namespace, which
-  // the template does not declare on its root element.
-  if (!documentXml.includes('xmlns:r=')) {
-    documentXml = documentXml.replace(
-      /<w:document\b/,
-      '<w:document xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
-    )
-  }
+  documentXml = ensureRelationshipsNamespace(documentXml)
 
   const line = segments.map((segment) => segment.text).join('')
-  const tIndex = documentXml.indexOf(`>${escapeXmlText(line)}</w:t>`)
+  const tIndex = documentXml.indexOf(`>${escapeRenderedText(line)}</w:t>`)
   if (tIndex === -1) {
     return docxBytes
   }
@@ -146,7 +177,7 @@ export function linkifyContactLine(
   const runXml = documentXml.slice(runStart, runEnd + '</w:r>'.length)
   const rPr = runXml.match(/<w:rPr>[\s\S]*?<\/w:rPr>/)?.[0] ?? ''
 
-  let linkCounter = 0
+  const counter = { value: 0 }
   const relEntries: Array<string> = []
 
   const replacement = segments
@@ -156,13 +187,8 @@ export function linkifyContactLine(
         return `<w:r>${rPr}${textElement}</w:r>`
       }
 
-      let id = `rCvLink${++linkCounter}`
-      while (relsXml.includes(`Id="${id}"`)) {
-        id = `rCvLink${++linkCounter}`
-      }
-      relEntries.push(
-        `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escapeXmlAttr(segment.href)}" TargetMode="External"/>`,
-      )
+      const id = nextRelId(relsXml, 'rCvLink', counter)
+      relEntries.push(hyperlinkRelationship(id, segment.href))
       return `<w:hyperlink r:id="${id}" w:history="1"><w:r>${rPr}${textElement}</w:r></w:hyperlink>`
     })
     .join('')
@@ -171,6 +197,102 @@ export function linkifyContactLine(
     documentXml.slice(0, runStart) +
     replacement +
     documentXml.slice(runEnd + '</w:r>'.length)
+  relsXml = relsXml.replace(
+    '</Relationships>',
+    `${relEntries.join('')}</Relationships>`,
+  )
+
+  zip.file('word/document.xml', documentXml)
+  zip.file('word/_rels/document.xml.rels', relsXml)
+
+  return zip.generate({ type: 'uint8array' })
+}
+
+// Wraps each linked project's name run in a real hyperlink post-render,
+// keeping the run's original formatting. Projects without a url are skipped;
+// runs that cannot be located are left as plain text.
+export function linkifyProjectNames(
+  docxBytes: Uint8Array,
+  data: ResumeData,
+): Uint8Array {
+  if (!data.projects.some((project) => project.url.trim())) {
+    return docxBytes
+  }
+
+  const zip = new PizZip(docxBytes)
+  const docFile = zip.file('word/document.xml')
+  const relsFile = zip.file('word/_rels/document.xml.rels')
+  if (!docFile || !relsFile) {
+    return docxBytes
+  }
+
+  let documentXml = ensureRelationshipsNamespace(docFile.asText())
+  let relsXml = relsFile.asText()
+
+  const counter = { value: 0 }
+  const relEntries: Array<string> = []
+  // Projects render in order after the PROJECTS heading, so start there and
+  // advance the cursor past each match — an identical company name earlier in
+  // the document is never linked, and duplicate project names each resolve
+  // to their own run. Every project advances the cursor, linked or not.
+  const headingIndex = documentXml.indexOf('>PROJECTS</w:t>')
+  let searchFrom = Math.max(0, headingIndex)
+
+  for (const project of data.projects) {
+    if (!project.name) {
+      continue
+    }
+
+    const tIndex = documentXml.indexOf(
+      `>${escapeRenderedText(project.name)}</w:t>`,
+      searchFrom,
+    )
+    if (tIndex === -1) {
+      continue
+    }
+
+    const runStart = Math.max(
+      documentXml.lastIndexOf('<w:r>', tIndex),
+      documentXml.lastIndexOf('<w:r ', tIndex),
+    )
+    const runEnd = documentXml.indexOf('</w:r>', tIndex)
+    if (runStart === -1 || runEnd === -1) {
+      continue
+    }
+    const runEndClose = runEnd + '</w:r>'.length
+    searchFrom = runEndClose
+
+    const url = project.url.trim()
+    if (!url) {
+      continue
+    }
+
+    // Already inside a hyperlink — nesting would be schema-invalid. Scan back
+    // to the containing paragraph start so the guard is not depth-limited.
+    const paragraphStart = Math.max(
+      documentXml.lastIndexOf('<w:p>', runStart),
+      documentXml.lastIndexOf('<w:p ', runStart),
+    )
+    const before = documentXml.slice(Math.max(0, paragraphStart), runStart)
+    if (
+      before.lastIndexOf('<w:hyperlink') > before.lastIndexOf('</w:hyperlink>')
+    ) {
+      continue
+    }
+
+    const id = nextRelId(relsXml, 'rCvProj', counter)
+    relEntries.push(hyperlinkRelationship(id, withScheme(url)))
+
+    const wrapped = `<w:hyperlink r:id="${id}" w:history="1">${documentXml.slice(runStart, runEndClose)}</w:hyperlink>`
+    documentXml =
+      documentXml.slice(0, runStart) + wrapped + documentXml.slice(runEndClose)
+    searchFrom = runStart + wrapped.length
+  }
+
+  if (relEntries.length === 0) {
+    return docxBytes
+  }
+
   relsXml = relsXml.replace(
     '</Relationships>',
     `${relEntries.join('')}</Relationships>`,

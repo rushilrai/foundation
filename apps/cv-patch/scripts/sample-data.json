@@ -37,6 +37,7 @@
   "projects": [
     {
       "name": "Open Source Dashboard",
+      "url": "https://github.com/janedoe/oss-dashboard",
       "dates": "2023",
       "bullets": [
         "Created an analytics dashboard with 1k+ GitHub stars and 40 contributors."

@@ -109,13 +109,12 @@ Immutable fields — copy these exactly, byte-for-byte:
 - experience[].company, experience[].companyMeta
 - experience[].roles[].meta
 - education[].school, education[].location, education[].dates
-- projects[].dates
+- projects[].name, projects[].url, projects[].dates (the project name is the hyperlink text — never rewrite it)
 
 Editable fields — rewrite for ATS keyword alignment while preserving approximate character length:
 - experience[].roles[].title — only adjust if the JD uses a clearly equivalent title; keep length within ~80%-125% of original
 - experience[].roles[].bullets[] — substitute keywords, keep each bullet within ~80%-100% of original character count
 - education[].degree, education[].details — keyword-focused rewrites within ~80%-100% of original length
-- projects[].name — keyword-focused rewrite within ~80%-100% of original length
 - projects[].bullets[] — same rules as experience bullets
 - skills.technical, skills.financial, skills.languages — reorder to front-load JD-relevant terms, may substitute equivalent terms
 - extras[] — preserve as-is unless directly relevant; if edited keep length within ~80%-100% of original

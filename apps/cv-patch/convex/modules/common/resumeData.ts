@@ -42,6 +42,7 @@ export const resumeDataValidator = v.object({
   projects: v.array(
     v.object({
       name: v.string(),
+      url: v.string(),
       dates: v.string(),
       bullets: v.array(v.string()),
     }),
