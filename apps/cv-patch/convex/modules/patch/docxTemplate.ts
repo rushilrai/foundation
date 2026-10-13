@@ -4,7 +4,8 @@ import PizZip from 'pizzip'
 
 import type { ResumeData } from '../../../shared/resumeSchema'
 
-const CONTACT_SEPARATOR = '    '
+// Six spaces between contact items, as in the original resume.
+const CONTACT_SEPARATOR = '      '
 
 // Fallback display when a link has no label — compact form of the URL.
 export function displayUrl(url: string): string {
@@ -53,6 +54,19 @@ export function buildContactSegments(
   return segments
 }
 
+// A trailing parenthetical in a company name renders italic and not bold,
+// e.g. "Morgan Stanley (via Accolite)" -> bold "Morgan Stanley " + italic
+// "(via Accolite)". Names without one render whole in companyName.
+export function splitCompany(company: string): {
+  companyName: string
+  companySuffix: string
+} {
+  const match = company.match(/^(.*\S\s+)(\([^()]*\))\s*$/)
+  return match
+    ? { companyName: match[1], companySuffix: match[2] }
+    : { companyName: company, companySuffix: '' }
+}
+
 export function buildContactLine(header: ResumeData['header']): string {
   return buildContactSegments(header)
     .map((segment) => segment.text)
@@ -83,6 +97,10 @@ export function renderResumeTemplate(
   doc.render({
     ...data,
     header: { ...data.header, contactLine: buildContactLine(data.header) },
+    experience: data.experience.map((entry) => ({
+      ...entry,
+      ...splitCompany(entry.company),
+    })),
   })
 
   const rendered = doc.getZip().generate({ type: 'uint8array' })

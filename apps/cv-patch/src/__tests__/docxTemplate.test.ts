@@ -11,9 +11,11 @@ import {
   linkifyProjectNames,
   linkifySkillLinks,
   renderResumeTemplate,
+  splitCompany,
 } from '../../convex/modules/patch/docxTemplate'
 
-const SEP = '    '
+// Six spaces, matching the original resume's contact line.
+const SEP = '      '
 
 const header: ResumeData['header'] = {
   name: 'Jane Doe',
@@ -274,8 +276,131 @@ describe('linkifyProjectNames', () => {
   })
 })
 
-// Paragraphs between the SKILLS heading and the next section heading, each as
-// its xml and its concatenated text.
+// Runs of the first company line (the first paragraph after the PROFESSIONAL
+// EXPERIENCE heading), each as its xml and text.
+const readCompanyRuns = (documentXml: string) => {
+  const heading = documentXml.indexOf('>PROFESSIONAL EXPERIENCE</w:t>')
+  const start = documentXml.indexOf('<w:p', heading)
+  const paragraph = documentXml.slice(
+    start,
+    documentXml.indexOf('</w:p>', start),
+  )
+  return [...paragraph.matchAll(/<w:r>[\s\S]*?<\/w:r>/g)].map(([xml]) => ({
+    xml,
+    text: xml.match(/<w:t[^>]*>([^<]*)<\/w:t>/)?.[1] ?? '',
+  }))
+}
+
+const BOLD = '<w:b />'
+const ITALIC = '<w:i />'
+
+describe('splitCompany', () => {
+  it('splits a trailing parenthetical off the company name', () => {
+    expect(splitCompany('Morgan Stanley (via Accolite)')).toEqual({
+      companyName: 'Morgan Stanley ',
+      companySuffix: '(via Accolite)',
+    })
+    expect(splitCompany('AntPod (Agri-Tech Startup)')).toEqual({
+      companyName: 'AntPod ',
+      companySuffix: '(Agri-Tech Startup)',
+    })
+  })
+
+  it('keeps names without a trailing parenthetical whole', () => {
+    for (const company of [
+      'Acme Corp',
+      'Acme (UK) Ltd',
+      '(Stealth)',
+      'Acme (a (b))',
+      '',
+    ]) {
+      expect(splitCompany(company)).toEqual({
+        companyName: company,
+        companySuffix: '',
+      })
+    }
+  })
+})
+
+describe('company line', () => {
+  const render = (company: string, companyMeta: string) => {
+    const sample = loadSampleWithoutBodyLinks()
+    const data: ResumeData = {
+      ...sample,
+      experience: [{ ...sample.experience[0], company, companyMeta }],
+    }
+    return readCompanyRuns(
+      readParts(renderResumeTemplate(decodeBase64Template(), data)).documentXml,
+    ).filter(({ text }) => text)
+  }
+
+  it('renders the name bold and a trailing parenthetical italic, not bold', () => {
+    const [name, suffix, meta] = render(
+      'Morgan Stanley (via Accolite)',
+      'Chennai, IN | Mar 2021 - May 2021',
+    )
+
+    expect(name.text).toBe('Morgan Stanley ')
+    expect(name.xml).toContain(BOLD)
+    expect(name.xml).not.toContain(ITALIC)
+    expect(suffix.text).toBe('(via Accolite)')
+    expect(suffix.xml).toContain(ITALIC)
+    expect(suffix.xml).not.toContain(BOLD)
+    expect(meta.text).toBe('Chennai, IN | Mar 2021 - May 2021')
+  })
+
+  it('renders a name without a parenthetical as a single bold run', () => {
+    const runs = render('Acme Corp', 'London, UK')
+
+    expect(runs.map(({ text }) => text)).toEqual(['Acme Corp', 'London, UK'])
+    expect(runs[0].xml).toContain(BOLD)
+    expect(runs[0].xml).not.toContain(ITALIC)
+  })
+
+  it('renders the right-hand company meta bold', () => {
+    const meta = render('Acme Corp', 'London, UK').at(-1)
+
+    expect(meta?.text).toBe('London, UK')
+    expect(meta?.xml).toContain(BOLD)
+    expect(meta?.xml).not.toContain(ITALIC)
+  })
+
+  it('keeps contact, project and skill links with a split company name', () => {
+    const sample = loadSample()
+    const data: ResumeData = {
+      ...sample,
+      header,
+      experience: [
+        { ...sample.experience[0], company: 'Risk Engine (via Agency)' },
+      ],
+      projects: [project('Risk Engine', 'github.com/janedoe/risk-engine')],
+    }
+    const rendered = renderResumeTemplate(decodeBase64Template(), data)
+
+    expect(
+      readHyperlinks(rendered).map(({ text, target }) => ({ text, target })),
+    ).toEqual([
+      { text: 'jane.doe@example.com', target: 'mailto:jane.doe@example.com' },
+      { text: 'LinkedIn', target: 'https://www.linkedin.com/in/janedoe' },
+      { text: 'GitHub', target: 'https://github.com/janedoe' },
+      { text: 'janedoe.dev', target: 'https://www.janedoe.dev/' },
+      { text: 'Risk Engine', target: 'https://github.com/janedoe/risk-engine' },
+      {
+        text: 'AWS Certified Developer',
+        target: 'https://example.com/certs/aws-developer',
+      },
+    ])
+    expect(
+      readCompanyRuns(readParts(rendered).documentXml)
+        .map(({ text }) => text)
+        .filter(Boolean),
+    ).toEqual(['Risk Engine ', '(via Agency)', 'London, UK'])
+  })
+})
+
+// Skill-line paragraphs between the SKILLS heading and the next section
+// heading, each as its xml and its concatenated text. The empty spacer
+// paragraph that closes the section (it has no runs) is skipped.
 const readSkillParagraphs = (documentXml: string) => {
   const start = documentXml.indexOf('>SKILLS</w:t>')
   const end = documentXml.indexOf('>EXTRA-CURRICULAR', start)
@@ -283,12 +408,14 @@ const readSkillParagraphs = (documentXml: string) => {
     documentXml.indexOf('</w:p>', start) + '</w:p>'.length,
     documentXml.lastIndexOf('<w:p', end),
   )
-  return [...section.matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)].map(([xml]) => ({
-    xml,
-    text: [...xml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
-      .map(([, text]) => text)
-      .join(''),
-  }))
+  return [...section.matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)]
+    .filter(([xml]) => xml.includes('<w:r>'))
+    .map(([xml]) => ({
+      xml,
+      text: [...xml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
+        .map(([, text]) => text)
+        .join(''),
+    }))
 }
 
 const skillLine = (
