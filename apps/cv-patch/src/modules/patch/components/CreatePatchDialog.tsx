@@ -21,7 +21,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useCreatePatch } from '@/modules/patch/mutations'
-import type { ProfileId } from '@/modules/profile/schema'
+import type { ResumeId } from '@/modules/resume/schema'
 
 const createPatchSchema = z.object({
   companyName: z.string().min(1, 'Company name is required'),
@@ -30,17 +30,16 @@ const createPatchSchema = z.object({
 })
 
 type CreatePatchDialogProps = {
-  profileId: ProfileId
+  resumeId: ResumeId
   children: React.ReactNode
 }
 
 export const CreatePatchDialog = ({
-  profileId,
+  resumeId,
   children,
 }: CreatePatchDialogProps) => {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const createPatch = useCreatePatch()
   const navigate = useNavigate()
@@ -60,11 +59,10 @@ export const CreatePatchDialog = ({
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true)
-      setSubmitError(null)
 
       try {
         const result = await createPatch({
-          profileId,
+          resumeId,
           title: generateTitle(value.companyName, value.roleName),
           jobDescription: value.jobDescription.trim(),
           companyName: value.companyName.trim(),
@@ -75,21 +73,12 @@ export const CreatePatchDialog = ({
           setOpen(false)
           form.reset()
           navigate({
-            to: '/dashboard/profile/$id/patch/$patchId',
-            params: { id: profileId, patchId: result.patchId },
+            to: '/dashboard/resume/$id/patch/$patchId',
+            params: { id: resumeId, patchId: result.patchId },
           })
-        } else {
-          setSubmitError(
-            result.error === 'RATE_LIMITED'
-              ? 'Rate limit reached. Try again in a little while.'
-              : result.error === 'PROFILE_EMPTY'
-                ? 'Add some experience or projects to the profile first.'
-                : 'Failed to create the variant. Please try again.',
-          )
         }
       } catch (error) {
         console.error('Error creating patch:', error)
-        setSubmitError('Failed to create the variant. Please try again.')
       } finally {
         setIsSubmitting(false)
       }
@@ -195,10 +184,6 @@ export const CreatePatchDialog = ({
                 )
               }}
             />
-
-            {submitError && (
-              <p className="text-sm text-destructive">{submitError}</p>
-            )}
 
             <Button type="submit" disabled={isSubmitting} className="w-full">
               {isSubmitting ? 'Generating...' : 'Generate Variant'}
