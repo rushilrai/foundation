@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 
-import { internal } from '../../_generated/api'
+import { api } from '../../_generated/api'
 import { action } from '../../_generated/server'
 
 export const generateDownloadUrl = action({
@@ -14,16 +14,14 @@ export const generateDownloadUrl = action({
       return { error: 'UNAUTHORIZED' }
     }
 
-    const patch = await ctx.runQuery(
-      internal.modules.patch.queries.getByIdInternal,
-      {
-        patchId: args.patchId,
-      },
-    )
-
-    if (!patch) {
-      return { error: 'PATCH_NOT_FOUND' }
+    // The public query enforces ownership with the caller's identity.
+    const result = await ctx.runQuery(api.modules.patch.queries.get, {
+      patchId: args.patchId,
+    })
+    if ('error' in result) {
+      return { error: result.error }
     }
+    const { patch } = result
 
     if (!patch.patchedFileId) {
       return { error: 'PATCHED_FILE_NOT_AVAILABLE' }
@@ -53,16 +51,14 @@ export const generatePdfDownloadUrl = action({
       return { error: 'UNAUTHORIZED' }
     }
 
-    const patch = await ctx.runQuery(
-      internal.modules.patch.queries.getByIdInternal,
-      {
-        patchId: args.patchId,
-      },
-    )
-
-    if (!patch) {
-      return { error: 'PATCH_NOT_FOUND' }
+    // The public query enforces ownership with the caller's identity.
+    const result = await ctx.runQuery(api.modules.patch.queries.get, {
+      patchId: args.patchId,
+    })
+    if ('error' in result) {
+      return { error: result.error }
     }
+    const { patch } = result
 
     if (!patch.pdfFileId) {
       return { error: 'PDF_NOT_AVAILABLE' }
