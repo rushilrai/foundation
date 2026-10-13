@@ -20,6 +20,7 @@ export function LandingScreen() {
 
             <Button
               className="mt-4 max-w-36"
+              nativeButton={false}
               render={
                 <Link to="/sign-in/$">
                   Get Started <IconArrowUpRight />

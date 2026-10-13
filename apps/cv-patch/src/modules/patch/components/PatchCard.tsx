@@ -55,6 +55,7 @@ export const PatchCard = ({ patch }: PatchCardProps) => {
           variant="default"
           size="sm"
           className="w-full"
+          nativeButton={false}
           render={
             <Link
               to="/dashboard/resume/$id/patch/$patchId"

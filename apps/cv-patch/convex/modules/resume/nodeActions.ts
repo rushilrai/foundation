@@ -56,7 +56,22 @@ export const extractResumeData = internalAction({
       }
 
       const arrayBuffer = await fileBlob.arrayBuffer()
-      const zip = await JSZip.loadAsync(arrayBuffer)
+      const zip = await JSZip.loadAsync(arrayBuffer).catch(() => null)
+
+      if (!zip) {
+        await ctx.runMutation(
+          internal.modules.resume.mutations.updateExtractedContent,
+          {
+            resumeId: args.resumeId,
+            data: null,
+            rawText: '',
+            status: 'error',
+            errorMessage: 'File is not a valid .docx document',
+          },
+        )
+        return
+      }
+
       const documentXml = await zip.file('word/document.xml')?.async('string')
 
       if (!documentXml) {
@@ -109,7 +124,10 @@ Rules:
 8. Each line of the SKILLS section written as "Label: value" becomes one skills entry, in order: label is the text before the first colon, exactly as written and without the colon (e.g. "Quantitative Methods", "Financial Systems & Tools", "Certifications"); value is the rest of the line, trimmed. links lists the hyperlinks inside the value, in order: text is the visible link text and url the parenthesized target — e.g. "Certifications: CFA Level I (https://cfa.org/cert) (Passed)" gives label "Certifications", value "CFA Level I (Passed)" and links [{ text: "CFA Level I", url: "https://cfa.org/cert" }]. Remove the "(https://…)" target from value. Use an empty links array when the line has no hyperlinks.
 9. Parenthesized hyperlink targets may ONLY be used as header.links urls, projects[].url and skills[].links[].url — never copy the "(https://…)" text into names, bullets, degrees, skill values or any other field.
 10. Capture the city/location from the contact/header area as header.location, exactly as written (e.g. "London" or "London, UK"). Use an empty string when there is none.
-11. Output JSON only that matches the schema exactly.`
+11. A tab in a line separates the left text from its right-aligned column (location | dates).
+12. experience[].company is the company name exactly as written, including any trailing parenthetical (e.g. "Morgan Stanley (via Accolite)"). When the company line has a right-aligned column (after a tab), that text is experience[].companyMeta. When a role title line has a right-aligned column, that text is that role's meta. Use empty strings only when there is no such column. Every location/date on the page must end up in some field.
+13. education[].details holds the lines under the degree line, one per line joined with "\\n", each exactly as written.
+14. Output JSON only that matches the schema exactly.`
 
       const prompt = `Resume text:
 ${rawText}

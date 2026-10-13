@@ -1,3 +1,4 @@
+import { isDocxFileName } from '@shared/resumeSchema'
 import { useForm } from '@tanstack/react-form'
 import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -26,7 +27,11 @@ import {
 
 const uploadResumeSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  file: z.instanceof(File, { message: 'File is required' }),
+  file: z
+    .instanceof(File, { message: 'File is required' })
+    .refine((file) => isDocxFileName(file.name), {
+      message: 'Only .docx files are supported',
+    }),
 })
 
 type UploadResumeDialogProps = {

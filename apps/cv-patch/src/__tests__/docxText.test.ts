@@ -36,6 +36,8 @@ const DOCUMENT_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   </w:p>
   <w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr>${run('Cut release time by 30% &amp; costs')}</w:p>
   <w:p>${run('Acme Ltd')}<w:r><w:tab/></w:r>${run('2021 - Present')}</w:p>
+  <w:p>${run('Morgan Stanley ')}${run('(via Accolite)')}<w:r><w:tab/></w:r></w:p>
+  <w:p>${run('Analyst  ')}<w:r><w:tab/><w:tab/></w:r>${run('  London | 2020')}</w:p>
   <w:p></w:p>
 </w:body>
 </w:document>`
@@ -73,8 +75,16 @@ describe('extractPlainText', () => {
       'Jane Doe',
       expect.any(String),
       '• Cut release time by 30% & costs',
-      'Acme Ltd 2021 - Present',
+      'Acme Ltd\t2021 - Present',
+      'Morgan Stanley (via Accolite)',
+      'Analyst\tLondon | 2020',
     ])
+  })
+
+  it('keeps one tab between a line and its right-aligned column', () => {
+    expect(lines[3]).toBe('Acme Ltd\t2021 - Present')
+    expect(lines[4]).toBe('Morgan Stanley (via Accolite)')
+    expect(lines[5]).toBe('Analyst\tLondon | 2020')
   })
 
   it('leaves link text bare without relationship targets', () => {
