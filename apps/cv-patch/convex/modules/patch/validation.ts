@@ -172,20 +172,21 @@ export function validatePatchedData(
       const bProj = base.projects[i]
       const dProj = data.projects[i]
 
+      if (dProj.name !== bProj.name) {
+        issues.push(
+          `projects[${i}].name was changed from "${bProj.name}" to "${dProj.name}" — must be identical`,
+        )
+      }
+      if (dProj.url !== bProj.url) {
+        issues.push(
+          `projects[${i}].url was changed from "${bProj.url}" to "${dProj.url}" — must be identical`,
+        )
+      }
       if (dProj.dates !== bProj.dates) {
         issues.push(
           `projects[${i}].dates was changed from "${bProj.dates}" to "${dProj.dates}" — must be identical`,
         )
       }
-
-      validateLengthRange(
-        issues,
-        `projects[${i}].name`,
-        bProj.name,
-        dProj.name,
-        EDITABLE_MIN_RATIO,
-        EDITABLE_MAX_RATIO,
-      )
 
       if (dProj.bullets.length !== bProj.bullets.length) {
         issues.push(

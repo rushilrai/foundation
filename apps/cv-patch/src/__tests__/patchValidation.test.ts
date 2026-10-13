@@ -80,6 +80,37 @@ describe('validatePatchedData', () => {
     ])
   })
 
+  it('flags a changed project name, even within the old length range', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.projects[0].name = 'Open Source Analytics'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^projects\[0\]\.name was changed/),
+    ])
+  })
+
+  it('flags a changed project url', () => {
+    const base = loadSample()
+    const patched = structuredClone(base)
+    patched.projects[0].url = 'https://github.com/janedoe/other'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^projects\[0\]\.url was changed/),
+    ])
+  })
+
+  it('flags a project url added where the base had none', () => {
+    const base = loadSample()
+    base.projects[0].url = ''
+    const patched = structuredClone(base)
+    patched.projects[0].url = 'https://github.com/janedoe/oss-dashboard'
+
+    expect(validatePatchedData(patched, base)).toEqual([
+      expect.stringMatching(/^projects\[0\]\.url was changed/),
+    ])
+  })
+
   it('flags a removed bullet', () => {
     const base = loadSample()
     const patched = structuredClone(base)

@@ -37,6 +37,8 @@ export const ResumeExperienceSchema = z.object({
 
 export const ResumeProjectSchema = z.object({
   name: z.string(),
+  // Hyperlink target on the project title; '' = no link.
+  url: z.string(),
   dates: z.string(),
   bullets: z.array(z.string()),
 })
