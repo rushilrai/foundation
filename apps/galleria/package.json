@@ -13,17 +13,17 @@
     "check": "prettier --check ."
   },
   "dependencies": {
-    "@fontsource-variable/merriweather": "^5.2.6",
-    "@fontsource-variable/outfit": "^5.2.8",
-    "@lucide/astro": "^1.21.0",
-    "astro": "^6.4.8",
-    "motion": "^12.40.0",
-    "sharp": "^0.35.1"
+    "@fontsource-variable/merriweather": "^5.3.0",
+    "@fontsource-variable/outfit": "^5.3.0",
+    "@lucide/astro": "^1.71.0",
+    "astro": "^7.4.8",
+    "motion": "^14.12.0",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.1",
-    "daisyui": "^5.5.23",
-    "tailwindcss": "^4.3.1",
+    "@tailwindcss/vite": "^4.3.5",
+    "daisyui": "^5.7.50",
+    "tailwindcss": "^4.3.5",
     "typescript": "^6.0.3"
   }
 }

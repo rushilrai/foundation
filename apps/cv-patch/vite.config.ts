@@ -12,7 +12,8 @@ const config = defineConfig({
     }),
     tailwindcss(),
     tanstackStart(),
-    nitro(),
+    // nitro's plugin breaks module resolution under vitest, and tests don't need the server build
+    ...(process.env.VITEST ? [] : [nitro()]),
     viteReact(),
   ],
   // See https://github.com/TanStack/router/issues/5738

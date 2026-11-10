@@ -22,30 +22,18 @@ const MARKS = [
   aria-hidden="true"
   class="pointer-events-none fixed inset-0 z-60"
 >
-  <div
-    class="absolute inset-x-[-100vw] top-[-100vh] h-[calc(100vh+var(--sheet-inset-top))] bg-base-100"
-  >
-  </div>
-  <div
-    class="absolute inset-x-[-100vw] bottom-[-100vh] h-[calc(100vh+var(--sheet-inset-bottom))] bg-base-100"
-  >
-  </div>
-  <div
-    class="absolute inset-y-0 left-[-100vw] w-[calc(100vw+var(--sheet-inset-x))] bg-base-100"
-  >
-  </div>
-  <div
-    class="absolute inset-y-0 right-[-100vw] w-[calc(100vw+var(--sheet-inset-x))] bg-base-100"
-  >
-  </div>
+  <div class="absolute inset-x-[-100vw] top-[-100vh] h-[calc(100vh+var(--sheet-inset-top))] bg-base-100"></div>
+  <div class="absolute inset-x-[-100vw] bottom-[-100vh] h-[calc(100vh+var(--sheet-inset-bottom))] bg-base-100"></div>
+  <div class="absolute inset-y-0 left-[-100vw] w-[calc(100vw+var(--sheet-inset-x))] bg-base-100"></div>
+  <div class="absolute inset-y-0 right-[-100vw] w-[calc(100vw+var(--sheet-inset-x))] bg-base-100"></div>
 
-  <div
-    class="absolute inset-x-(--sheet-inset-x) top-(--sheet-inset-top) bottom-(--sheet-inset-bottom)"
-  >
+  <div class="absolute inset-x-(--sheet-inset-x) top-(--sheet-inset-top) bottom-(--sheet-inset-bottom)">
     <div class="absolute inset-0 border border-(--sheet-rule)"></div>
 
     <div class="absolute inset-1.5 border border-(--sheet-rule-faint)"></div>
 
-    {MARKS.map((style) => <div class="sheet-mark" style={style} />)}
+    {MARKS.map((style) => (
+      <div class="sheet-mark" style={style} />
+    ))}
   </div>
 </div>

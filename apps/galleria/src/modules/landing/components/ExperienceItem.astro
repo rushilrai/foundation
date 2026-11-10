@@ -5,13 +5,9 @@ const { title, org, term, uri } = Astro.props
 ---
 
 <a href={uri} target="_blank">
-  <li
-    class="experience-item-card relative flex w-full max-w-5xl flex-col justify-between gap-2 rounded-lg py-5 text-base-content sm:flex-row sm:items-center"
-  >
+  <li class="experience-item-card relative flex w-full max-w-5xl flex-col justify-between gap-2 rounded-lg py-5 text-base-content sm:flex-row sm:items-center">
     <div class="flex flex-col gap-1">
-      <h2 class="font-body text-xl font-semibold">
-        {title}
-      </h2>
+      <h2 class="font-body text-xl font-semibold">{title}</h2>
       <h3 class="font-body text-lg">{org}</h3>
     </div>
 
@@ -25,9 +21,8 @@ const { title, org, term, uri } = Astro.props
 </a>
 
 <script>
-  import { animate, hover, press } from 'motion'
-
   import { getCSSVariable, isTouchDevice } from '../../common/utils'
+  import { animate, hover, press } from '../../common/utils/motion'
 
   const experienceItem = document.querySelectorAll(
     '.experience-item-card',
