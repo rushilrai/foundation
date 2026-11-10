@@ -157,10 +157,13 @@ Return JSON with:
       const { output } = await generateText({
         model: openai.responses(OpenAIModels['gpt-5.6-luna']),
         output: Output.object({ schema: patchOutputSchema }),
-        system,
+        instructions: system,
         prompt,
         providerOptions: {
-          openai: { reasoningEffort: DEFAULT_REASONING_EFFORT },
+          openai: {
+            reasoningEffort: DEFAULT_REASONING_EFFORT,
+            reasoningSummary: null,
+          },
         },
       })
 
@@ -192,10 +195,13 @@ ${validationIssues.join('\n')}`
         const { output: retryOutput } = await generateText({
           model: openai.responses(OpenAIModels['gpt-5.6-luna']),
           output: Output.object({ schema: patchOutputSchema }),
-          system,
+          instructions: system,
           prompt: retryPrompt,
           providerOptions: {
-            openai: { reasoningEffort: DEFAULT_REASONING_EFFORT },
+            openai: {
+              reasoningEffort: DEFAULT_REASONING_EFFORT,
+              reasoningSummary: null,
+            },
           },
         })
 

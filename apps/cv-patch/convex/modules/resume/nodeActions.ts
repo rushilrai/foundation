@@ -144,10 +144,13 @@ extras: string[]`
       const { output } = await generateText({
         model: openai.responses(OpenAIModels['gpt-5.6-luna']),
         output: Output.object({ schema: ResumeDataSchema }),
-        system,
+        instructions: system,
         prompt,
         providerOptions: {
-          openai: { reasoningEffort: DEFAULT_REASONING_EFFORT },
+          openai: {
+            reasoningEffort: DEFAULT_REASONING_EFFORT,
+            reasoningSummary: null,
+          },
         },
       })
 
@@ -162,10 +165,13 @@ extras: string[]`
         const { output: retryOutput } = await generateText({
           model: openai.responses(OpenAIModels['gpt-5.6-luna']),
           output: Output.object({ schema: ResumeDataSchema }),
-          system,
+          instructions: system,
           prompt: `${prompt}\n\nFix these issues:\n${issues.join('\n')}`,
           providerOptions: {
-            openai: { reasoningEffort: DEFAULT_REASONING_EFFORT },
+            openai: {
+              reasoningEffort: DEFAULT_REASONING_EFFORT,
+              reasoningSummary: null,
+            },
           },
         })
 

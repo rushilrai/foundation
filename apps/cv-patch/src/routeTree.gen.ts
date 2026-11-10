@@ -9,32 +9,32 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SignInSplatRouteImport } from './routes/sign-in.$'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DashboardHomeRouteImport } from './routes/dashboard.home'
+import { Route as SignInSplatRouteImport } from './routes/sign-in.$'
 import { Route as DashboardResumeIdIndexRouteImport } from './routes/dashboard.resume.$id.index'
 import { Route as DashboardResumeIdPatchPatchIdRouteImport } from './routes/dashboard.resume.$id.patch.$patchId'
 
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SignInSplatRoute = SignInSplatRouteImport.update({
-  id: '/sign-in/$',
-  path: '/sign-in/$',
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardHomeRoute = DashboardHomeRouteImport.update({
   id: '/home',
   path: '/home',
   getParentRoute: () => DashboardRoute,
+} as any)
+const SignInSplatRoute = SignInSplatRouteImport.update({
+  id: '/sign-in/$',
+  path: '/sign-in/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardResumeIdIndexRoute = DashboardResumeIdIndexRouteImport.update({
   id: '/resume/$id/',
@@ -108,13 +108,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -122,11 +115,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sign-in/$': {
-      id: '/sign-in/$'
-      path: '/sign-in/$'
-      fullPath: '/sign-in/$'
-      preLoaderRoute: typeof SignInSplatRouteImport
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard/home': {
@@ -135,6 +128,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/home'
       preLoaderRoute: typeof DashboardHomeRouteImport
       parentRoute: typeof DashboardRoute
+    }
+    '/sign-in/$': {
+      id: '/sign-in/$'
+      path: '/sign-in/$'
+      fullPath: '/sign-in/$'
+      preLoaderRoute: typeof SignInSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/dashboard/resume/$id/': {
       id: '/dashboard/resume/$id/'
