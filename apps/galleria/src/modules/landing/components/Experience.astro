@@ -57,16 +57,14 @@ const EXPERIENCE_ITEMS = [
   </div>
 
   <ul class="mt-4 w-full">
-    {
-      EXPERIENCE_ITEMS.map((item, index) => (
-        <ExperienceItem
-          key={index}
-          title={item.title}
-          org={item.org}
-          term={item.term}
-          uri={item.uri}
-        />
-      ))
-    }
+    {EXPERIENCE_ITEMS.map((item, index) => (
+      <ExperienceItem
+        key={index}
+        title={item.title}
+        org={item.org}
+        term={item.term}
+        uri={item.uri}
+      />
+    ))}
   </ul>
 </section>

@@ -28,11 +28,13 @@ export async function validateClerkUserWebhookRequest(
   const wh = new Webhook(webhookSecret)
 
   try {
-    return wh.verify(payloadString, {
+    // svix 2's verify() only checks the signature and returns nothing
+    wh.verify(payloadString, {
       'svix-id': svixId,
       'svix-timestamp': svixTimestamp,
       'svix-signature': svixSignature,
-    }) as WebhookEvent
+    })
+    return JSON.parse(payloadString) as WebhookEvent
   } catch (error) {
     console.error('Error verifying webhook signature', error)
     return null
