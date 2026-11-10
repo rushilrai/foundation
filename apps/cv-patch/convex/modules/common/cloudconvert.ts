@@ -19,27 +19,26 @@ function getClient(): CloudConvert {
   return client
 }
 
-export async function convertFileToPdf(
+export async function convertDocxToPdf(
   ctx: ActionCtx,
-  fileId: Id<'_storage'>,
-  fileName: string,
+  docxFileId: Id<'_storage'>,
 ): Promise<Id<'_storage'>> {
   const cc = getClient()
 
-  const fileBlob = await ctx.storage.get(fileId)
-  if (!fileBlob) {
-    throw new Error(`File not found in storage: ${fileId}`)
+  const docxBlob = await ctx.storage.get(docxFileId)
+  if (!docxBlob) {
+    throw new Error(`File not found in storage: ${docxFileId}`)
   }
-  const fileBytes = new Uint8Array(await fileBlob.arrayBuffer())
+  const docxBytes = new Uint8Array(await docxBlob.arrayBuffer())
 
   const job = await cc.jobs.create({
     tasks: {
-      'import-file': {
+      'import-docx': {
         operation: 'import/upload',
       },
       'convert-to-pdf': {
         operation: 'convert',
-        input: ['import-file'],
+        input: ['import-docx'],
         output_format: 'pdf',
       },
       'export-pdf': {
@@ -49,12 +48,12 @@ export async function convertFileToPdf(
     },
   })
 
-  const importTask = job.tasks.find((t) => t.name === 'import-file')
+  const importTask = job.tasks.find((t) => t.name === 'import-docx')
   if (!importTask) {
     throw new Error('CloudConvert: import task not found in job')
   }
 
-  await cc.tasks.upload(importTask, fileBytes, fileName)
+  await cc.tasks.upload(importTask, docxBytes, 'resume.docx')
 
   const completedJob = await cc.jobs.wait(job.id)
 

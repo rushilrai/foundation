@@ -4,7 +4,9 @@ import type { Id } from '../../_generated/dataModel'
 import { internalMutation, mutation } from '../../_generated/server'
 import { getByExternalId } from './helpers'
 
-// Sign-in upsert so user rows exist even when the Clerk webhook never fired.
+// Upserts the signed-in user from their JWT claims. Called by the app on
+// sign-in so user rows exist even if the Clerk webhook never fired (e.g.
+// local/dev deployments the webhook cannot reach).
 export const ensureUser = mutation({
   args: {},
   handler: async (
@@ -15,7 +17,8 @@ export const ensureUser = mutation({
       return { error: 'UNAUTHORIZED' }
     }
 
-    // Unfiltered lookup so a soft-deleted user is revived, not duplicated.
+    // Raw lookup (no deleted filter) so a soft-deleted user is revived
+    // instead of duplicated.
     const existing = await ctx.db
       .query('users')
       .withIndex('by_externalId', (q) => q.eq('externalId', identity.subject))

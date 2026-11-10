@@ -1,144 +1,317 @@
-import type { ProfileData } from '../../../shared/profileSchema'
-import { MAX_HEADER_LINKS, type ResumeData } from '../../../shared/resumeSchema'
+import type { ResumeData } from '../../../shared/resumeSchema'
+import { findMissingSkillLinks } from '../../../shared/skillLinks'
 
-// Grounding validation: the tailored resume may curate, reorder, and reword
-// freely, but every entry must trace back to the profile and contact facts
-// must be untouched. Page fit is enforced separately via the rendered PDF.
+// Pure one-shot patch validator: compares a patched ResumeData against its
+// base and returns human-readable issues fed back to the model on retry.
+
+export const BULLET_MIN_RATIO = 0.8
+export const BULLET_MAX_RATIO = 1
+export const EDITABLE_MIN_RATIO = 0.65
+export const EDITABLE_MAX_RATIO = 1
+
 export function validatePatchedData(
   data: ResumeData,
-  profile: ProfileData,
+  base: ResumeData,
 ): Array<string> {
   const issues: Array<string> = []
-  const base = profile.header
 
-  if (data.header.name !== base.name) {
+  if (data.header.name !== base.header.name) {
     issues.push(
-      `header.name was changed from "${base.name}" to "${data.header.name}" — must be identical to the profile`,
+      `header.name was changed from "${base.header.name}" to "${data.header.name}" — must be identical`,
     )
   }
-  if (data.header.email !== base.email) {
+  if (data.header.email !== base.header.email) {
     issues.push(
-      `header.email was changed from "${base.email}" to "${data.header.email}" — must be identical to the profile`,
+      `header.email was changed from "${base.header.email}" to "${data.header.email}" — must be identical`,
     )
   }
-  if (data.header.phone !== base.phone) {
+  if (data.header.phone !== base.header.phone) {
     issues.push(
-      `header.phone was changed from "${base.phone}" to "${data.header.phone}" — must be identical to the profile`,
+      `header.phone was changed from "${base.header.phone}" to "${data.header.phone}" — must be identical`,
     )
   }
-  if (data.header.location !== base.location) {
+  if (data.header.location !== base.header.location) {
     issues.push(
-      `header.location was changed from "${base.location}" to "${data.header.location}" — must be identical to the profile`,
+      `header.location was changed from "${base.header.location}" to "${data.header.location}" — must be identical`,
     )
   }
+  const baseLinks = base.header.links
+  const dataLinks = data.header.links
 
-  if (data.header.links.length > MAX_HEADER_LINKS) {
-    issues.push(`header.links has more than ${MAX_HEADER_LINKS} entries`)
-  }
-  for (const link of data.header.links) {
-    const known = base.links.some(
-      (profileLink) =>
-        profileLink.label === link.label && profileLink.url === link.url,
+  if (dataLinks.length !== baseLinks.length) {
+    issues.push(
+      `header.links has ${dataLinks.length} entries, expected ${baseLinks.length}`,
     )
-    if (!known) {
-      issues.push(
-        `header.links entry "${link.label}: ${link.url}" does not exist in the profile — links may be selected and reordered but not edited or invented`,
-      )
-    }
-  }
+  } else {
+    for (let i = 0; i < baseLinks.length; i++) {
+      const bLink = baseLinks[i]
+      const dLink = dataLinks[i]
 
-  if (data.experience.length === 0 && data.projects.length === 0) {
-    issues.push('the resume has no experience and no projects')
-  }
-
-  for (let i = 0; i < data.experience.length; i++) {
-    const exp = data.experience[i]
-    // A profile can legitimately repeat a company (e.g. boomerang employment),
-    // so ground against every entry sharing the name.
-    const candidates = profile.experience.filter(
-      (candidate) => candidate.company === exp.company,
-    )
-
-    if (candidates.length === 0) {
-      issues.push(
-        `experience[${i}].company "${exp.company}" does not exist in the profile — company names must match the profile byte-for-byte`,
-      )
-      continue
-    }
-
-    const metaKnown = candidates.some(
-      (candidate) => candidate.companyMeta === exp.companyMeta,
-    )
-    if (!metaKnown) {
-      issues.push(
-        `experience[${i}].companyMeta "${exp.companyMeta}" does not match any "${exp.company}" entry in the profile — must be copied exactly`,
-      )
-    }
-
-    for (let r = 0; r < exp.roles.length; r++) {
-      const role = exp.roles[r]
-
-      if (role.bullets.length === 0) {
-        issues.push(`experience[${i}].roles[${r}] has no bullets`)
-      }
-
-      const roleKnown = candidates.some((candidate) =>
-        candidate.roles.some((profileRole) => profileRole.meta === role.meta),
-      )
-      if (!roleKnown) {
+      if (dLink.label !== bLink.label || dLink.url !== bLink.url) {
         issues.push(
-          `experience[${i}].roles[${r}].meta "${role.meta}" does not match any role at "${exp.company}" in the profile — role dates/meta must be copied exactly`,
+          `header.links[${i}] was changed from "${bLink.label}: ${bLink.url}" to "${dLink.label}: ${dLink.url}" — must be identical`,
         )
       }
     }
   }
 
-  for (let i = 0; i < data.education.length; i++) {
-    const edu = data.education[i]
-    const candidates = profile.education.filter(
-      (candidate) => candidate.school === edu.school,
+  if (data.experience.length !== base.experience.length) {
+    issues.push(
+      `experience has ${data.experience.length} entries, expected ${base.experience.length}`,
     )
+  } else {
+    for (let i = 0; i < base.experience.length; i++) {
+      const bExp = base.experience[i]
+      const dExp = data.experience[i]
 
-    if (candidates.length === 0) {
-      issues.push(
-        `education[${i}].school "${edu.school}" does not exist in the profile — school names must match the profile byte-for-byte`,
-      )
-      continue
+      if (dExp.company !== bExp.company) {
+        issues.push(
+          `experience[${i}].company was changed from "${bExp.company}" to "${dExp.company}" — must be identical`,
+        )
+      }
+      if (dExp.companyMeta !== bExp.companyMeta) {
+        issues.push(
+          `experience[${i}].companyMeta was changed from "${bExp.companyMeta}" to "${dExp.companyMeta}" — must be identical`,
+        )
+      }
+
+      if (dExp.roles.length !== bExp.roles.length) {
+        issues.push(
+          `experience[${i}].roles has ${dExp.roles.length} roles, expected ${bExp.roles.length}`,
+        )
+      } else {
+        for (let r = 0; r < bExp.roles.length; r++) {
+          const bRole = bExp.roles[r]
+          const dRole = dExp.roles[r]
+
+          if (dRole.meta !== bRole.meta) {
+            issues.push(
+              `experience[${i}].roles[${r}].meta was changed from "${bRole.meta}" to "${dRole.meta}" — must be identical`,
+            )
+          }
+
+          validateLengthRange(
+            issues,
+            `experience[${i}].roles[${r}].title`,
+            bRole.title,
+            dRole.title,
+            EDITABLE_MIN_RATIO,
+            EDITABLE_MAX_RATIO,
+          )
+
+          if (dRole.bullets.length !== bRole.bullets.length) {
+            issues.push(
+              `experience[${i}].roles[${r}].bullets has ${dRole.bullets.length} bullets, expected ${bRole.bullets.length}`,
+            )
+          } else {
+            for (let b = 0; b < bRole.bullets.length; b++) {
+              validateLengthRange(
+                issues,
+                `experience[${i}].roles[${r}].bullets[${b}]`,
+                bRole.bullets[b],
+                dRole.bullets[b],
+                BULLET_MIN_RATIO,
+                BULLET_MAX_RATIO,
+              )
+            }
+          }
+        }
+      }
     }
+  }
 
-    const known = candidates.some(
-      (candidate) =>
-        candidate.location === edu.location && candidate.dates === edu.dates,
+  if (data.education.length !== base.education.length) {
+    issues.push(
+      `education has ${data.education.length} entries, expected ${base.education.length}`,
     )
-    if (!known) {
-      issues.push(
-        `education[${i}] location/dates ("${edu.location}", "${edu.dates}") do not match any "${edu.school}" entry in the profile — must be copied exactly`,
+  } else {
+    for (let i = 0; i < base.education.length; i++) {
+      const bEdu = base.education[i]
+      const dEdu = data.education[i]
+
+      if (dEdu.school !== bEdu.school) {
+        issues.push(
+          `education[${i}].school was changed from "${bEdu.school}" to "${dEdu.school}" — must be identical`,
+        )
+      }
+      if (dEdu.location !== bEdu.location) {
+        issues.push(
+          `education[${i}].location was changed from "${bEdu.location}" to "${dEdu.location}" — must be identical`,
+        )
+      }
+      if (dEdu.dates !== bEdu.dates) {
+        issues.push(
+          `education[${i}].dates was changed from "${bEdu.dates}" to "${dEdu.dates}" — must be identical`,
+        )
+      }
+
+      validateLengthRange(
+        issues,
+        `education[${i}].degree`,
+        bEdu.degree,
+        dEdu.degree,
+        EDITABLE_MIN_RATIO,
+        EDITABLE_MAX_RATIO,
+      )
+      validateLengthRange(
+        issues,
+        `education[${i}].details`,
+        bEdu.details,
+        dEdu.details,
+        EDITABLE_MIN_RATIO,
+        EDITABLE_MAX_RATIO,
       )
     }
   }
 
-  for (let i = 0; i < data.projects.length; i++) {
-    const project = data.projects[i]
-    const url = project.url?.trim() ?? ''
-
-    if (project.bullets.length === 0) {
-      issues.push(`projects[${i}] has no bullets`)
-    }
-
-    // Names may be reworded, so projects are grounded by their factual fields.
-    // One single profile project must supply BOTH the dates and the url —
-    // mixing fields across entries is fact-blending.
-    const grounded = profile.projects.some(
-      (candidate) =>
-        candidate.dates === project.dates &&
-        (url === '' || candidate.url.trim() === url),
+  if (data.projects.length !== base.projects.length) {
+    issues.push(
+      `projects has ${data.projects.length} entries, expected ${base.projects.length}`,
     )
-    if (!grounded) {
-      issues.push(
-        `projects[${i}] (dates "${project.dates}"${url ? `, url "${url}"` : ''}) does not match a single profile project — copy dates and url exactly from the same profile entry`,
+  } else {
+    for (let i = 0; i < base.projects.length; i++) {
+      const bProj = base.projects[i]
+      const dProj = data.projects[i]
+
+      if (dProj.name !== bProj.name) {
+        issues.push(
+          `projects[${i}].name was changed from "${bProj.name}" to "${dProj.name}" — must be identical`,
+        )
+      }
+      if (dProj.url !== bProj.url) {
+        issues.push(
+          `projects[${i}].url was changed from "${bProj.url}" to "${dProj.url}" — must be identical`,
+        )
+      }
+      if (dProj.dates !== bProj.dates) {
+        issues.push(
+          `projects[${i}].dates was changed from "${bProj.dates}" to "${dProj.dates}" — must be identical`,
+        )
+      }
+
+      if (dProj.bullets.length !== bProj.bullets.length) {
+        issues.push(
+          `projects[${i}].bullets has ${dProj.bullets.length} bullets, expected ${bProj.bullets.length}`,
+        )
+      } else {
+        for (let b = 0; b < bProj.bullets.length; b++) {
+          validateLengthRange(
+            issues,
+            `projects[${i}].bullets[${b}]`,
+            bProj.bullets[b],
+            dProj.bullets[b],
+            BULLET_MIN_RATIO,
+            BULLET_MAX_RATIO,
+          )
+        }
+      }
+    }
+  }
+
+  if (data.extras.length !== base.extras.length) {
+    issues.push(
+      `extras has ${data.extras.length} entries, expected ${base.extras.length}`,
+    )
+  } else {
+    for (let i = 0; i < base.extras.length; i++) {
+      validateLengthRange(
+        issues,
+        `extras[${i}]`,
+        base.extras[i],
+        data.extras[i],
+        EDITABLE_MIN_RATIO,
+        EDITABLE_MAX_RATIO,
+      )
+    }
+  }
+
+  if (data.skills.length !== base.skills.length) {
+    issues.push(
+      `skills has ${data.skills.length} lines, expected ${base.skills.length}`,
+    )
+  } else {
+    for (let i = 0; i < base.skills.length; i++) {
+      const bLine = base.skills[i]
+      const dLine = data.skills[i]
+
+      if (dLine.label !== bLine.label) {
+        issues.push(
+          `skills[${i}].label was changed from "${bLine.label}" to "${dLine.label}" — must be identical`,
+        )
+      }
+
+      if (dLine.links.length !== bLine.links.length) {
+        issues.push(
+          `skills[${i}].links has ${dLine.links.length} entries, expected ${bLine.links.length}`,
+        )
+      } else {
+        let linksUnchanged = true
+        for (let l = 0; l < bLine.links.length; l++) {
+          const bLink = bLine.links[l]
+          const dLink = dLine.links[l]
+
+          if (dLink.text !== bLink.text || dLink.url !== bLink.url) {
+            linksUnchanged = false
+            issues.push(
+              `skills[${i}].links[${l}] was changed from "${bLink.text}: ${bLink.url}" to "${dLink.text}: ${dLink.url}" — must be identical`,
+            )
+          }
+        }
+
+        if (linksUnchanged) {
+          const reported = new Set<string>()
+          for (const l of findMissingSkillLinks(dLine)) {
+            const text = dLine.links[l].text
+            if (reported.has(text)) {
+              continue
+            }
+            reported.add(text)
+            const needed = dLine.links.filter(
+              (link) => link.text === text,
+            ).length
+            issues.push(
+              needed > 1
+                ? `skills[${i}].value must contain the link text "${text}" verbatim ${needed} times (once per link)`
+                : `skills[${i}].value must contain the link text "${text}" verbatim`,
+            )
+          }
+        }
+      }
+
+      validateLengthRange(
+        issues,
+        `skills[${i}].value`,
+        bLine.value,
+        dLine.value,
+        EDITABLE_MIN_RATIO,
+        EDITABLE_MAX_RATIO,
       )
     }
   }
 
   return issues
+}
+
+export function validateLengthRange(
+  issues: Array<string>,
+  path: string,
+  baseValue: string,
+  newValue: string,
+  minRatio: number,
+  maxRatio: number,
+): void {
+  const originalLength = baseValue.length
+  if (originalLength === 0) {
+    return
+  }
+
+  const minLength = Math.floor(originalLength * minRatio)
+  const maxLength = Math.ceil(originalLength * maxRatio)
+  const nextLength = newValue.length
+
+  if (nextLength < minLength || nextLength > maxLength) {
+    issues.push(
+      `${path} is ${nextLength} chars, allowed range is ${minLength}-${maxLength} (original: ${originalLength})`,
+    )
+  }
 }

@@ -96,24 +96,38 @@ def set_text_with_tabs(paragraph, left_text, right_text):
             paragraph.append(new_run)
 
 
-def replace_after_colon(paragraph, placeholder):
-    t_nodes = paragraph.findall('.//w:t', NS)
-    colon_found = False
-    placeholder_set = False
+def make_skill_line_paragraph(source):
+    """One "{label}: {value}" line for the {#skills} paragraph loop, built
+    from an existing skill paragraph: bold label run, then a regular-weight
+    value run. The top border is dropped so the last line never merges
+    borders with the following section heading; jc=both matches BodyText2."""
+    p = ET.Element(f"{{{NS['w']}}}p")
 
-    for t in t_nodes:
-        text = t.text or ""
-        if not colon_found:
-            if ":" in text:
-                colon_found = True
-            continue
+    ppr = copy.deepcopy(source.find('./w:pPr', NS))
+    if ppr is None:
+        ppr = ET.Element(f"{{{NS['w']}}}pPr")
+    for border in ppr.findall('./w:pBdr', NS):
+        ppr.remove(border)
+    jc = ET.Element(f"{{{NS['w']}}}jc")
+    jc.set(f"{{{NS['w']}}}val", "both")
+    # jc precedes rPr in the pPr sequence.
+    ppr_rpr = ppr.find('./w:rPr', NS)
+    ppr.insert(list(ppr).index(ppr_rpr) if ppr_rpr is not None else len(ppr), jc)
+    p.append(ppr)
 
-        if not placeholder_set:
-            t.text = placeholder
-            set_space_preserve(t, placeholder)
-            placeholder_set = True
-        else:
-            t.text = ""
+    rprs = [r.find('./w:rPr', NS) for r in source.findall('./w:r', NS)]
+    rprs = [rpr for rpr in rprs if rpr is not None]
+    label_rpr = next(rpr for rpr in rprs if rpr.find('./w:b', NS) is not None)
+    value_rpr = next(rpr for rpr in rprs if rpr.find('./w:b', NS) is None)
+
+    for rpr, text in ((label_rpr, '{label}:'), (value_rpr, ' '), (value_rpr, '{value}')):
+        r = ET.SubElement(p, f"{{{NS['w']}}}r")
+        r.append(copy.deepcopy(rpr))
+        t = ET.SubElement(r, f"{{{NS['w']}}}t")
+        t.text = text
+        set_space_preserve(t, text)
+
+    return p
 
 
 def make_tag_paragraph(tag_text):
@@ -123,6 +137,134 @@ def make_tag_paragraph(tag_text):
     t.text = tag_text
     set_space_preserve(t, tag_text)
     return p
+
+
+def w(tag):
+    return f"{{{NS['w']}}}{tag}"
+
+
+def paragraph_text(paragraph):
+    return ''.join(t.text or '' for t in paragraph.iter(w('t')))
+
+
+def find_run(paragraph, text):
+    return next(
+        r for r in paragraph.findall('./w:r', NS)
+        if any(t.text == text for t in r.findall('./w:t', NS))
+    )
+
+
+def insert_rpr_child(rpr, tag, after):
+    """Insert an empty <w:tag/> into rPr after the last of the `after` tags
+    present (keeps the CT_RPr sequence order)."""
+    if rpr.find(f'./w:{tag}', NS) is not None:
+        return
+    children = list(rpr)
+    idx = 0
+    for i, child in enumerate(children):
+        if child.tag in {w(a) for a in after}:
+            idx = i + 1
+    rpr.insert(idx, ET.Element(w(tag)))
+
+
+def split_company_runs(paragraph):
+    """Company line as in the original resume: bold {companyName}, then an
+    italic, not bold {companySuffix} (the trailing parenthetical, e.g.
+    "(via Accolite)" — split in renderResumeTemplate), and a bold
+    right-hand {companyMeta}."""
+    name_run = find_run(paragraph, '{company}')
+    name_t = name_run.find('./w:t', NS)
+    name_t.text = '{companyName}'
+    name_t.set(XML_SPACE, 'preserve')
+
+    suffix_run = copy.deepcopy(name_run)
+    rpr = suffix_run.find('./w:rPr', NS)
+    for bold in rpr.findall('./w:b', NS):
+        rpr.remove(bold)
+    insert_rpr_child(rpr, 'bCs', ('rStyle', 'rFonts'))
+    insert_rpr_child(rpr, 'i', ('rStyle', 'rFonts', 'bCs'))
+    insert_rpr_child(rpr, 'iCs', ('rStyle', 'rFonts', 'bCs', 'i'))
+    suffix_run.find('./w:t', NS).text = '{companySuffix}'
+    children = list(paragraph)
+    paragraph.insert(children.index(name_run) + 1, suffix_run)
+
+    meta_rpr = find_run(paragraph, '{companyMeta}').find('./w:rPr', NS)
+    insert_rpr_child(meta_rpr, 'b', ('rStyle', 'rFonts'))
+    insert_rpr_child(meta_rpr, 'bCs', ('rStyle', 'rFonts', 'b'))
+
+
+def make_spacer_paragraph(style, jc=None):
+    """Empty 9pt line, the original resume's gap between entries/sections."""
+    p = ET.Element(w('p'))
+    ppr = ET.SubElement(p, w('pPr'))
+    ET.SubElement(ppr, w('pStyle')).set(w('val'), style)
+    if jc:
+        ET.SubElement(ppr, w('jc')).set(w('val'), jc)
+    rpr = ET.SubElement(ppr, w('rPr'))
+    fonts = ET.SubElement(rpr, w('rFonts'))
+    for attr in ('asciiTheme', 'hAnsiTheme', 'cstheme'):
+        fonts.set(w(attr), 'minorHAnsi')
+    ET.SubElement(rpr, w('sz')).set(w('val'), '18')
+    ET.SubElement(rpr, w('szCs')).set(w('val'), '18')
+    return p
+
+
+# pPr children that follow w:spacing in the CT_PPr sequence.
+AFTER_SPACING = {
+    w(tag) for tag in (
+        'ind', 'contextualSpacing', 'mirrorIndents', 'suppressOverlap', 'jc',
+        'textDirection', 'textAlignment', 'textboxTightWrap', 'outlineLvl',
+        'divId', 'cnfStyle', 'rPr', 'sectPr', 'pPrChange',
+    )
+}
+
+
+def set_spacing(paragraph, **attrs):
+    """Replace the paragraph's direct spacing with exactly `attrs`."""
+    ppr = paragraph.find('./w:pPr', NS)
+    for spacing in ppr.findall('./w:spacing', NS):
+        ppr.remove(spacing)
+    if not attrs:
+        return
+    spacing = ET.Element(w('spacing'))
+    for key, value in attrs.items():
+        spacing.set(w(key), value)
+    children = list(ppr)
+    idx = next((i for i, c in enumerate(children) if c.tag in AFTER_SPACING), len(children))
+    ppr.insert(idx, spacing)
+
+
+def apply_original_spacing(body):
+    """Vertical rhythm of the original resume, so LibreOffice and Word lay it
+    out identically: entry heads carry no space-before; an empty spacer line
+    closes each education entry, each company, and the skills block; section
+    headings only carry after=120 (the spacer or the bullets' own after=200
+    provides the gap above them)."""
+    paragraphs = body.findall('w:p', NS)
+
+    def tag(text):
+        return next(p for p in paragraphs if paragraph_text(p) == text)
+
+    # Drop stray empty paragraphs after loop ends so spacers are not doubled.
+    for closing in ('{/education}', '{/experience}', '{/projects}', '{/skills}'):
+        children = list(body)
+        idx = children.index(tag(closing)) + 1
+        while idx < len(children) and children[idx].tag == w('p') and not paragraph_text(children[idx]).strip():
+            body.remove(children[idx])
+            children = list(body)
+
+    for p in paragraphs:
+        text = paragraph_text(p)
+        if text in ('PROJECTS', 'SKILLS') or text.startswith('EXTRA-CURRICULAR'):
+            set_spacing(p, after='120')
+        elif text == 'PROFESSIONAL EXPERIENCE':
+            set_spacing(p, before='0', after='120')
+        elif text.startswith(('{school}', '{companyName}', '{name}')):
+            set_spacing(p)
+
+    insert_before(body, tag('{/education}'), make_spacer_paragraph('NoSpacing'))
+    insert_before(body, tag('{/experience}'), make_spacer_paragraph('NoSpacing', jc='both'))
+    insert_after(body, tag('{/skills}'), make_spacer_paragraph('BodyText2'))
 
 
 def insert_before(body, anchor, new_paragraph):
@@ -177,6 +319,7 @@ def main():
 
     insert_before(body, paragraphs[14], make_tag_paragraph('{#experience}'))
     set_text_with_tabs(paragraphs[14], '{company}', '{companyMeta}')
+    split_company_runs(paragraphs[14])
     insert_before(body, paragraphs[15], make_tag_paragraph('{#roles}'))
     set_text_with_tabs(paragraphs[15], '{title}', '{meta}')
     insert_before(body, paragraphs[16], make_tag_paragraph('{#bullets}'))
@@ -192,9 +335,12 @@ def main():
     insert_after(body, paragraphs[37], make_tag_paragraph('{/projects}'))
     insert_after(body, paragraphs[37], make_tag_paragraph('{/bullets}'))
 
-    replace_after_colon(paragraphs[45], '{skills.technical}')
-    replace_after_colon(paragraphs[46], '{skills.financial}')
-    replace_after_colon(paragraphs[47], '{skills.languages}')
+    # Skills: one labelled line per entry, replacing the fixed paragraphs
+    # 45-47 (removed below).
+    skill_line = make_skill_line_paragraph(paragraphs[45])
+    insert_before(body, paragraphs[45], make_tag_paragraph('{#skills}'))
+    insert_before(body, paragraphs[45], skill_line)
+    insert_before(body, paragraphs[45], make_tag_paragraph('{/skills}'))
 
     insert_before(body, paragraphs[50], make_tag_paragraph('{#extras}'))
     set_text_simple(paragraphs[50], '{.}')
@@ -203,6 +349,7 @@ def main():
     # Remove extra blocks (reverse order)
     remove_indices = [
         51,  # extra-curricular second bullet
+        47, 46, 45,              # fixed skill lines (now the {#skills} loop)
         43, 42, 41, 40, 39, 38,  # projects extra lines
         33, 32, 31, 30, 29,      # AntPod
         27, 26, 25, 24,          # Girl Up Heron
@@ -212,6 +359,8 @@ def main():
 
     for idx in remove_indices:
         body.remove(paragraphs[idx])
+
+    apply_original_spacing(body)
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 

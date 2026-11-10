@@ -20,8 +20,9 @@ import {
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { getErrorMessage } from '@/modules/common/errorMessages'
 import { useCreatePatch } from '@/modules/patch/mutations'
-import type { ProfileId } from '@/modules/profile/schema'
+import type { ResumeId } from '@/modules/resume/schema'
 
 const createPatchSchema = z.object({
   companyName: z.string().min(1, 'Company name is required'),
@@ -30,12 +31,12 @@ const createPatchSchema = z.object({
 })
 
 type CreatePatchDialogProps = {
-  profileId: ProfileId
+  resumeId: ResumeId
   children: React.ReactNode
 }
 
 export const CreatePatchDialog = ({
-  profileId,
+  resumeId,
   children,
 }: CreatePatchDialogProps) => {
   const [open, setOpen] = useState(false)
@@ -64,32 +65,28 @@ export const CreatePatchDialog = ({
 
       try {
         const result = await createPatch({
-          profileId,
+          resumeId,
           title: generateTitle(value.companyName, value.roleName),
           jobDescription: value.jobDescription.trim(),
           companyName: value.companyName.trim(),
           roleName: value.roleName.trim(),
         })
 
-        if ('patchId' in result) {
-          setOpen(false)
-          form.reset()
-          navigate({
-            to: '/dashboard/profile/$id/patch/$patchId',
-            params: { id: profileId, patchId: result.patchId },
-          })
-        } else {
-          setSubmitError(
-            result.error === 'RATE_LIMITED'
-              ? 'Rate limit reached. Try again in a little while.'
-              : result.error === 'PROFILE_EMPTY'
-                ? 'Add some experience or projects to the profile first.'
-                : 'Failed to create the variant. Please try again.',
-          )
+        if ('error' in result) {
+          console.error('Failed to create patch:', result.error)
+          setSubmitError(getErrorMessage(result.error))
+          return
         }
+
+        setOpen(false)
+        form.reset()
+        navigate({
+          to: '/dashboard/resume/$id/patch/$patchId',
+          params: { id: resumeId, patchId: result.patchId },
+        })
       } catch (error) {
         console.error('Error creating patch:', error)
-        setSubmitError('Failed to create the variant. Please try again.')
+        setSubmitError(getErrorMessage('PATCH_CREATE_FAILED'))
       } finally {
         setIsSubmitting(false)
       }
@@ -97,7 +94,13 @@ export const CreatePatchDialog = ({
   })
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen)
+        setSubmitError(null)
+      }}
+    >
       <DialogTrigger render={children as React.ReactElement} />
 
       <DialogContent className="max-w-2xl">
@@ -197,7 +200,9 @@ export const CreatePatchDialog = ({
             />
 
             {submitError && (
-              <p className="text-sm text-destructive">{submitError}</p>
+              <p role="alert" className="text-sm text-destructive">
+                {submitError}
+              </p>
             )}
 
             <Button type="submit" disabled={isSubmitting} className="w-full">

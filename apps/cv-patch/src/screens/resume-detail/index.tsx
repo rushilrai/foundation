@@ -1,0 +1,119 @@
+import { useState } from 'react'
+
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { getErrorMessage } from '@/modules/common/errorMessages'
+import { OriginalTab } from '@/modules/resume/components/OriginalTab'
+import { PatchesTab } from '@/modules/resume/components/PatchesTab'
+import { ResumeContentTab } from '@/modules/resume/components/ResumeContentTab'
+import { ResumeDetails } from '@/modules/resume/components/ResumeDetails'
+import { useGenerateResumeDownloadUrl } from '@/modules/resume/mutations'
+import { useResume } from '@/modules/resume/queries'
+import type { ResumeId } from '@/modules/resume/schema'
+import { DashboardHeader } from '@/screens/dashboard/components/dashboard-header'
+
+export function ResumeDetailScreen({ resumeId }: { resumeId: string }) {
+  const resumeResult = useResume(resumeId as ResumeId)
+  const generateDownloadUrl = useGenerateResumeDownloadUrl()
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+
+  const handleDownload = async () => {
+    setDownloadError(null)
+    try {
+      const result = await generateDownloadUrl({
+        resumeId: resumeId as ResumeId,
+      })
+      if ('error' in result) {
+        console.error('Failed to get resume download URL', result.error)
+        setDownloadError(getErrorMessage(result.error, 'Download failed.'))
+        return
+      }
+      window.open(result.downloadUrl, '_blank')
+    } catch (error) {
+      console.error('Failed to get resume download URL', error)
+      setDownloadError('Download failed.')
+    }
+  }
+
+  if (resumeResult === undefined) {
+    return (
+      <>
+        <DashboardHeader>
+          <Skeleton className="h-6 w-48" />
+        </DashboardHeader>
+
+        <div className="p-6">
+          <Skeleton className="h-[calc(100vh-200px)]" />
+        </div>
+      </>
+    )
+  }
+
+  if ('error' in resumeResult) {
+    return (
+      <>
+        <DashboardHeader title="Error" />
+
+        <div className="p-6">
+          <p className="text-destructive">
+            {resumeResult.error === 'RESUME_NOT_FOUND'
+              ? 'Resume not found.'
+              : 'An error occurred while loading the resume.'}
+          </p>
+        </div>
+      </>
+    )
+  }
+
+  const { resume } = resumeResult
+
+  return (
+    <>
+      <DashboardHeader title={resume.title}>
+        <div className="flex items-center gap-2">
+          {downloadError && (
+            <p role="alert" className="text-sm text-destructive">
+              {downloadError}
+            </p>
+          )}
+
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleDownload}
+            disabled={resume.status !== 'ready'}
+          >
+            Download
+          </Button>
+        </div>
+      </DashboardHeader>
+
+      <div className="p-6">
+        <Tabs defaultValue="original">
+          <div className="flex items-center justify-between gap-6">
+            <TabsList>
+              <TabsTrigger value="original">Original</TabsTrigger>
+              <TabsTrigger value="content">Content</TabsTrigger>
+              <TabsTrigger value="patches">Patches</TabsTrigger>
+            </TabsList>
+
+            <ResumeDetails resume={resume} />
+          </div>
+
+          <TabsContent value="original" className="mt-6">
+            <OriginalTab resume={resume} />
+          </TabsContent>
+
+          <TabsContent value="content" className="mt-6">
+            <ResumeContentTab resume={resume} />
+          </TabsContent>
+
+          <TabsContent value="patches" className="mt-6">
+            <PatchesTab resumeId={resume._id} />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </>
+  )
+}

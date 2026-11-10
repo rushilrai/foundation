@@ -25,6 +25,9 @@ const doc = new Docxtemplater(zip, {
 
 const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'))
 
+// Mirrors buildContactLine and splitCompany in
+// convex/modules/patch/docxTemplate.ts (labels only; the real render
+// additionally hyperlinks email, links, project names and skill links).
 const displayUrl = (url) =>
   url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
 
@@ -36,11 +39,22 @@ const contactLine = [
 ]
   .map((part) => part.trim())
   .filter(Boolean)
-  .join('    ')
+  .join('      ')
+
+const splitCompany = (company) => {
+  const match = company.match(/^(.*\S\s+)(\([^()]*\))\s*$/)
+  return match
+    ? { companyName: match[1], companySuffix: match[2] }
+    : { companyName: company, companySuffix: '' }
+}
 
 doc.render({
   ...data,
   header: { ...data.header, contactLine },
+  experience: data.experience.map((entry) => ({
+    ...entry,
+    ...splitCompany(entry.company),
+  })),
 })
 
 const buffer = doc.getZip().generate({ type: 'nodebuffer' })

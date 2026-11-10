@@ -1,0 +1,810 @@
+import {
+  getEmptyResumeData,
+  MAX_HEADER_LINKS,
+  ResumeDataSchema,
+  type ResumeData,
+} from '@shared/resumeSchema'
+import { useEffect, useMemo, useState } from 'react'
+
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { getErrorMessage } from '@/modules/common/errorMessages'
+import {
+  cleanListFields,
+  joinLines,
+  splitLines,
+} from '@/modules/resume/contentLines'
+import { useUpdateResumeData } from '@/modules/resume/mutations'
+import type { Resume } from '@/modules/resume/schema'
+
+const SAVED_NOTICE_MS = 3000
+
+type ResumeContentTabProps = {
+  resume: Resume
+}
+
+export const ResumeContentTab = ({ resume }: ResumeContentTabProps) => {
+  const [draft, setDraft] = useState<ResumeData>(
+    resume.data ?? getEmptyResumeData(),
+  )
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [justSaved, setJustSaved] = useState(false)
+  const [jsonOpen, setJsonOpen] = useState(false)
+  const [jsonDraft, setJsonDraft] = useState('')
+  const updateData = useUpdateResumeData()
+
+  useEffect(() => {
+    if (resume.data) {
+      setDraft(resume.data)
+    }
+  }, [resume.data])
+
+  useEffect(() => {
+    if (!justSaved) {
+      return
+    }
+    const timeout = setTimeout(() => setJustSaved(false), SAVED_NOTICE_MS)
+    return () => clearTimeout(timeout)
+  }, [justSaved])
+
+  const jsonValue = useMemo(() => JSON.stringify(draft, null, 2), [draft])
+
+  if (resume.status === 'error') {
+    return (
+      <div className="text-sm text-destructive">
+        {resume.errorMessage || 'Failed to extract resume content.'}
+      </div>
+    )
+  }
+
+  if (resume.status !== 'ready' || !resume.data) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        Resume content is still being processed. Please refresh once it is
+        ready.
+      </div>
+    )
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    setSaveError(null)
+    setJustSaved(false)
+    try {
+      const result = await updateData({
+        resumeId: resume._id,
+        data: cleanListFields(draft),
+      })
+      if ('error' in result) {
+        console.error('Failed to save resume data', result.error)
+        setSaveError(
+          getErrorMessage(result.error, 'Failed to save changes. Try again.'),
+        )
+        return
+      }
+      setJustSaved(true)
+    } catch (error) {
+      console.error('Failed to save resume data', error)
+      setSaveError('Failed to save changes. Try again.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const updateHeader = (
+    key: 'name' | 'phone' | 'email' | 'location',
+    value: string,
+  ) => {
+    setDraft((prev) => ({
+      ...prev,
+      header: { ...prev.header, [key]: value },
+    }))
+  }
+
+  const updateLink = (index: number, key: 'label' | 'url', value: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      header: {
+        ...prev.header,
+        links: prev.header.links.map((link, i) =>
+          i === index ? { ...link, [key]: value } : link,
+        ),
+      },
+    }))
+  }
+
+  const addLink = () => {
+    setDraft((prev) => {
+      if (prev.header.links.length >= MAX_HEADER_LINKS) {
+        return prev
+      }
+      return {
+        ...prev,
+        header: {
+          ...prev.header,
+          links: [...prev.header.links, { label: '', url: '' }],
+        },
+      }
+    })
+  }
+
+  const removeLink = (index: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      header: {
+        ...prev.header,
+        links: prev.header.links.filter((_, i) => i !== index),
+      },
+    }))
+  }
+
+  const updateEducation = (
+    index: number,
+    key: 'school' | 'location' | 'dates' | 'degree' | 'details',
+    value: string,
+  ) => {
+    setDraft((prev) => ({
+      ...prev,
+      education: prev.education.map((item, i) =>
+        i === index ? { ...item, [key]: value } : item,
+      ),
+    }))
+  }
+
+  const updateExperience = (
+    index: number,
+    key: 'company' | 'companyMeta',
+    value: string,
+  ) => {
+    setDraft((prev) => ({
+      ...prev,
+      experience: prev.experience.map((item, i) =>
+        i === index ? { ...item, [key]: value } : item,
+      ),
+    }))
+  }
+
+  const updateRole = (
+    expIndex: number,
+    roleIndex: number,
+    key: 'title' | 'meta',
+    value: string,
+  ) => {
+    setDraft((prev) => ({
+      ...prev,
+      experience: prev.experience.map((exp, i) => {
+        if (i !== expIndex) return exp
+        return {
+          ...exp,
+          roles: exp.roles.map((role, r) =>
+            r === roleIndex ? { ...role, [key]: value } : role,
+          ),
+        }
+      }),
+    }))
+  }
+
+  const updateRoleBullets = (
+    expIndex: number,
+    roleIndex: number,
+    value: string,
+  ) => {
+    setDraft((prev) => ({
+      ...prev,
+      experience: prev.experience.map((exp, i) => {
+        if (i !== expIndex) return exp
+        return {
+          ...exp,
+          roles: exp.roles.map((role, r) =>
+            r === roleIndex ? { ...role, bullets: splitLines(value) } : role,
+          ),
+        }
+      }),
+    }))
+  }
+
+  const addEducation = () => {
+    setDraft((prev) => ({
+      ...prev,
+      education: [
+        ...prev.education,
+        { school: '', location: '', dates: '', degree: '', details: '' },
+      ],
+    }))
+  }
+
+  const removeEducation = (index: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      education: prev.education.filter((_, i) => i !== index),
+    }))
+  }
+
+  const addExperience = () => {
+    setDraft((prev) => ({
+      ...prev,
+      experience: [
+        ...prev.experience,
+        { company: '', companyMeta: '', roles: [] },
+      ],
+    }))
+  }
+
+  const removeExperience = (index: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      experience: prev.experience.filter((_, i) => i !== index),
+    }))
+  }
+
+  const addRole = (expIndex: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      experience: prev.experience.map((exp, i) =>
+        i === expIndex
+          ? {
+              ...exp,
+              roles: [...exp.roles, { title: '', meta: '', bullets: [] }],
+            }
+          : exp,
+      ),
+    }))
+  }
+
+  const removeRole = (expIndex: number, roleIndex: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      experience: prev.experience.map((exp, i) =>
+        i === expIndex
+          ? {
+              ...exp,
+              roles: exp.roles.filter((_, r) => r !== roleIndex),
+            }
+          : exp,
+      ),
+    }))
+  }
+
+  const updateProject = (
+    index: number,
+    key: 'name' | 'url' | 'dates',
+    value: string,
+  ) => {
+    setDraft((prev) => ({
+      ...prev,
+      projects: prev.projects.map((item, i) =>
+        i === index ? { ...item, [key]: value } : item,
+      ),
+    }))
+  }
+
+  const updateProjectBullets = (index: number, value: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      projects: prev.projects.map((project, i) =>
+        i === index ? { ...project, bullets: splitLines(value) } : project,
+      ),
+    }))
+  }
+
+  const addProject = () => {
+    setDraft((prev) => ({
+      ...prev,
+      projects: [
+        ...prev.projects,
+        { name: '', url: '', dates: '', bullets: [] },
+      ],
+    }))
+  }
+
+  const removeProject = (index: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      projects: prev.projects.filter((_, i) => i !== index),
+    }))
+  }
+
+  const updateSkillLine = (
+    index: number,
+    key: 'label' | 'value',
+    value: string,
+  ) => {
+    setDraft((prev) => ({
+      ...prev,
+      skills: prev.skills.map((line, i) =>
+        i === index ? { ...line, [key]: value } : line,
+      ),
+    }))
+  }
+
+  const addSkillLine = () => {
+    setDraft((prev) => ({
+      ...prev,
+      skills: [...prev.skills, { label: '', value: '', links: [] }],
+    }))
+  }
+
+  const removeSkillLine = (index: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      skills: prev.skills.filter((_, i) => i !== index),
+    }))
+  }
+
+  const updateSkillLink = (
+    lineIndex: number,
+    linkIndex: number,
+    key: 'text' | 'url',
+    value: string,
+  ) => {
+    setDraft((prev) => ({
+      ...prev,
+      skills: prev.skills.map((line, i) =>
+        i === lineIndex
+          ? {
+              ...line,
+              links: line.links.map((link, l) =>
+                l === linkIndex ? { ...link, [key]: value } : link,
+              ),
+            }
+          : line,
+      ),
+    }))
+  }
+
+  const addSkillLink = (lineIndex: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      skills: prev.skills.map((line, i) =>
+        i === lineIndex
+          ? { ...line, links: [...line.links, { text: '', url: '' }] }
+          : line,
+      ),
+    }))
+  }
+
+  const removeSkillLink = (lineIndex: number, linkIndex: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      skills: prev.skills.map((line, i) =>
+        i === lineIndex
+          ? { ...line, links: line.links.filter((_, l) => l !== linkIndex) }
+          : line,
+      ),
+    }))
+  }
+
+  const updateExtras = (value: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      extras: splitLines(value),
+    }))
+  }
+
+  const handleJsonApply = (value: string) => {
+    try {
+      const parsed = JSON.parse(value)
+      const validated = ResumeDataSchema.parse(parsed)
+      setDraft(validated)
+      setJsonOpen(false)
+    } catch (error) {
+      console.error('Invalid JSON', error)
+    }
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Resume Content</h3>
+          <p className="text-sm text-muted-foreground">
+            Edit your resume content before generating variants.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Dialog
+            open={jsonOpen}
+            onOpenChange={(open) => {
+              setJsonOpen(open)
+              if (open) {
+                setJsonDraft(jsonValue)
+              }
+            }}
+          >
+            <DialogTrigger
+              render={
+                <Button variant="outline" size="sm">
+                  Advanced JSON
+                </Button>
+              }
+            />
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Edit JSON</DialogTitle>
+                <DialogDescription>
+                  Paste valid JSON matching the resume schema.
+                </DialogDescription>
+              </DialogHeader>
+              <Textarea
+                className="min-h-80 font-mono text-xs"
+                value={jsonDraft}
+                onChange={(e) => setJsonDraft(e.target.value)}
+              />
+              <div className="flex justify-end">
+                <Button onClick={() => handleJsonApply(jsonDraft)}>
+                  Apply
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </div>
+
+      {saveError && (
+        <p role="alert" className="-mt-4 text-sm text-destructive">
+          {saveError}
+        </p>
+      )}
+      {justSaved && (
+        <p role="status" className="-mt-4 text-sm text-muted-foreground">
+          Changes saved.
+        </p>
+      )}
+
+      <section className="space-y-4">
+        <h4 className="text-md font-semibold">Header</h4>
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            value={draft.header.name}
+            onChange={(e) => updateHeader('name', e.target.value)}
+            placeholder="Name"
+          />
+          <Input
+            value={draft.header.phone}
+            onChange={(e) => updateHeader('phone', e.target.value)}
+            placeholder="Phone"
+          />
+          <Input
+            value={draft.header.email}
+            onChange={(e) => updateHeader('email', e.target.value)}
+            placeholder="Email"
+          />
+          <Input
+            value={draft.header.location}
+            onChange={(e) => updateHeader('location', e.target.value)}
+            placeholder="Location (e.g. London, UK)"
+          />
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">
+              Links ({draft.header.links.length}/{MAX_HEADER_LINKS})
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addLink}
+              disabled={draft.header.links.length >= MAX_HEADER_LINKS}
+            >
+              Add Link
+            </Button>
+          </div>
+          {draft.header.links.map((link, index) => (
+            <div key={`link-${index}`} className="flex items-center gap-2">
+              <Input
+                value={link.label}
+                onChange={(e) => updateLink(index, 'label', e.target.value)}
+                placeholder="Label (e.g. LinkedIn)"
+                className="w-48"
+              />
+              <Input
+                value={link.url}
+                onChange={(e) => updateLink(index, 'url', e.target.value)}
+                placeholder="URL (as shown on the resume)"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => removeLink(index)}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-md font-semibold">Education</h4>
+          <Button variant="outline" size="sm" onClick={addEducation}>
+            Add Education
+          </Button>
+        </div>
+        {draft.education.map((edu, index) => (
+          <div key={`edu-${index}`} className="space-y-3 rounded-lg border p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Entry {index + 1}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => removeEducation(index)}
+              >
+                Remove
+              </Button>
+            </div>
+            <Input
+              value={edu.school}
+              onChange={(e) => updateEducation(index, 'school', e.target.value)}
+              placeholder="School"
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                value={edu.location}
+                onChange={(e) =>
+                  updateEducation(index, 'location', e.target.value)
+                }
+                placeholder="Location"
+              />
+              <Input
+                value={edu.dates}
+                onChange={(e) =>
+                  updateEducation(index, 'dates', e.target.value)
+                }
+                placeholder="Dates"
+              />
+            </div>
+            <Input
+              value={edu.degree}
+              onChange={(e) => updateEducation(index, 'degree', e.target.value)}
+              placeholder="Degree"
+            />
+            <Textarea
+              value={edu.details}
+              onChange={(e) =>
+                updateEducation(index, 'details', e.target.value)
+              }
+              placeholder="Details"
+            />
+          </div>
+        ))}
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-md font-semibold">Experience</h4>
+          <Button variant="outline" size="sm" onClick={addExperience}>
+            Add Company
+          </Button>
+        </div>
+        {draft.experience.map((exp, index) => (
+          <div key={`exp-${index}`} className="space-y-4 rounded-lg border p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Company {index + 1}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => removeExperience(index)}
+              >
+                Remove
+              </Button>
+            </div>
+            <Input
+              value={exp.company}
+              onChange={(e) =>
+                updateExperience(index, 'company', e.target.value)
+              }
+              placeholder="Company"
+            />
+            <Input
+              value={exp.companyMeta}
+              onChange={(e) =>
+                updateExperience(index, 'companyMeta', e.target.value)
+              }
+              placeholder="Company Meta (location | dates)"
+            />
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Roles</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => addRole(index)}
+              >
+                Add Role
+              </Button>
+            </div>
+            {exp.roles.map((role, roleIndex) => (
+              <div
+                key={`role-${roleIndex}`}
+                className="space-y-2 rounded-md border p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium">Role {roleIndex + 1}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeRole(index, roleIndex)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                <Input
+                  value={role.title}
+                  onChange={(e) =>
+                    updateRole(index, roleIndex, 'title', e.target.value)
+                  }
+                  placeholder="Role title"
+                />
+                <Input
+                  value={role.meta}
+                  onChange={(e) =>
+                    updateRole(index, roleIndex, 'meta', e.target.value)
+                  }
+                  placeholder="Role meta (location | dates)"
+                />
+                <Textarea
+                  value={joinLines(role.bullets)}
+                  onChange={(e) =>
+                    updateRoleBullets(index, roleIndex, e.target.value)
+                  }
+                  placeholder="Bullets (one per line)"
+                  className="min-h-24"
+                />
+              </div>
+            ))}
+          </div>
+        ))}
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-md font-semibold">Projects</h4>
+          <Button variant="outline" size="sm" onClick={addProject}>
+            Add Project
+          </Button>
+        </div>
+        {draft.projects.map((project, index) => (
+          <div
+            key={`project-${index}`}
+            className="space-y-3 rounded-lg border p-4"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Project {index + 1}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => removeProject(index)}
+              >
+                Remove
+              </Button>
+            </div>
+            <Input
+              value={project.name}
+              onChange={(e) => updateProject(index, 'name', e.target.value)}
+              placeholder="Project name"
+            />
+            <Input
+              value={project.url}
+              onChange={(e) => updateProject(index, 'url', e.target.value)}
+              placeholder="Project URL (optional; links the project name)"
+            />
+            <Input
+              value={project.dates}
+              onChange={(e) => updateProject(index, 'dates', e.target.value)}
+              placeholder="Dates"
+            />
+            <Textarea
+              value={joinLines(project.bullets)}
+              onChange={(e) => updateProjectBullets(index, e.target.value)}
+              placeholder="Bullets (one per line)"
+              className="min-h-24"
+            />
+          </div>
+        ))}
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-md font-semibold">Skills</h4>
+          <Button variant="outline" size="sm" onClick={addSkillLine}>
+            Add Skill Line
+          </Button>
+        </div>
+        {draft.skills.map((line, index) => (
+          <div
+            key={`skill-${index}`}
+            className="space-y-3 rounded-lg border p-4"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Line {index + 1}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => removeSkillLine(index)}
+              >
+                Remove
+              </Button>
+            </div>
+            <Input
+              value={line.label}
+              onChange={(e) => updateSkillLine(index, 'label', e.target.value)}
+              placeholder="Label (e.g. Technical, Certifications)"
+            />
+            <Textarea
+              value={line.value}
+              onChange={(e) => updateSkillLine(index, 'value', e.target.value)}
+              placeholder="Skills (e.g. Python, SQL, Excel)"
+            />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium">
+                  Links ({line.links.length})
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addSkillLink(index)}
+                >
+                  Add Link
+                </Button>
+              </div>
+              {line.links.map((link, linkIndex) => (
+                <div
+                  key={`skill-${index}-link-${linkIndex}`}
+                  className="flex items-center gap-2"
+                >
+                  <Input
+                    value={link.text}
+                    onChange={(e) =>
+                      updateSkillLink(index, linkIndex, 'text', e.target.value)
+                    }
+                    placeholder="Linked text (as it appears above)"
+                    className="w-64"
+                  />
+                  <Input
+                    value={link.url}
+                    onChange={(e) =>
+                      updateSkillLink(index, linkIndex, 'url', e.target.value)
+                    }
+                    placeholder="URL"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeSkillLink(index, linkIndex)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="space-y-4">
+        <h4 className="text-md font-semibold">Extras</h4>
+        <Textarea
+          value={joinLines(draft.extras)}
+          onChange={(e) => updateExtras(e.target.value)}
+          placeholder="Extras (one per line)"
+        />
+      </section>
+    </div>
+  )
+}
