@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { searchText } from '@/lib/searchParams'
+
 export const MIN_PASSWORD_LENGTH = 8
 
 const emailSchema = z
@@ -24,8 +26,10 @@ export const signUpSchema = z.object({
 export type SignInInput = z.infer<typeof signInSchema>
 export type SignUpInput = z.infer<typeof signUpSchema>
 
+// `redirect` is checked by resolveRedirect wherever it is used, so any
+// value is accepted here rather than failing the page.
 export const authSearchSchema = z.object({
-  redirect: z.string().optional(),
+  redirect: searchText,
 })
 
 export type AuthSearch = z.infer<typeof authSearchSchema>

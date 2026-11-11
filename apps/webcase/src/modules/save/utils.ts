@@ -1,11 +1,8 @@
 import { domainOf, fallbackTitle, parseHttpUrl } from '@shared/url'
 
-// What the share target (or any other tool) put in /save's search params.
-export type SharedPayload = {
-  url?: string
-  title?: string
-  text?: string
-}
+import type { SharedPayload } from './schema'
+
+export type { SharedPayload }
 
 // An http(s) URL up to whitespace, angle brackets, quotes, backticks or the
 // CJK punctuation that apps put right after a link.
