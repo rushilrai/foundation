@@ -1,3 +1,4 @@
+import { MIN_PASSWORD_LENGTH } from '@shared/limits'
 import { useForm } from '@tanstack/react-form'
 import { Link, useHydrated } from '@tanstack/react-router'
 
@@ -7,7 +8,7 @@ import { FieldGroup } from '@/components/ui/field'
 import { Wordmark } from '@/components/Wordmark'
 import { AuthTextField } from '@/modules/auth/components/AuthTextField'
 import { useSignUpMutation } from '@/modules/auth/mutations'
-import { MIN_PASSWORD_LENGTH, signUpSchema } from '@/modules/auth/schema'
+import { signUpSchema } from '@/modules/auth/schema'
 
 type SignUpScreenProps = {
   redirect: string | undefined

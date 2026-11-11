@@ -8,6 +8,9 @@ export class AuthError extends Error {
   }
 }
 
+// Better Auth's rate limit answers 429 with no error code.
+const TOO_MANY_REQUESTS = 429
+
 const SIGN_IN_MESSAGES: Record<string, string> = {
   INVALID_EMAIL_OR_PASSWORD: 'Wrong email or password.',
 }
@@ -27,9 +30,11 @@ export async function signInWithEmail(input: SignInInput) {
   })
 
   if (response.error) {
-    const code = response.error.code
+    const { code, status } = response.error
     throw new AuthError(
-      (code && SIGN_IN_MESSAGES[code]) ?? "Couldn't sign in. Try again.",
+      status === TOO_MANY_REQUESTS
+        ? 'Too many tries. Wait a minute, then try again.'
+        : ((code && SIGN_IN_MESSAGES[code]) ?? "Couldn't sign in. Try again."),
     )
   }
 }
@@ -42,10 +47,12 @@ export async function signUpWithEmail(input: SignUpInput) {
   })
 
   if (response.error) {
-    const code = response.error.code
+    const { code, status } = response.error
     throw new AuthError(
-      (code && SIGN_UP_MESSAGES[code]) ??
-        "Couldn't create the account. Try again.",
+      status === TOO_MANY_REQUESTS
+        ? 'Too many tries. Wait a few minutes, then try again.'
+        : ((code && SIGN_UP_MESSAGES[code]) ??
+            "Couldn't create the account. Try again."),
     )
   }
 }

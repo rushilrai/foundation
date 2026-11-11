@@ -1,8 +1,7 @@
+import { MIN_PASSWORD_LENGTH } from '@shared/limits'
 import { z } from 'zod'
 
 import { searchText } from '@/lib/searchParams'
-
-export const MIN_PASSWORD_LENGTH = 8
 
 const emailSchema = z
   .string()
