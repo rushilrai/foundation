@@ -1,0 +1,253 @@
+// Pure URL helpers: parsing user-supplied links, deciding which hosts are
+// safe to fetch, and deriving display values. No I/O here.
+
+export const MAX_URL_LENGTH = 2048
+
+// Parses an http(s) URL. Returns null for anything else, including
+// credentials in the URL, which are never needed to read a public page.
+export const parseHttpUrl = (raw: string): URL | null => {
+  const value = raw.trim()
+  if (!value || value.length > MAX_URL_LENGTH) {
+    return null
+  }
+
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return null
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return null
+  }
+  if (!url.hostname || url.username || url.password) {
+    return null
+  }
+
+  return url
+}
+
+// Host shown next to a link: lowercase, without a leading "www.".
+export const domainOf = (url: URL): string =>
+  url.hostname.toLowerCase().replace(/^www\./, '')
+
+// Title used when a page gives us nothing: host plus path, e.g.
+// "example.com/blog/post".
+export const fallbackTitle = (url: URL): string => {
+  let path = url.pathname
+  try {
+    path = decodeURIComponent(path)
+  } catch {
+    // Keep the encoded path.
+  }
+  path = path.replace(/\/+$/, '')
+
+  return `${domainOf(url)}${path}`.slice(0, 300)
+}
+
+// True when a stored title is only a stand-in for the URL (empty, the URL
+// itself, or our fallback), so enrichment may replace it.
+export const isPlaceholderTitle = (title: string, rawUrl: string): boolean => {
+  const value = title.trim()
+  if (!value) {
+    return true
+  }
+
+  const url = parseHttpUrl(rawUrl)
+  const candidates = new Set([rawUrl.trim(), rawUrl.trim().replace(/\/+$/, '')])
+  if (url) {
+    candidates.add(url.href)
+    candidates.add(url.href.replace(/\/+$/, ''))
+    candidates.add(url.href.replace(/^https?:\/\//, '').replace(/\/+$/, ''))
+    candidates.add(fallbackTitle(url))
+    candidates.add(domainOf(url))
+  }
+
+  return candidates.has(value)
+}
+
+// Hosts we refuse to fetch, by name. IP literals are checked separately
+// with isPrivateAddress.
+const isBlockedHostname = (hostname: string): boolean => {
+  const host = hostname.toLowerCase().replace(/\.$/, '')
+
+  if (!host.includes('.')) {
+    // localhost and other single-label intranet names
+    return true
+  }
+
+  return (
+    host.endsWith('.localhost') ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal') ||
+    host.endsWith('.lan') ||
+    host.endsWith('.home.arpa')
+  )
+}
+
+// URL.hostname keeps the brackets around IPv6 literals.
+const stripBrackets = (hostname: string): string =>
+  hostname.startsWith('[') && hostname.endsWith(']')
+    ? hostname.slice(1, -1)
+    : hostname
+
+const parseIPv4 = (value: string): Array<number> | null => {
+  const parts = value.split('.')
+  if (parts.length !== 4) {
+    return null
+  }
+
+  const octets = parts.map((part) => (/^\d{1,3}$/.test(part) ? +part : NaN))
+  if (octets.some((octet) => Number.isNaN(octet) || octet > 255)) {
+    return null
+  }
+
+  return octets
+}
+
+const isPrivateIPv4 = ([a, b]: Array<number>): boolean =>
+  a === 0 || // "this" network
+  a === 10 ||
+  a === 127 || // loopback
+  (a === 100 && b >= 64 && b <= 127) || // carrier-grade NAT
+  (a === 169 && b === 254) || // link-local, cloud metadata
+  (a === 172 && b >= 16 && b <= 31) ||
+  (a === 192 && b === 168) ||
+  (a === 192 && b === 0) || // IETF protocol assignments
+  (a === 198 && (b === 18 || b === 19)) || // benchmarking
+  a >= 224 // multicast, reserved, broadcast
+
+// Expands an IPv6 address to eight 16-bit groups, or null if it isn't one.
+const parseIPv6 = (value: string): Array<number> | null => {
+  let address = value.toLowerCase().split('%')[0]
+  if (!address.includes(':')) {
+    return null
+  }
+
+  // A trailing dotted IPv4 part (e.g. ::ffff:127.0.0.1) becomes two groups.
+  const lastColon = address.lastIndexOf(':')
+  const tail = address.slice(lastColon + 1)
+  if (tail.includes('.')) {
+    const v4 = parseIPv4(tail)
+    if (!v4) {
+      return null
+    }
+    address = `${address.slice(0, lastColon + 1)}${((v4[0] << 8) | v4[1]).toString(16)}:${((v4[2] << 8) | v4[3]).toString(16)}`
+  }
+
+  const halves = address.split('::')
+  if (halves.length > 2) {
+    return null
+  }
+
+  const toGroups = (part: string): Array<number> | null => {
+    if (!part) {
+      return []
+    }
+    const groups = part.split(':')
+    if (groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) {
+      return null
+    }
+    return groups.map((group) => parseInt(group, 16))
+  }
+
+  const head = toGroups(halves[0])
+  const rest = halves.length === 2 ? toGroups(halves[1]) : []
+  if (!head || !rest) {
+    return null
+  }
+
+  if (halves.length === 1) {
+    return head.length === 8 ? head : null
+  }
+
+  const missing = 8 - head.length - rest.length
+  if (missing < 1) {
+    return null
+  }
+
+  return [...head, ...Array<number>(missing).fill(0), ...rest]
+}
+
+const isPrivateIPv6 = (groups: Array<number>): boolean => {
+  const [first] = groups
+
+  if (groups.every((group) => group === 0)) {
+    return true // unspecified ::
+  }
+  if (groups.slice(0, 7).every((group) => group === 0) && groups[7] === 1) {
+    return true // loopback ::1
+  }
+
+  // IPv4-mapped (::ffff:a.b.c.d), IPv4-compatible (::a.b.c.d) and NAT64
+  // (64:ff9b::a.b.c.d) addresses: judge the embedded IPv4 address.
+  const embedsIPv4 =
+    (groups.slice(0, 5).every((group) => group === 0) &&
+      (groups[5] === 0xffff || groups[5] === 0)) ||
+    (first === 0x64 &&
+      groups[1] === 0xff9b &&
+      groups.slice(2, 6).every((group) => group === 0))
+  if (embedsIPv4) {
+    return isPrivateIPv4([
+      groups[6] >> 8,
+      groups[6] & 0xff,
+      groups[7] >> 8,
+      groups[7] & 0xff,
+    ])
+  }
+
+  return (
+    (first & 0xfe00) === 0xfc00 || // unique local fc00::/7
+    (first & 0xffc0) === 0xfe80 || // link-local fe80::/10
+    (first & 0xffc0) === 0xfec0 || // site-local (deprecated) fec0::/10
+    (first & 0xff00) === 0xff00 || // multicast ff00::/8
+    (first === 0x2001 && groups[1] === 0x0db8) // documentation
+  )
+}
+
+// True for an IP address (v4 or v6) that is loopback, private, link-local
+// or otherwise not a public internet address. Non-IP strings return false.
+export const isPrivateAddress = (value: string): boolean => {
+  const address = stripBrackets(value)
+
+  const v4 = parseIPv4(address)
+  if (v4) {
+    return isPrivateIPv4(v4)
+  }
+
+  const v6 = parseIPv6(address)
+  if (v6) {
+    return isPrivateIPv6(v6)
+  }
+
+  return false
+}
+
+export const isIpLiteral = (hostname: string): boolean => {
+  const address = stripBrackets(hostname)
+
+  return parseIPv4(address) !== null || parseIPv6(address) !== null
+}
+
+// Whether a URL may be fetched at all, judged from the URL alone. Hostnames
+// still need their DNS answers checked before connecting (see fetch.ts).
+export const isFetchableUrl = (url: URL): boolean => {
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return false
+  }
+  if (url.username || url.password) {
+    return false
+  }
+  if (url.port && url.port !== '80' && url.port !== '443') {
+    // Public pages live on the default ports; anything else is far more
+    // likely to be an internal service.
+    return false
+  }
+
+  if (isIpLiteral(url.hostname)) {
+    return !isPrivateAddress(url.hostname)
+  }
+
+  return !isBlockedHostname(url.hostname)
+}
