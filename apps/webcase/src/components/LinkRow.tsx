@@ -70,15 +70,24 @@ export const LinkRow = ({
       )}
 
       <div className="flex items-start gap-3">
-        <h3 className="line-clamp-2 min-w-0 flex-1 font-serif text-base leading-tight font-semibold tracking-[-0.005em] text-pretty wrap-anywhere text-foreground">
+        <h3
+          className={cn(
+            'min-w-0 flex-1 font-serif text-base leading-tight font-semibold tracking-[-0.005em] text-pretty wrap-anywhere text-foreground',
+            !titleOpensLink && 'line-clamp-2',
+          )}
+        >
           {titleOpensLink ? (
+            // The clamp sits on the inner span, so nothing clips the link's
+            // ::after, which stretches the touch target to 44px tall: opening
+            // the page is the row's main action, and a near miss would open
+            // the details instead.
             <a
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="relative z-10 rounded-sm underline-offset-[3px] outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-solid"
+              className="relative z-10 inline-block max-w-full rounded-sm align-top underline-offset-[3px] outline-hidden after:absolute after:inset-x-0 after:top-1/2 after:h-[max(100%,2.75rem)] after:-translate-y-1/2 hover:underline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-solid"
             >
-              {title}
+              <span className="line-clamp-2">{title}</span>
               <span className="sr-only"> (opens in a new tab)</span>
             </a>
           ) : (

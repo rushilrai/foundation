@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form'
-import { Link } from '@tanstack/react-router'
+import { Link, useHydrated } from '@tanstack/react-router'
 
 import { InlineError } from '@/components/EmptyState'
 import { Button } from '@/components/ui/button'
@@ -29,6 +29,10 @@ export const SignUpScreen = ({ redirect }: SignUpScreenProps) => {
 
   // Stays busy after success while the page reloads into the app.
   const isBusy = signUp.isPending || signUp.isSuccess
+  // Until React has hydrated the form, a submit would be the browser's own
+  // and lose the input (or, as a GET, put the password in the URL), so the
+  // button waits for it.
+  const hydrated = useHydrated()
 
   return (
     <main className="page-column flex min-h-dvh flex-col">
@@ -45,6 +49,9 @@ export const SignUpScreen = ({ redirect }: SignUpScreenProps) => {
 
         <form
           className="mt-8"
+          // Never a GET: a submit that somehow skips React keeps the
+          // password out of the URL and the history.
+          method="post"
           noValidate
           onSubmit={(event) => {
             event.preventDefault()
@@ -114,7 +121,12 @@ export const SignUpScreen = ({ redirect }: SignUpScreenProps) => {
 
             <InlineError>{signUp.error?.message}</InlineError>
 
-            <Button type="submit" size="lg" className="h-11" disabled={isBusy}>
+            <Button
+              type="submit"
+              size="lg"
+              className="h-11"
+              disabled={isBusy || !hydrated}
+            >
               {isBusy ? 'Creating account…' : 'Create account'}
             </Button>
           </FieldGroup>

@@ -13,12 +13,29 @@ import { Button } from '@/components/ui/button'
 
 function Drawer({
   children,
+  onOpenChange,
   ...props
 }: Omit<DrawerPrimitive.Root.Props, 'children'> & {
   children?: React.ReactNode
 }) {
   return (
-    <DrawerPrimitive.Root data-slot="drawer" {...props}>
+    <DrawerPrimitive.Root
+      data-slot="drawer"
+      onOpenChange={(open, details) => {
+        // A field inside that used Escape itself (to clear what was typed)
+        // keeps the sheet open; the next Escape closes it.
+        if (
+          !open &&
+          details.reason === 'escape-key' &&
+          details.event.defaultPrevented
+        ) {
+          details.cancel()
+          return
+        }
+        onOpenChange?.(open, details)
+      }}
+      {...props}
+    >
       <DrawerPrimitive.VirtualKeyboardProvider>
         {children}
       </DrawerPrimitive.VirtualKeyboardProvider>
