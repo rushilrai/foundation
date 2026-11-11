@@ -8,26 +8,29 @@ import {
   type MutationCtx,
 } from '../../_generated/server'
 import {
+  IMPORT_SPACING_MS,
   MAX_DESCRIPTION_LENGTH,
   MAX_DOMAIN_LENGTH,
   MAX_IMPORT_BATCH,
   MAX_TITLE_LENGTH,
+  SUMMARY_STUCK_AFTER_MS,
 } from '../../../shared/limits'
 import { normalizeTags } from '../../../shared/tags'
+import {
+  domainOf,
+  fallbackTitle,
+  isPlaceholderTitle,
+  parseHttpUrl,
+} from '../../../shared/url'
 import { rateLimiter } from '../../configs/rateLimiter'
-import { cleanImageUrl, domainOf, parseHttpUrl } from '../../lib/metadata/url'
+import { cleanImageUrl } from '../../lib/metadata/url'
 import { capText } from '../../lib/text'
 import { getUserId } from '../auth/helpers'
 import { getByUrl, getOwned, mergeTags } from './helpers'
 
-// Imported links are enriched one every 1.5 s so a large import doesn't
-// burst page fetches and model calls.
-const IMPORT_SPACING_MS = 1_500
 // Pending summaries due longer ago than this no longer hold up new imports:
 // they are stuck, not queued.
 const QUEUE_WINDOW_MS = 60 * 60_000
-// A pending summary this far past its due time may be retried.
-const STUCK_AFTER_MS = 10 * 60_000
 // Anything earlier (March 1973) is a timestamp in seconds, not milliseconds.
 const MIN_SAVED_AT_MS = 1e11
 
@@ -101,7 +104,7 @@ export const create = mutation({
       domain:
         capText(args.domain, MAX_DOMAIN_LENGTH)?.toLowerCase() ??
         domainOf(parsed),
-      title: capText(args.title, MAX_TITLE_LENGTH) ?? url,
+      title: capText(args.title, MAX_TITLE_LENGTH) ?? fallbackTitle(parsed),
       description: capText(args.description, MAX_DESCRIPTION_LENGTH),
       image: cleanImageUrl(args.image),
       tags,
@@ -110,11 +113,11 @@ export const create = mutation({
       savedAt: now,
     })
 
-    await ctx.scheduler.runAfter(
-      0,
-      internal.modules.link.nodeActions.summarize,
-      { linkId },
-    )
+    // Also fills the title, description and image when the link was saved
+    // before its preview arrived.
+    await ctx.scheduler.runAfter(0, internal.modules.link.nodeActions.enrich, {
+      linkId,
+    })
 
     return { linkId, duplicate: false }
   },
@@ -191,7 +194,7 @@ export const retrySummary = mutation({
     const queued =
       link.summaryStatus === 'pending' &&
       link.summaryDueAt !== undefined &&
-      link.summaryDueAt > now - STUCK_AFTER_MS
+      link.summaryDueAt > now - SUMMARY_STUCK_AFTER_MS
     if (link.summaryStatus === 'ready' || queued) {
       return { error: 'NOT_RETRYABLE' }
     }
@@ -273,11 +276,16 @@ export const importMany = mutation({
       }
       seen.add(url)
 
+      // Pocket often stored the URL itself as the title. Until enrichment
+      // finds a real one, host and path read better.
+      const title = capText(item.title, MAX_TITLE_LENGTH)
       rows.push({
         url,
         domain: domainOf(parsed),
-        // A missing title stays the URL until enrichment finds a better one.
-        title: capText(item.title, MAX_TITLE_LENGTH) ?? url,
+        title:
+          title && !isPlaceholderTitle(title, item.url)
+            ? title
+            : fallbackTitle(parsed),
         tags: normalizeTags(item.tags),
         savedAt: Math.min(Math.round(item.savedAt), now),
       })

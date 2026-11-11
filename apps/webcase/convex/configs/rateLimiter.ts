@@ -1,6 +1,7 @@
 import { HOUR, RateLimiter } from '@convex-dev/rate-limiter'
 
 import { components } from '../_generated/api'
+import { DAILY_IMPORT_LIMIT } from '../../shared/limits'
 
 // Sign-up is open and accounts are free, so per-user buckets alone don't
 // bound spend: every bucket that costs money or fetches pages has a global
@@ -37,9 +38,9 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // and a summary. Capacity covers a one-off import of a few thousand.
   importLinks: {
     kind: 'token bucket',
-    rate: 5000,
+    rate: DAILY_IMPORT_LIMIT,
     period: 24 * HOUR,
-    capacity: 5000,
+    capacity: DAILY_IMPORT_LIMIT,
   },
   // Each saved link, and each summary retry, schedules a summary.
   createLink: {
@@ -51,7 +52,7 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
 
   // Global (no key) ----------------------------------------------------------
 
-  // Taken by summarize/enrich when they run; when empty the summary ends as
+  // Taken by enrich when it runs; when empty the summary ends as
   // `failed`, which retrySummary can redo later.
   summaryGlobal: {
     kind: 'token bucket',

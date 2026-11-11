@@ -1,42 +1,8 @@
-// Pure URL helpers: parsing user-supplied links, deciding which hosts are
-// safe to fetch, and deriving display values. No I/O here.
+// Pure, server-only URL helpers: cleaning image URLs and deciding which
+// hosts are safe to fetch. No I/O here. Parsing and normalising links, and
+// the values derived from them, are in shared/url.ts.
 
-import {
-  MAX_IMAGE_URL_LENGTH,
-  MAX_TITLE_LENGTH,
-  MAX_URL_LENGTH,
-} from '../../../shared/limits'
-
-// Parses an http(s) URL. Returns null for anything else, including
-// credentials in the URL, which are never needed to read a public page.
-// `href` is the normalised form links are stored and matched by: lowercase
-// host, no default port, `/` for an empty path, percent-encoding applied.
-// Query strings and fragments are kept as given.
-export const parseHttpUrl = (raw: string): URL | null => {
-  const value = raw.trim()
-  if (!value || value.length > MAX_URL_LENGTH) {
-    return null
-  }
-
-  let url: URL
-  try {
-    url = new URL(value)
-  } catch {
-    return null
-  }
-
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    return null
-  }
-  if (!url.hostname || url.username || url.password) {
-    return null
-  }
-  if (url.href.length > MAX_URL_LENGTH) {
-    return null
-  }
-
-  return url
-}
+import { MAX_IMAGE_URL_LENGTH } from '../../../shared/limits'
 
 // An image URL as stored: absolute http(s) (resolved against `base` when
 // given), within the length limit, else undefined.
@@ -58,45 +24,6 @@ export const cleanImageUrl = (
   } catch {
     return undefined
   }
-}
-
-// Host shown next to a link: lowercase, without a leading "www.".
-export const domainOf = (url: URL): string =>
-  url.hostname.toLowerCase().replace(/^www\./, '')
-
-// Title used when a page gives us nothing: host plus path, e.g.
-// "example.com/blog/post".
-export const fallbackTitle = (url: URL): string => {
-  let path = url.pathname
-  try {
-    path = decodeURIComponent(path)
-  } catch {
-    // Keep the encoded path.
-  }
-  path = path.replace(/\/+$/, '')
-
-  return `${domainOf(url)}${path}`.slice(0, MAX_TITLE_LENGTH)
-}
-
-// True when a stored title is only a stand-in for the URL (empty, the URL
-// itself, or our fallback), so enrichment may replace it.
-export const isPlaceholderTitle = (title: string, rawUrl: string): boolean => {
-  const value = title.trim()
-  if (!value) {
-    return true
-  }
-
-  const url = parseHttpUrl(rawUrl)
-  const candidates = new Set([rawUrl.trim(), rawUrl.trim().replace(/\/+$/, '')])
-  if (url) {
-    candidates.add(url.href)
-    candidates.add(url.href.replace(/\/+$/, ''))
-    candidates.add(url.href.replace(/^https?:\/\//, '').replace(/\/+$/, ''))
-    candidates.add(fallbackTitle(url))
-    candidates.add(domainOf(url))
-  }
-
-  return candidates.has(value)
 }
 
 // Hosts we refuse to fetch, by name. IP literals are checked separately

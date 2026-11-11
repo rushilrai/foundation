@@ -1,4 +1,4 @@
-import { domainOf, fallbackTitle, parseHttpUrl } from '@convex/lib/metadata/url'
+import { domainOf, fallbackTitle, parseHttpUrl } from '@shared/url'
 
 // What the share target (or any other tool) put in /save's search params.
 export type SharedPayload = {

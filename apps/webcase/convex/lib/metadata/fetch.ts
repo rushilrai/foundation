@@ -8,8 +8,9 @@ import type { LookupFunction } from 'node:net'
 import type { Readable } from 'node:stream'
 import zlib from 'node:zlib'
 
+import { domainOf } from '../../../shared/url'
 import { parseMetadata, type PageMetadata } from './parse'
-import { domainOf, isFetchableUrl, isIpLiteral, isPrivateAddress } from './url'
+import { isFetchableUrl, isIpLiteral, isPrivateAddress } from './url'
 
 // Link-preview crawlers get rich Open Graph tags from sites that serve
 // browsers a script shell, Google Maps short links most of all.
@@ -29,7 +30,25 @@ export type FetchedPage = {
 }
 
 export type FetchFailure =
-  'BLOCKED' | 'TOO_MANY_REDIRECTS' | 'HTTP_ERROR' | 'NOT_HTML' | 'NETWORK'
+  | 'BLOCKED'
+  | 'TOO_MANY_REDIRECTS'
+  | 'HTTP_ERROR'
+  | 'NOT_HTML'
+  | 'NETWORK'
+  // A redirect ended on a consent, sign-in or bot-check page instead of the
+  // page itself, e.g. YouTube sending a crawler to google.com/sorry.
+  | 'INTERSTITIAL'
+
+// Hosts and paths of the pages sites redirect crawlers to instead of the
+// content. Only checked after a redirect: a sign-in page saved on purpose
+// is still read.
+const INTERSTITIAL_HOST = /^(consent|accounts|login|signin|auth|sso)\./
+const INTERSTITIAL_PATH =
+  /^\/(sorry|consent|login|signin|sign-in|authwall|accounts\/login|uas\/login)(\/|$)/i
+
+const isInterstitial = (url: URL): boolean =>
+  INTERSTITIAL_HOST.test(url.hostname.toLowerCase()) ||
+  INTERSTITIAL_PATH.test(url.pathname)
 
 type PinnedAddress = { address: string; family: 4 | 6 }
 
@@ -185,12 +204,12 @@ const header = (response: IncomingMessage, name: string): string => {
 
 // Fetches a public web page and reads its metadata. Follows redirects by
 // hand so every hop is re-validated and pinned. `domain` is the final
-// page's host. Never throws.
+// page's host. A failure carries no host: where a failed fetch ended up
+// (a bot check, a consent page) says nothing about the link, so callers
+// use the saved URL's own. Never throws.
 export const fetchPage = async (
   rawUrl: string,
-): Promise<
-  { page: FetchedPage } | { error: FetchFailure; domain?: string }
-> => {
+): Promise<{ page: FetchedPage } | { error: FetchFailure }> => {
   let url: URL
   try {
     url = new URL(rawUrl)
@@ -207,7 +226,7 @@ export const fetchPage = async (
         ? await resolvePublicAddress(url.hostname)
         : null
       if (!pinned) {
-        return { error: 'BLOCKED', domain: domainOf(url) }
+        return { error: 'BLOCKED' }
       }
 
       const response = await requestOnce(url, pinned, controller.signal)
@@ -217,17 +236,22 @@ export const fetchPage = async (
         const location = header(response, 'location')
         response.destroy()
         if (!location) {
-          return { error: 'HTTP_ERROR', domain: domainOf(url) }
+          return { error: 'HTTP_ERROR' }
         }
         url = new URL(location, url)
         continue
       }
 
-      const domain = domainOf(url)
       if (status < 200 || status >= 300) {
         response.destroy()
-        return { error: 'HTTP_ERROR', domain }
+        return { error: 'HTTP_ERROR' }
       }
+      if (hop > 0 && isInterstitial(url)) {
+        response.destroy()
+        return { error: 'INTERSTITIAL' }
+      }
+
+      const domain = domainOf(url)
 
       const contentType = header(response, 'content-type')
       const mediaType = contentType.split(';')[0].trim().toLowerCase()
@@ -240,13 +264,13 @@ export const fetchPage = async (
       }
       if (mediaType !== 'text/html' && mediaType !== 'application/xhtml+xml') {
         response.destroy()
-        return { error: 'NOT_HTML', domain }
+        return { error: 'NOT_HTML' }
       }
 
       const body = decodedBody(response)
       if (!body) {
         response.destroy()
-        return { error: 'NOT_HTML', domain }
+        return { error: 'NOT_HTML' }
       }
 
       const html = decodeHtml(await readCapped(response, body), contentType)
@@ -260,13 +284,13 @@ export const fetchPage = async (
       }
     }
 
-    return { error: 'TOO_MANY_REDIRECTS', domain: domainOf(url) }
+    return { error: 'TOO_MANY_REDIRECTS' }
   } catch (error) {
     console.warn('[fetchPage] Failed', {
       host: url.hostname,
       error: error instanceof Error ? error.message : String(error),
     })
-    return { error: 'NETWORK', domain: domainOf(url) }
+    return { error: 'NETWORK' }
   } finally {
     clearTimeout(timer)
   }

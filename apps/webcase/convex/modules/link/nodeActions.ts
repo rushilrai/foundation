@@ -6,20 +6,25 @@ import { internal } from '../../_generated/api'
 import type { Id } from '../../_generated/dataModel'
 import { action, internalAction, type ActionCtx } from '../../_generated/server'
 import { MAX_QUESTION_LENGTH } from '../../../shared/limits'
-import { rateLimiter } from '../../configs/rateLimiter'
-import { fetchPage } from '../../lib/metadata/fetch'
 import {
   domainOf,
   fallbackTitle,
   isPlaceholderTitle,
   parseHttpUrl,
-} from '../../lib/metadata/url'
+} from '../../../shared/url'
+import { rateLimiter } from '../../configs/rateLimiter'
+import { fetchPage } from '../../lib/metadata/fetch'
 import { getUserId } from '../auth/helpers'
 import { answerQuestion, suggestTags, summarizePage } from './ai'
 import type { ExistingLink } from './queries'
 
 // Every action in this module runs in the Node runtime: page fetches pin
 // DNS answers through node:http(s), and the AI SDK calls need Node too.
+
+// A page's own title, unless it is just a link (Reddit's redirect pages
+// give their URL as og:title), which reads no better than host and path.
+const pageTitle = (title: string | undefined): string | undefined =>
+  title && !parseHttpUrl(title) ? title : undefined
 
 export type LinkPreview = {
   // Normalised; pass it to `create` as is.
@@ -69,10 +74,12 @@ export const preview = action({
       internal.modules.link.queries.getExistingInternal,
       { userId, url },
     )
-    const fallback = (domain?: string): { preview: LinkPreview } => ({
+    // An unread page is shown under the saved URL's own host: where a
+    // failed fetch was redirected to (a bot check) says nothing about it.
+    const fallback = (): { preview: LinkPreview } => ({
       preview: {
         url,
-        domain: domain ?? domainOf(parsed),
+        domain: domainOf(parsed),
         title: fallbackTitle(parsed),
         suggestedTags: [],
         fetched: false,
@@ -94,15 +101,15 @@ export const preview = action({
 
     if (!('page' in fetched)) {
       console.log('[preview] Page not read', { error: fetched.error })
-      return fallback(fetched.domain)
+      return fallback()
     }
 
     const { domain, metadata } = fetched.page
-    const title = metadata.title ?? fallbackTitle(parsed)
+    const title = pageTitle(metadata.title) ?? fallbackTitle(parsed)
 
     // Only worth asking when the page told us something beyond its URL.
     const suggestions =
-      metadata.title || metadata.description
+      pageTitle(metadata.title) || metadata.description
         ? await suggestTags(
             { url, domain, title, description: metadata.description },
             tagStats,
@@ -195,12 +202,12 @@ const markFailed = async (
   }
 }
 
-// Fetches the page, optionally fills missing metadata from it, then writes
-// the summary.
+// Fetches the page, fills what the link is still missing from it (a
+// placeholder title, the description, the image), then writes the summary.
+// A real title is never replaced.
 const runSummary = async (
   ctx: ActionCtx,
   linkId: Id<'links'>,
-  { fillMetadata }: { fillMetadata: boolean },
 ): Promise<void> => {
   let link = await ctx.runQuery(internal.modules.link.queries.getInternal, {
     linkId,
@@ -218,38 +225,37 @@ const runSummary = async (
     return
   }
 
-  const result = parseHttpUrl(link.url) ? await fetchPage(link.url) : null
+  const parsed = parseHttpUrl(link.url)
+  const result = parsed ? await fetchPage(parsed.href) : null
   const page = result && 'page' in result ? result.page : undefined
+  // A stand-in title takes the page's own, or at least host and path in
+  // place of a raw URL (Pocket often saved the URL as the title).
+  const fallback = parsed ? fallbackTitle(parsed) : undefined
+  const title = isPlaceholderTitle(link.title, link.url)
+    ? (pageTitle(page?.metadata.title) ??
+      (link.title !== fallback ? fallback : undefined))
+    : undefined
 
-  if (fillMetadata && page) {
-    const { domain, metadata } = page
+  // When the page was read, its final host is where the link lives (a Maps
+  // short link is Google's), and its metadata fills the gaps. When it was
+  // not, the saved URL's own host stays.
+  if (page || title) {
     await ctx.runMutation(
       internal.modules.link.mutations.applyMetadataInternal,
       {
         linkId,
-        domain,
-        title:
-          metadata.title && isPlaceholderTitle(link.title, link.url)
-            ? metadata.title
-            : undefined,
-        description: metadata.description,
-        image: metadata.image,
+        domain: page?.domain,
+        title,
+        description: page?.metadata.description,
+        image: page?.metadata.image,
       },
-    )
-  } else if (fillMetadata && result && 'error' in result && result.domain) {
-    // The page failed but a redirect still told us where it lives.
-    await ctx.runMutation(
-      internal.modules.link.mutations.applyMetadataInternal,
-      { linkId, domain: result.domain },
     )
   }
 
-  if (fillMetadata) {
-    link =
-      (await ctx.runQuery(internal.modules.link.queries.getInternal, {
-        linkId,
-      })) ?? link
-  }
+  link =
+    (await ctx.runQuery(internal.modules.link.queries.getInternal, {
+      linkId,
+    })) ?? link
 
   const metadata = page?.metadata
   const summary = await summarizePage(
@@ -271,29 +277,14 @@ const runSummary = async (
   })
 }
 
-// Summary for a link saved through `create`, whose metadata came from the
-// preview. Fetches the page again for a body-text extract and the page's
-// current title.
-export const summarize = internalAction({
-  args: { linkId: v.id('links') },
-  handler: async (ctx, args): Promise<void> => {
-    try {
-      await runSummary(ctx, args.linkId, { fillMetadata: false })
-    } catch (error) {
-      console.error('[summarize] Error', error)
-      await markFailed(ctx, args.linkId)
-    }
-  },
-})
-
-// For imported links, which arrive with only a URL, title and tags, and
-// for retries: fetch the page metadata, fill what's missing, then
-// summarize.
+// The background step after every save, import and retry. A link saved
+// before its preview loaded, or imported with only a URL, title and tags,
+// gets its title, description and image here; every link gets its summary.
 export const enrich = internalAction({
   args: { linkId: v.id('links') },
   handler: async (ctx, args): Promise<void> => {
     try {
-      await runSummary(ctx, args.linkId, { fillMetadata: true })
+      await runSummary(ctx, args.linkId)
     } catch (error) {
       console.error('[enrich] Error', error)
       await markFailed(ctx, args.linkId)

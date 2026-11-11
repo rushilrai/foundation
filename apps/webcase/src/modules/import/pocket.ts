@@ -1,5 +1,5 @@
-import { parseHttpUrl } from '@convex/lib/metadata/url'
 import { normalizeTags, type TagCount } from '@shared/tags'
+import { parseHttpUrl } from '@shared/url'
 
 import { countTags } from '@/modules/link/utils'
 import { parseCsv } from './csv'
