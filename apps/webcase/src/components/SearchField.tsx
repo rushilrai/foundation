@@ -104,7 +104,7 @@ export const SearchField = ({
           <span
             role="status"
             className={cn(
-              'pointer-events-none absolute top-1/2 flex -translate-y-1/2 items-center gap-1 font-mono text-[0.6875rem] text-primary',
+              'pointer-events-none absolute top-1/2 flex -translate-y-1/2 items-center gap-1 font-mono text-2xs text-primary',
               value ? 'right-11' : 'right-0',
             )}
           >

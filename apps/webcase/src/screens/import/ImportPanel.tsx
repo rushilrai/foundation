@@ -1,15 +1,16 @@
+import { DAILY_IMPORT_LIMIT } from '@shared/limits'
 import { Link, useBlocker } from '@tanstack/react-router'
 
 import { InlineError } from '@/components/EmptyState'
+import { formatMonthYear } from '@/components/lib/dates'
+import { SectionLabel } from '@/components/SectionLabel'
 import { Tag } from '@/components/Tag'
 import { Button } from '@/components/ui/button'
+import { useClientDates } from '@/hooks/useClientDates'
 import { useImportRun, type ImportTotals } from '@/modules/import/mutations'
 import type { PocketExport } from '@/modules/import/pocket'
+import { enrichEstimate } from '@/modules/import/utils'
 
-// Imported links are enriched about one every 1.5 s, in the background.
-const ENRICH_SECONDS_PER_LINK = 1.5
-// The importLinks allowance per user and day (convex/configs/rateLimiter.ts).
-const DAILY_IMPORT_LIMIT = 5_000
 const TOP_TAGS = 12
 
 type ImportPanelProps = {
@@ -21,21 +22,18 @@ type ImportPanelProps = {
 const plural = (count: number, one: string, many = `${one}s`) =>
   `${count.toLocaleString('en')} ${count === 1 ? one : many}`
 
-const monthYear = (ms: number) =>
-  new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(ms)
+const SavedRange = ({ from, to }: { from: number; to: number }) => {
+  // Chosen files are only read in the browser, so the device zone is known.
+  const dates = useClientDates()
+  if (!dates) return null
 
-const dateRange = ({ from, to }: { from: number; to: number }) => {
-  const start = monthYear(from)
-  const end = monthYear(to)
-  return start === end ? `Saved in ${start}` : `Saved ${start} to ${end}`
-}
-
-// "over the next few minutes", from the background pace.
-const enrichEstimate = (count: number) => {
-  const minutes = Math.ceil((count * ENRICH_SECONDS_PER_LINK) / 60)
-  return minutes <= 1
-    ? 'over the next minute'
-    : `over the next ${minutes} minutes or so`
+  const start = formatMonthYear(from, dates)
+  const end = formatMonthYear(to, dates)
+  return (
+    <p className="mt-1 text-sm text-muted-foreground">
+      {start === end ? `Saved in ${start}` : `Saved ${start} to ${end}`}
+    </p>
+  )
 }
 
 // What was found, then the import itself: progress, a stop with resume,
@@ -77,11 +75,7 @@ export const ImportPanel = ({
       <p className="mt-2 font-serif text-3xl font-medium tabular-nums">
         {plural(total, 'link')}
       </p>
-      {data.range && (
-        <p className="mt-1 text-sm text-muted-foreground">
-          {dateRange(data.range)}
-        </p>
-      )}
+      {data.range && <SavedRange {...data.range} />}
       {data.unusable > 0 && (
         <p className="mt-1 text-sm text-muted-foreground">
           {plural(data.unusable, 'row')} without a usable link will be left out.
@@ -96,14 +90,12 @@ export const ImportPanel = ({
 
       {data.tags.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-[0.6875rem] font-medium tracking-[0.18em] text-muted-foreground uppercase">
-            Most used tags
-          </h2>
+          <SectionLabel as="h2">Most used tags</SectionLabel>
           <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2.5">
             {data.tags.slice(0, TOP_TAGS).map(({ tag, count }) => (
               <li key={tag} className="inline-flex items-center gap-1.5">
                 <Tag name={tag} className="text-sm" />
-                <span className="font-mono text-[0.6875rem] text-faint-foreground tabular-nums">
+                <span className="font-mono text-2xs text-faint-foreground tabular-nums">
                   {count}
                 </span>
               </li>
@@ -147,7 +139,7 @@ export const ImportPanel = ({
 
         <Button
           size="lg"
-          className="h-12 text-[0.9375rem]"
+          className="h-12 text-md"
           disabled={running}
           onClick={() => void start()}
         >
@@ -213,7 +205,7 @@ const ImportDone = ({
       <div className="mt-10 flex flex-col gap-3">
         <Button
           size="lg"
-          className="h-12 text-[0.9375rem]"
+          className="h-12 text-md"
           nativeButton={false}
           render={<Link to="/" />}
         >

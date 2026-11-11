@@ -3,6 +3,7 @@ import { IconFileImport, IconLogout, IconUserCircle } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '@/components/ui/button'
+import { FROM_LIBRARY } from '@/modules/link/hooks'
 
 const ITEM_CLASS =
   'flex h-11 cursor-default items-center gap-2.5 rounded-lg px-3 text-sm text-foreground outline-hidden select-none data-highlighted:bg-muted data-disabled:opacity-50 [&_svg]:size-4 [&_svg]:text-muted-foreground'
@@ -44,9 +45,7 @@ export const AccountMenu = ({
             {email && (
               <>
                 <div className="px-3 pt-2 pb-2.5">
-                  <p className="text-[0.6875rem] text-muted-foreground">
-                    Signed in as
-                  </p>
+                  <p className="text-2xs text-muted-foreground">Signed in as</p>
                   <p className="truncate font-mono text-xs text-foreground">
                     {email}
                   </p>
@@ -57,7 +56,7 @@ export const AccountMenu = ({
             <Menu.LinkItem
               closeOnClick
               className={ITEM_CLASS}
-              render={<Link to="/import" />}
+              render={<Link to="/import" state={FROM_LIBRARY} />}
             >
               <IconFileImport aria-hidden />
               Import from Pocket

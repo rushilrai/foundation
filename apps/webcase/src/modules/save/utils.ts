@@ -2,8 +2,6 @@ import { domainOf, fallbackTitle, parseHttpUrl } from '@shared/url'
 
 import type { SharedPayload } from './schema'
 
-export type { SharedPayload }
-
 // An http(s) URL up to whitespace, angle brackets, quotes, backticks or the
 // CJK punctuation that apps put right after a link.
 const HTTP_URL = /https?:\/\/[^\s<>"'`，。、「」『』【】]+/i

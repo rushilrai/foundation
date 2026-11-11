@@ -1,8 +1,9 @@
-import { useConvexMutation } from '@convex-dev/react-query'
-import { api } from '@convex/_generated/api'
-import { MAX_IMPORT_BATCH } from '@shared/limits'
+import type { api } from '@convex/_generated/api'
+import { DAILY_IMPORT_LIMIT, MAX_IMPORT_BATCH } from '@shared/limits'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { messageFor, MESSAGES, type ErrorMessages } from '@/modules/link/errors'
+import { useImportLinks } from '@/modules/link/mutations'
 import type { PocketItem } from './pocket'
 
 export type ImportTotals = {
@@ -21,10 +22,11 @@ export type ImportRun =
 
 const NO_TOTALS: ImportTotals = { imported: 0, skipped: 0, invalid: 0 }
 
-const STOP_MESSAGES: Record<string, string> = {
-  RATE_LIMITED:
-    'Webcase imports up to 5,000 links a day. Resume tomorrow for the rest.',
-  UNAUTHORIZED: 'You’ve been signed out. Sign in again, then resume.',
+const STOP_MESSAGES: ErrorMessages<
+  typeof api.modules.link.mutations.importMany
+> = {
+  RATE_LIMITED: `Webcase imports up to ${DAILY_IMPORT_LIMIT.toLocaleString('en')} links a day. Resume tomorrow for the rest.`,
+  UNAUTHORIZED: MESSAGES.UNAUTHORIZED,
   TOO_MANY_ITEMS: 'The server refused a batch. Try again.',
 }
 const NETWORK_MESSAGE = 'Lost the connection. Resume when you’re back online.'
@@ -34,9 +36,13 @@ const NETWORK_MESSAGE = 'Lost the connection. Resume when you’re back online.'
  * time. Stops at the first refused or failed batch; `start` then resumes
  * from that batch. Running it again is safe: links already in the library
  * are skipped and do not count against the daily allowance.
+ *
+ * Hand-rolled rather than TanStack's useMutation: one run is many calls
+ * with progress after each and a resume point kept across stops, which a
+ * single mutation's state does not hold.
  */
 export function useImportRun(items: readonly PocketItem[]) {
-  const importMany = useConvexMutation(api.modules.link.mutations.importMany)
+  const importMany = useImportLinks()
   const [run, setRunState] = useState<ImportRun>({ status: 'idle' })
   // The latest run, for `start` to resume from without re-creating itself.
   const runRef = useRef(run)
@@ -83,7 +89,7 @@ export function useImportRun(items: readonly PocketItem[]) {
           return stop(NETWORK_MESSAGE)
         }
         if ('error' in result) {
-          return stop(STOP_MESSAGES[result.error] ?? NETWORK_MESSAGE)
+          return stop(messageFor(STOP_MESSAGES, result.error))
         }
 
         totals.imported += result.imported

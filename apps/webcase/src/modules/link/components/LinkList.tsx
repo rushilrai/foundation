@@ -1,15 +1,16 @@
 import type { Doc } from '@convex/_generated/dataModel'
 import { memo, useMemo } from 'react'
 
+import type { DateContext } from '@/components/lib/dates'
 import { LinkRow, LinkRowSkeleton } from '@/components/LinkRow'
 import { MonthHeading } from '@/components/MonthHeading'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useRenderLimit, type ClientDates } from '../hooks'
+import { useRenderLimit } from '@/hooks/useRenderLimit'
 import { groupByMonth, takeFromGroups } from '../utils'
 
 type LinkListProps = {
   links: readonly Doc<'links'>[]
-  dates: ClientDates
+  dates: DateContext
   /** Changes when the search or filter does; rendering starts over from the top. */
   resetKey: string
   onOpen: (link: Doc<'links'>) => void
@@ -64,7 +65,7 @@ export const LinkList = ({
 type MonthSectionProps = {
   label: string
   links: readonly Doc<'links'>[]
-  dates: ClientDates
+  dates: DateContext
   onOpen: (link: Doc<'links'>) => void
   onTagSelect: (tag: string) => void
 }
@@ -103,7 +104,7 @@ const MonthSection = memo(function MonthSection({
 
 type LinkItemProps = {
   link: Doc<'links'>
-  dates: ClientDates
+  dates: DateContext
   onOpen: (link: Doc<'links'>) => void
   onTagSelect: (tag: string) => void
 }

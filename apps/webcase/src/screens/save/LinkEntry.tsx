@@ -6,6 +6,7 @@ import { InlineError } from '@/components/EmptyState'
 import { Button } from '@/components/ui/button'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { MESSAGES } from '@/modules/link/errors'
 import { findUrl } from '@/modules/save/utils'
 
 type LinkEntryProps = {
@@ -41,9 +42,7 @@ export const LinkEntry = ({
     if (href) {
       onSubmit(href)
     } else {
-      setError(
-        value.trim() ? 'That doesn’t look like a link.' : 'Enter a link.',
-      )
+      setError(value.trim() ? MESSAGES.INVALID_URL : 'Enter a link.')
       focusField()
     }
   }
@@ -139,7 +138,7 @@ export const LinkEntry = ({
         <Button
           type="button"
           size="lg"
-          className="h-12 flex-1 text-[0.9375rem]"
+          className="h-12 flex-1 text-md"
           disabled={reading}
           onClick={() => void paste()}
         >
@@ -150,7 +149,7 @@ export const LinkEntry = ({
           type="submit"
           variant="outline"
           size="lg"
-          className="h-12 flex-1 text-[0.9375rem]"
+          className="h-12 flex-1 text-md"
         >
           Continue
         </Button>

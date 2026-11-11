@@ -49,7 +49,7 @@ export const FilePicker = ({ onFile, busy, error }: FilePickerProps) => {
         <Button
           type="button"
           size="lg"
-          className="h-12 px-6 text-[0.9375rem]"
+          className="h-12 px-6 text-md"
           disabled={busy}
           onClick={() => inputRef.current?.click()}
         >

@@ -1,9 +1,10 @@
 import { MAX_TAGS, normalizeTag } from '@shared/tags'
 import { IconPlus, IconSparkles, IconX } from '@tabler/icons-react'
-import { useId, useMemo, useRef, useState } from 'react'
+import { useId, useImperativeHandle, useMemo, useRef, useState } from 'react'
 
 import { InlineError } from '@/components/EmptyState'
 import { cn } from '@/components/lib/utils'
+import { SectionLabel } from '@/components/SectionLabel'
 import { TagDot } from '@/components/Tag'
 import { Input } from '@/components/ui/input'
 
@@ -24,6 +25,8 @@ type TagPickerProps = {
   error?: React.ReactNode
   /** The text input, e.g. to focus it when the sheet opens. */
   ref?: React.Ref<HTMLInputElement>
+  /** For a form that submits or closes while a tag is still being typed. */
+  actionsRef?: React.Ref<TagPickerActions>
   label?: string
   placeholder?: string
   className?: string
@@ -34,6 +37,14 @@ const uniqueNormalized = (tags: readonly string[]) => [
 ]
 
 type Option = { tag: string; isNew: boolean }
+
+export type TagPickerActions = {
+  /**
+   * Adds the tag still being typed, if any, and returns the tags with it,
+   * so a submit right after typing includes it.
+   */
+  commitPending: () => string[]
+}
 
 /**
  * Chooses a link's tags: removable chips, tap-to-add suggestions, and a field
@@ -48,6 +59,7 @@ export const TagPicker = ({
   disabled = false,
   error,
   ref,
+  actionsRef,
   label = 'Tags',
   placeholder = 'Add a tag…',
   className,
@@ -71,13 +83,14 @@ export const TagPicker = ({
     else if (ref) ref.current = element
   }
 
-  const add = (raw: readonly string[]) => {
+  const add = (raw: readonly string[]): string[] => {
     const next = [...value]
     for (const tag of raw.map(normalizeTag)) {
       if (next.length >= MAX_TAGS) break
       if (tag && !next.includes(tag)) next.push(tag)
     }
     if (next.length !== value.length) onChange(next)
+    return next
   }
 
   const remove = (tag: string) => onChange(value.filter((item) => item !== tag))
@@ -106,19 +119,24 @@ export const TagPicker = ({
     : uniqueNormalized(suggestions).filter((tag) => !value.includes(tag))
 
   const commit = (tag: string) => {
-    add([tag])
+    const next = add([tag])
     setQuery('')
     setHighlighted(0)
+    return next
   }
+
+  // A typed tag counts even if the field is left without Enter: tapping
+  // Save, or closing the sheet, keeps it. Escape is the way to drop it.
+  const commitPending = () =>
+    normalizedQuery && !disabled ? commit(normalizedQuery) : [...value]
+
+  useImperativeHandle(actionsRef, () => ({ commitPending }))
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
-      <label
-        htmlFor={inputId}
-        className="text-[0.6875rem] font-medium tracking-[0.18em] text-muted-foreground uppercase"
-      >
+      <SectionLabel as="label" htmlFor={inputId}>
         {label}
-      </label>
+      </SectionLabel>
 
       {value.length > 0 && (
         <ul aria-label="Chosen tags" className="flex flex-wrap gap-2">
@@ -169,7 +187,12 @@ export const TagPicker = ({
           placeholder={full ? `${MAX_TAGS} tags at most` : placeholder}
           value={full ? '' : query}
           onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onBlur={() => {
+            setFocused(false)
+            // Option clicks keep focus here (their mousedown is prevented),
+            // so a blur means the field was left.
+            commitPending()
+          }}
           onChange={(event) => {
             // Mobile keyboards often send the comma only as input, not as a key.
             const parts = event.target.value.split(',')
@@ -188,6 +211,13 @@ export const TagPicker = ({
               const option = listOpen ? options[activeIndex] : undefined
               if (option) commit(option.tag)
               else if (normalizedQuery) commit(normalizedQuery)
+            } else if (event.key === 'Escape' && (query || listOpen)) {
+              // Clears the field and stops there: the sheet or page around
+              // it stays open, and nothing is added on the blur that follows.
+              event.preventDefault()
+              event.stopPropagation()
+              setQuery('')
+              setHighlighted(0)
             } else if (event.key === ',') {
               event.preventDefault()
               if (normalizedQuery) commit(normalizedQuery)

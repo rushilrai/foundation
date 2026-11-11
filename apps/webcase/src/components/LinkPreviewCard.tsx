@@ -50,7 +50,7 @@ export const LinkPreviewCard = ({
         </div>
       )}
       <div className="flex flex-col gap-1 p-4">
-        <span className="truncate font-mono text-[0.6875rem] text-muted-foreground">
+        <span className="truncate font-mono text-2xs text-muted-foreground">
           {domain}
         </span>
         <p className="line-clamp-3 font-serif text-lg leading-snug font-semibold tracking-tight text-pretty wrap-anywhere text-foreground">

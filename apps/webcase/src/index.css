@@ -115,6 +115,10 @@
 }
 
 @theme {
+  /* Text sizes between Tailwind's steps: 11px metadata and caps labels, 15px big buttons and summaries. */
+  --text-2xs: 0.6875rem;
+  --text-md: 0.9375rem;
+
   /* A sliver that runs along an underline while something is working (search "asking…"). */
   --animate-indeterminate: indeterminate 1.4s cubic-bezier(0.4, 0, 0.2, 1)
     infinite;

@@ -7,8 +7,8 @@
 export type DateInput = Date | number
 
 export type DateContext = {
-  /** The current time, as ms or a Date. */
-  now: DateInput
+  /** The current time in ms, e.g. from useClientDates (src/hooks). */
+  now: number
   /** An IANA zone, e.g. `Asia/Kolkata`. */
   timeZone: string
 }
@@ -43,4 +43,31 @@ export const formatSavedDate = (date: DateInput, context: DateContext) =>
     month: 'short',
     year: isSameYear(date, context) ? undefined : 'numeric',
     timeZone: context.timeZone,
+  }).format(date)
+
+/** "12 November 2025 at 14:05": a saved link's full date and time. */
+export const formatSavedDateTime = (
+  date: DateInput,
+  { timeZone }: Pick<DateContext, 'timeZone'>,
+) =>
+  new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone,
+  })
+    .format(date)
+    .replace(', ', ' at ')
+
+/** "November 2025", always with the year (e.g. the span of an import). */
+export const formatMonthYear = (
+  date: DateInput,
+  { timeZone }: Pick<DateContext, 'timeZone'>,
+) =>
+  new Intl.DateTimeFormat('en', {
+    month: 'long',
+    year: 'numeric',
+    timeZone,
   }).format(date)

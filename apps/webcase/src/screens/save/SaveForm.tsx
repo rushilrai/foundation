@@ -1,103 +1,93 @@
-import type { Id } from '@convex/_generated/dataModel'
-import { normalizeTags } from '@shared/tags'
+import type { api } from '@convex/_generated/api'
 import { IconBookmark } from '@tabler/icons-react'
-import { useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useRef } from 'react'
 
 import { InlineError } from '@/components/EmptyState'
 import {
   LinkPreviewCard,
   LinkPreviewCardSkeleton,
 } from '@/components/LinkPreviewCard'
-import { TagPicker } from '@/components/TagPicker'
+import { TagPicker, type TagPickerActions } from '@/components/TagPicker'
 import { Button } from '@/components/ui/button'
+import { useKeyboardInset } from '@/hooks/useKeyboardInset'
+import { messageFor, MESSAGES, type ErrorMessages } from '@/modules/link/errors'
+import { useReturnToLibrary } from '@/modules/link/hooks'
+import { useLibrary, usePreview } from '@/modules/link/queries'
+import { useSaveDraft } from '@/modules/save/hooks'
 import { SaveError, useSaveLinkMutation } from '@/modules/save/mutations'
-import { useLibrary, usePreviewQuery } from '@/modules/save/queries'
 import { fallbackLink } from '@/modules/save/utils'
-import { useKeyboardInset } from './useKeyboardInset'
 
 type SaveFormProps = {
   /** Normalised href. */
   url: string
   /** The title the share sent, shown and saved when the page can't be read. */
   sharedTitle: string | null
+  /** The tag field, so the page can move focus to it. */
+  tagInputRef?: React.Ref<HTMLInputElement>
   onChangeLink: () => void
 }
 
-type Existing = { linkId: Id<'links'>; tags: string[] }
-
-// Shown under a fallback card when there is no preview to show.
-const PREVIEW_NOTES: Record<string, string> = {
-  NOT_FETCHED: 'Couldn’t read this page. You can still save it.',
+// Shown under the card when there is no preview to show.
+const PREVIEW_ERRORS: ErrorMessages<
+  typeof api.modules.link.nodeActions.preview
+> = {
+  UNAUTHORIZED: MESSAGES.UNAUTHORIZED,
+  INVALID_URL: MESSAGES.INVALID_URL,
   RATE_LIMITED: 'Too many previews just now. You can still save it.',
-  UNAUTHORIZED: 'You’ve been signed out. Sign in again to save.',
-  INVALID_URL: 'That doesn’t look like a link.',
-  FAILED: 'Couldn’t load a preview. You can still save it.',
 }
+const NOT_FETCHED = 'Couldn’t read this page. You can still save it.'
+const PREVIEW_FAILED = 'Couldn’t load a preview. You can still save it.'
 
-export const SaveForm = ({ url, sharedTitle, onChangeLink }: SaveFormProps) => {
-  const navigate = useNavigate()
+export const SaveForm = ({
+  url,
+  sharedTitle,
+  tagInputRef,
+  onChangeLink,
+}: SaveFormProps) => {
   const keyboardInset = useKeyboardInset()
-  const previewQuery = usePreviewQuery(url)
+  const previewQuery = usePreview(url)
   const library = useLibrary()
-  const [tags, setTags] = useState<string[]>([])
-  // The saved link whose tags were added to the picker, once.
-  const [seededFrom, setSeededFrom] = useState<Id<'links'> | null>(null)
-  // What `existing` was when Save was tapped, so the page does not flip to
-  // "Already in your library" as the new link arrives in the live list.
-  const [frozen, setFrozen] = useState<{ existing: Existing | null } | null>(
-    null,
-  )
-
-  const save = useSaveLinkMutation({
-    // Replace, so Back from the library does not return to this form.
-    onSuccess: () => void navigate({ to: '/', replace: true }),
-  })
-  const busy = save.isPending || save.isSuccess
+  const { returnToLibrary } = useReturnToLibrary()
+  const tagActionsRef = useRef<TagPickerActions>(null)
 
   const result = previewQuery.data
   const preview = result && 'preview' in result ? result.preview : null
   const previewError = result && 'error' in result ? result.error : null
 
-  // The live library is the truth once loaded: a cached preview may predate
-  // saving this link. Until then the preview's own answer stands.
-  const saved = library.links?.find((link) => link.url === url)
-  const liveExisting: Existing | null = library.links
-    ? saved
-      ? { linkId: saved._id, tags: saved.tags }
-      : null
-    : (preview?.existing ?? null)
-  const existing = frozen ? frozen.existing : liveExisting
+  const draft = useSaveDraft({
+    url,
+    links: library.links,
+    previewExisting: preview?.existing ?? null,
+  })
+  const { tags, existing } = draft
 
-  if (existing && seededFrom !== existing.linkId) {
-    setSeededFrom(existing.linkId)
-    setTags((current) => normalizeTags([...existing.tags, ...current]))
-  }
+  const save = useSaveLinkMutation({ onSuccess: returnToLibrary })
+  const busy = save.isPending || save.isSuccess
 
   const fallback = fallbackLink(url)
   const note = preview
     ? preview.fetched
       ? null
-      : PREVIEW_NOTES.NOT_FETCHED
+      : NOT_FETCHED
     : previewError
-      ? PREVIEW_NOTES[previewError]
+      ? messageFor(PREVIEW_ERRORS, previewError)
       : previewQuery.isError
-        ? PREVIEW_NOTES.FAILED
+        ? PREVIEW_FAILED
         : null
 
   const submit = () => {
     if (busy) return
-    setFrozen({ existing })
+    draft.freeze()
     save.mutate(
       {
         url,
-        tags,
+        // With a tag still typed in the field, as on a phone, where Save is
+        // tapped straight after typing.
+        tags: tagActionsRef.current?.commitPending() ?? tags,
         sharedTitle,
-        // Replace tags only when the picker started from the saved ones.
-        existingId:
-          existing && existing.linkId === seededFrom ? existing.linkId : null,
+        existingId: draft.replaceId,
       },
-      { onError: () => setFrozen(null) },
+      { onError: draft.unfreeze },
     )
   }
 
@@ -123,7 +113,8 @@ export const SaveForm = ({ url, sharedTitle, onChangeLink }: SaveFormProps) => {
         <Button
           type="button"
           variant="ghost"
-          className="-mr-3 h-9 shrink-0 px-3 text-primary"
+          // 36px to look at, 44px to tap (the ::after).
+          className="relative -mr-3 h-9 shrink-0 px-3 text-primary after:absolute after:inset-x-0 after:-inset-y-1"
           disabled={busy}
           onClick={onChangeLink}
         >
@@ -164,9 +155,11 @@ export const SaveForm = ({ url, sharedTitle, onChangeLink }: SaveFormProps) => {
       </div>
 
       <TagPicker
+        ref={tagInputRef}
+        actionsRef={tagActionsRef}
         className="mt-8"
         value={tags}
-        onChange={setTags}
+        onChange={draft.setTags}
         suggestions={preview?.suggestedTags}
         allTags={library.tags}
         suggestionsLoading={previewQuery.isPending}
@@ -186,7 +179,7 @@ export const SaveForm = ({ url, sharedTitle, onChangeLink }: SaveFormProps) => {
         <Button
           type="submit"
           size="lg"
-          className="h-12 w-full text-[0.9375rem]"
+          className="h-12 w-full text-md"
           disabled={busy}
         >
           {busy ? 'Saving…' : existing ? 'Update tags' : 'Save link'}

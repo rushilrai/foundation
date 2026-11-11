@@ -29,6 +29,7 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
+import { MESSAGES } from '@/modules/link/errors'
 import { countTags, groupByMonth } from '@/modules/link/utils'
 
 // Dev-only gallery of the UI kit with realistic sample data. Not linked from the app.
@@ -355,7 +356,7 @@ export const KitScreen = () => {
         />
         <div className="flex flex-col gap-2 border-t pt-6">
           <Input placeholder="https://" defaultValue="not a url" aria-invalid />
-          <InlineError>That doesn’t look like a link.</InlineError>
+          <InlineError>{MESSAGES.INVALID_URL}</InlineError>
         </div>
       </KitSection>
 
@@ -501,7 +502,7 @@ const LinkRowsDemo = () => {
   return (
     <div>
       <p
-        className="mb-2 font-mono text-[0.6875rem] text-faint-foreground"
+        className="mb-2 font-mono text-2xs text-faint-foreground"
         data-testid="row-tap"
       >
         last tap: {lastTap}
@@ -559,7 +560,7 @@ const TagPickerDemo = () => {
         allTags={TAG_NAMES}
       />
       <p
-        className="mt-4 font-mono text-[0.6875rem] text-faint-foreground"
+        className="mt-4 font-mono text-2xs text-faint-foreground"
         data-testid="tag-picker-value"
       >
         value: {JSON.stringify(tags)}
@@ -643,7 +644,7 @@ const DetailSheet = ({
           <>
             <DrawerHeader>
               <DrawerTitle className="sr-only">{shown.title}</DrawerTitle>
-              <DrawerDescription className="font-mono text-[0.6875rem]">
+              <DrawerDescription className="font-mono text-2xs">
                 Saved{' '}
                 {new Date(shown.savedAt).toLocaleDateString('en-GB', {
                   day: 'numeric',
@@ -796,7 +797,7 @@ const KitSection = ({
 }) => {
   return (
     <section className="mt-16 border-t pt-4">
-      <h2 className="mb-6 font-mono text-[0.6875rem] tracking-wide text-primary">
+      <h2 className="mb-6 font-mono text-2xs tracking-wide text-primary">
         kit / {title.toLowerCase()}
       </h2>
       <div className="flex flex-col gap-4">{children}</div>
@@ -805,7 +806,5 @@ const KitSection = ({
 }
 
 const Caption = ({ children }: { children: React.ReactNode }) => (
-  <p className="mt-2 font-mono text-[0.6875rem] text-faint-foreground">
-    {children}
-  </p>
+  <p className="mt-2 font-mono text-2xs text-faint-foreground">{children}</p>
 )

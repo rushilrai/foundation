@@ -1,10 +1,16 @@
-import { useConvexMutation } from '@convex-dev/react-query'
-import { api } from '@convex/_generated/api'
+import type { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import type { LinkPreview } from '@convex/modules/link/nodeActions'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { previewQuery, type PreviewResult } from './queries'
+import {
+  messageFor,
+  MESSAGES,
+  type ErrorCode,
+  type ErrorMessages,
+} from '@/modules/link/errors'
+import { useCreateLink, useUpdateLinkTags } from '@/modules/link/mutations'
+import { previewQuery, type PreviewResult } from '@/modules/link/queries'
 import { fallbackLink } from './utils'
 
 // How long Save waits for a preview that is still loading before it saves
@@ -18,14 +24,20 @@ export class SaveError extends Error {
   }
 }
 
-const SAVE_MESSAGES: Record<string, string> = {
-  UNAUTHORIZED: 'You’ve been signed out. Sign in again to save.',
-  INVALID_URL: 'That doesn’t look like a link.',
+type SaveErrorCode =
+  | ErrorCode<typeof api.modules.link.mutations.create>
+  | ErrorCode<typeof api.modules.link.mutations.updateTags>
+
+const SAVE_MESSAGES: ErrorMessages<typeof api.modules.link.mutations.create> &
+  ErrorMessages<typeof api.modules.link.mutations.updateTags> = {
+  UNAUTHORIZED: MESSAGES.UNAUTHORIZED,
+  INVALID_URL: MESSAGES.INVALID_URL,
+  NOT_FOUND: MESSAGES.NOT_FOUND,
   RATE_LIMITED: 'You’ve saved a lot in a short time. Try again in a minute.',
 }
 
-const failWith = (code: string): never => {
-  throw new SaveError(SAVE_MESSAGES[code] ?? 'Couldn’t save. Try again.')
+const failWith = (code: SaveErrorCode): never => {
+  throw new SaveError(messageFor(SAVE_MESSAGES, code))
 }
 
 export type SaveInput = {
@@ -49,8 +61,8 @@ const wait = (ms: number) =>
 // its host and path.
 export function useSaveLinkMutation({ onSuccess }: { onSuccess: () => void }) {
   const queryClient = useQueryClient()
-  const create = useConvexMutation(api.modules.link.mutations.create)
-  const updateTags = useConvexMutation(api.modules.link.mutations.updateTags)
+  const create = useCreateLink()
+  const updateTags = useUpdateLinkTags()
 
   const settledPreview = async (url: string): Promise<LinkPreview | null> => {
     const query = previewQuery(url)

@@ -1,43 +1,37 @@
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import { MAX_QUESTION_LENGTH } from '@shared/limits'
 import { normalizeTag, type TagCount } from '@shared/tags'
-import { IconSparkles } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import {
   useCallback,
   useDeferredValue,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react'
 
 import { AddLinkButton } from '@/components/AddLinkButton'
-import { AnswerCard } from '@/components/AnswerCard'
 import { EmptyState, InlineError } from '@/components/EmptyState'
 import { LibraryHeader } from '@/components/LibraryHeader'
-import { MonthHeading } from '@/components/MonthHeading'
 import { SearchField } from '@/components/SearchField'
 import { TagFilterBar } from '@/components/TagFilterBar'
 import { Button } from '@/components/ui/button'
+import { useClientDates } from '@/hooks/useClientDates'
 import { useSignOutMutation } from '@/modules/auth/mutations'
 import { useCurrentUser } from '@/modules/auth/queries'
 import { LinkDetailSheet } from '@/modules/link/components/LinkDetailSheet'
-import {
-  LinkItem,
-  LinkList,
-  LinkListSkeleton,
-} from '@/modules/link/components/LinkList'
-import {
-  useAsk,
-  useClientDates,
-  type AskState,
-  type ClientDates,
-} from '@/modules/link/hooks'
-import { useLinks } from '@/modules/link/queries'
+import { LinkList, LinkListSkeleton } from '@/modules/link/components/LinkList'
+import { FROM_LIBRARY } from '@/modules/link/hooks'
+import { useAsk } from '@/modules/link/mutations'
+import { useLibrary } from '@/modules/link/queries'
 import { filterLinks, isQuestion, searchWords } from '@/modules/link/search'
-import { countTags } from '@/modules/link/utils'
 import { AccountMenu } from './AccountMenu'
+import { AskPrompt } from './AskPrompt'
+import { AskResults } from './AskResults'
+import { useSearchShortcut } from './hooks'
+import { NoResults } from './NoResults'
 
 type HomeScreenProps = {
   /** The tag filter from the URL, or undefined for all links. */
@@ -48,7 +42,7 @@ type HomeScreenProps = {
 export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
   const user = useCurrentUser()
   const signOut = useSignOutMutation()
-  const linksQuery = useLinks()
+  const library = useLibrary()
   const dates = useClientDates()
 
   const searchRef = useRef<HTMLInputElement>(null)
@@ -58,17 +52,12 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
 
   const activeTag = (tagParam && normalizeTag(tagParam)) || null
 
-  const links =
-    linksQuery.data && 'links' in linksQuery.data
-      ? linksQuery.data.links
-      : undefined
+  const { links, tagCounts, tags: allTags } = library
 
   const byId = useMemo(
     () => new Map(links?.map((link) => [link._id, link])),
     [links],
   )
-  const tagCounts = useMemo(() => countTags(links ?? []), [links])
-  const allTags = useMemo(() => tagCounts.map(({ tag }) => tag), [tagCounts])
   // An active tag nobody carries any more (its last link was deleted)
   // stays visible, so the filter can still be seen and cleared.
   const filterTags = useMemo<TagCount[]>(
@@ -80,7 +69,10 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
   )
 
   // Typing stays responsive while a large list filters behind it.
-  const deferredQuery = useDeferredValue(query)
+  // A cleared box applies at once, so a tag picked while an answer shows
+  // never flashes "nothing matches" for the old question.
+  const lagging = useDeferredValue(query)
+  const deferredQuery = query.trim() ? lagging : ''
   const words = useMemo(() => searchWords(deferredQuery), [deferredQuery])
   const visible = useMemo(
     () => (links ? filterLinks(links, words, activeTag) : []),
@@ -94,25 +86,22 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
     if (selectedId && links && !byId.has(selectedId)) setSelectedId(null)
   }, [byId, links, selectedId])
 
-  // `/` jumps to search, as on most sites with one.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) {
-        return
-      }
-      const target = event.target as HTMLElement | null
-      if (
-        target?.closest('input, textarea, select, [contenteditable="true"]') ||
-        document.querySelector('[role="dialog"], [role="alertdialog"]')
-      ) {
-        return
-      }
-      event.preventDefault()
-      searchRef.current?.focus()
+  useSearchShortcut(searchRef)
+
+  // An answer covers the whole library, so asking clears the tag filter
+  // (below), and picking a tag afterwards (in the bar, on a row, or with
+  // Back and Forward) leaves the answer for that tag's links. Before paint,
+  // so the old answer never shows under the new tag.
+  const asking = askState.status !== 'idle'
+  const shownTagRef = useRef(activeTag)
+  useLayoutEffect(() => {
+    if (shownTagRef.current === activeTag) return
+    shownTagRef.current = activeTag
+    if (activeTag !== null && asking) {
+      resetAsk()
+      setQuery('')
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [activeTag, asking, resetAsk])
 
   // Focus goes back to the row that opened the sheet, or, when that row is
   // gone (deleted), to search; on a touch screen nowhere, so no keyboard pops up.
@@ -151,7 +140,9 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
 
   const submitQuestion = (text: string) => {
     const question = text.replace(/\s+/g, ' ').trim()
-    if (question && askState.status !== 'asking') void ask(question)
+    if (!question || askState.status === 'asking') return
+    if (activeTag) onTagChange(null)
+    ask(question)
   }
 
   const clearFilters = () => {
@@ -161,9 +152,9 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
     searchRef.current?.focus()
   }
 
-  const loading = linksQuery.isPending || (links !== undefined && !dates)
+  const loading =
+    library.status === 'loading' || (links !== undefined && !dates)
   const empty = links !== undefined && links.length === 0
-  const asking = askState.status !== 'idle'
   const filtering = words.length > 0 || activeTag !== null
 
   return (
@@ -215,7 +206,7 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
         </>
       )}
 
-      {linksQuery.isError ? (
+      {library.status === 'error' ? (
         <EmptyState
           tone="error"
           title="Couldn’t load your links."
@@ -230,7 +221,7 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
             </Button>
           }
         />
-      ) : linksQuery.data && 'error' in linksQuery.data ? (
+      ) : library.status === 'signedOut' ? (
         <EmptyState
           tone="error"
           title="You’re signed out."
@@ -256,7 +247,7 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
               <Button
                 className="h-11 px-5"
                 nativeButton={false}
-                render={<Link to="/save" />}
+                render={<Link to="/save" state={FROM_LIBRARY} />}
               >
                 Add your first link
               </Button>
@@ -264,14 +255,14 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
                 variant="ghost"
                 className="h-11 px-5 text-muted-foreground"
                 nativeButton={false}
-                render={<Link to="/import" />}
+                render={<Link to="/import" state={FROM_LIBRARY} />}
               >
                 Import from Pocket
               </Button>
             </div>
           }
         />
-      ) : asking ? (
+      ) : askState.status !== 'idle' ? (
         <AskResults
           state={askState}
           byId={byId}
@@ -318,7 +309,10 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
         </>
       )}
 
-      <AddLinkButton nativeButton={false} render={<Link to="/save" />} />
+      <AddLinkButton
+        nativeButton={false}
+        render={<Link to="/save" state={FROM_LIBRARY} />}
+      />
 
       {dates && (
         <LinkDetailSheet
@@ -330,121 +324,5 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
         />
       )}
     </main>
-  )
-}
-
-// ---------------------------------------------------------------------------
-
-/** Shown under the filter while the box holds a question: tap to ask it. */
-const AskPrompt = ({
-  question,
-  onAsk,
-}: {
-  question: string
-  onAsk: () => void
-}) => {
-  return (
-    <button
-      type="button"
-      onClick={onAsk}
-      className="mt-3 flex h-11 w-full min-w-0 items-center gap-2 rounded-xl bg-primary/[0.06] px-4 text-left text-sm outline-hidden transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-solid active:bg-primary/10"
-    >
-      <IconSparkles className="size-4 shrink-0 text-primary" aria-hidden />
-      <span className="shrink-0 font-medium text-primary">Ask</span>
-      <span className="min-w-0 truncate text-muted-foreground">
-        “{question.trim()}”
-      </span>
-      <kbd className="ml-auto hidden shrink-0 pl-2 font-mono text-[0.6875rem] text-faint-foreground sm:inline">
-        Enter
-      </kbd>
-    </button>
-  )
-}
-
-type AskResultsProps = {
-  state: Exclude<AskState, { status: 'idle' }>
-  byId: ReadonlyMap<Id<'links'>, Doc<'links'>>
-  dates: ClientDates
-  onOpen: (link: Doc<'links'>) => void
-  onTagSelect: (tag: string) => void
-  onDismiss: () => void
-}
-
-/** The answer, then the links it drew on, in the order the answer gave them. */
-const AskResults = ({
-  state,
-  byId,
-  dates,
-  onOpen,
-  onTagSelect,
-  onDismiss,
-}: AskResultsProps) => {
-  // Links deleted since the answer drop out.
-  const sources =
-    state.status === 'answered'
-      ? state.linkIds.flatMap((id) => byId.get(id) ?? [])
-      : []
-
-  return (
-    <div className="mt-4">
-      <AnswerCard
-        question={state.question}
-        loading={state.status === 'asking'}
-        answer={state.status === 'answered' ? state.answer : undefined}
-        error={state.status === 'failed' ? state.message : undefined}
-        onDismiss={state.status === 'asking' ? undefined : onDismiss}
-      />
-      {sources.length > 0 && (
-        <section aria-label="Links in the answer">
-          <MonthHeading>
-            {sources.length === 1
-              ? 'From 1 link'
-              : `From ${sources.length} links`}
-          </MonthHeading>
-          {sources.map((link) => (
-            <LinkItem
-              key={link._id}
-              link={link}
-              dates={dates}
-              onOpen={onOpen}
-              onTagSelect={onTagSelect}
-            />
-          ))}
-        </section>
-      )}
-    </div>
-  )
-}
-
-const NoResults = ({
-  query,
-  tag,
-  onClear,
-}: {
-  query: string
-  tag: string | null
-  onClear: () => void
-}) => {
-  const title =
-    query && tag
-      ? `Nothing tagged ${tag} matches “${query}”.`
-      : tag
-        ? `Nothing tagged ${tag}.`
-        : `Nothing matches “${query}”.`
-
-  return (
-    <EmptyState
-      className="py-16"
-      title={<span className="wrap-anywhere">{title}</span>}
-      action={
-        <Button variant="outline" className="h-11 px-5" onClick={onClear}>
-          {query && tag
-            ? 'Clear search and tag'
-            : tag
-              ? 'Show all links'
-              : 'Clear search'}
-        </Button>
-      }
-    />
   )
 }

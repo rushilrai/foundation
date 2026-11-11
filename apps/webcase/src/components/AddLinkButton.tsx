@@ -20,7 +20,7 @@ export const AddLinkButton = ({
   return (
     <Button
       className={cn(
-        'fab-position h-12 gap-1.5 rounded-full pr-5 pl-4 text-[0.9375rem] shadow-lg shadow-primary/30 hover:bg-primary/90 focus-visible:ring-offset-2 active:scale-[0.98]',
+        'fab-position h-12 gap-1.5 rounded-full pr-5 pl-4 text-md shadow-lg shadow-primary/30 hover:bg-primary/90 focus-visible:ring-offset-2 active:scale-[0.98]',
         className,
       )}
       {...props}

@@ -29,14 +29,11 @@ export const AnswerCard = ({
   return (
     <section
       aria-label="Answer"
-      className={cn(
-        'relative rounded-xl bg-primary/[0.06] px-4 py-3.5',
-        className,
-      )}
+      className={cn('relative rounded-xl bg-primary/5 px-4 py-3.5', className)}
     >
       <div className="flex items-center gap-1.5 pr-8 text-primary">
         <IconSparkles className="size-3.5 shrink-0" aria-hidden />
-        <h2 className="font-mono text-[0.6875rem] tracking-wide">
+        <h2 className="font-mono text-2xs tracking-wide">
           {loading ? 'Thinking…' : error ? 'No answer' : 'Answer'}
         </h2>
         {question && (

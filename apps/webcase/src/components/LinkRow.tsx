@@ -114,7 +114,7 @@ export const LinkRow = ({
       )}
 
       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="max-w-full truncate font-mono text-[0.6875rem] text-muted-foreground">
+        <span className="max-w-full truncate font-mono text-2xs text-muted-foreground">
           {domain}
         </span>
         {visibleTags.map((tag) =>
@@ -135,14 +135,14 @@ export const LinkRow = ({
           ),
         )}
         {hiddenTags > 0 && (
-          <span className="font-mono text-[0.6875rem] text-muted-foreground">
+          <span className="font-mono text-2xs text-muted-foreground">
             +{hiddenTags}
             <span className="sr-only"> more tags</span>
           </span>
         )}
         <time
           dateTime={date.toISOString()}
-          className="ml-auto shrink-0 pl-2 font-mono text-[0.6875rem] text-faint-foreground"
+          className="ml-auto shrink-0 pl-2 font-mono text-2xs text-faint-foreground"
         >
           {formatSavedDate(date, { now, timeZone })}
         </time>
