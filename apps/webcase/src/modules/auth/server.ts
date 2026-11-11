@@ -1,27 +1,15 @@
-import { auth } from '@clerk/tanstack-react-start/server'
-import { redirect } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
+import { convexBetterAuthReactStart } from '@convex-dev/better-auth/react-start'
 
-export const authGuard = createServerFn({ method: 'GET' }).handler(async () => {
-  const { userId } = await auth()
+import { env } from '@/env'
 
-  if (!userId) {
-    throw redirect({ to: '/sign-in/$' })
-  }
-
-  return { userId }
+// Server only: the /api/auth proxy handler and the token for SSR requests.
+export const {
+  handler,
+  getToken,
+  fetchAuthQuery,
+  fetchAuthMutation,
+  fetchAuthAction,
+} = convexBetterAuthReactStart({
+  convexUrl: env.VITE_CONVEX_URL,
+  convexSiteUrl: env.VITE_CONVEX_SITE_URL,
 })
-
-export const getAuthToken = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const authObject = await auth()
-
-    if (!authObject.userId) {
-      return { token: null, userId: null }
-    }
-
-    const token = await authObject.getToken({ template: 'convex' })
-
-    return { token, userId: authObject.userId }
-  },
-)

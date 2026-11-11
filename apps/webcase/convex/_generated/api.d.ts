@@ -8,12 +8,10 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
 import type * as http from "../http.js";
-import type * as modules_user_helpers from "../modules/user/helpers.js";
-import type * as modules_user_http from "../modules/user/http.js";
-import type * as modules_user_mutations from "../modules/user/mutations.js";
-import type * as modules_user_queries from "../modules/user/queries.js";
-import type * as modules_user_utils from "../modules/user/utils.js";
+import type * as modules_auth_helpers from "../modules/auth/helpers.js";
+import type * as modules_auth_queries from "../modules/auth/queries.js";
 
 import type {
   ApiFromModules,
@@ -22,12 +20,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
   http: typeof http;
-  "modules/user/helpers": typeof modules_user_helpers;
-  "modules/user/http": typeof modules_user_http;
-  "modules/user/mutations": typeof modules_user_mutations;
-  "modules/user/queries": typeof modules_user_queries;
-  "modules/user/utils": typeof modules_user_utils;
+  "modules/auth/helpers": typeof modules_auth_helpers;
+  "modules/auth/queries": typeof modules_auth_queries;
 }>;
 
 /**
@@ -56,4 +52,7 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
+  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+};

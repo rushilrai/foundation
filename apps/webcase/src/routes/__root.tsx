@@ -1,18 +1,20 @@
-import { ClerkProvider, useAuth } from '@clerk/tanstack-react-start'
-import { ConvexQueryClient } from '@convex-dev/react-query'
-import { TanStackDevtools } from '@tanstack/react-devtools'
-import { QueryClient } from '@tanstack/react-query'
+import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react'
+import type { ConvexQueryClient } from '@convex-dev/react-query'
+import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import {
   createRootRouteWithContext,
   HeadContent,
   Outlet,
   Scripts,
 } from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { ConvexProviderWithClerk } from 'convex/react-clerk'
 
-import { getAuthToken } from '@/modules/auth/server'
+import { authClient } from '@/modules/auth/client'
+import { getAuthToken } from '@/modules/auth/functions'
 import styles from '../index.css?url'
+
+const DESCRIPTION = 'Your saved links, tagged and searchable.'
+// Matches --background in index.css.
+const THEME_COLOR = '#ffffff'
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
@@ -20,51 +22,43 @@ export const Route = createRootRouteWithContext<{
 }>()({
   head: () => ({
     meta: [
-      {
-        charSet: 'utf-8',
-      },
+      { charSet: 'utf-8' },
       {
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
+        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
       },
-      {
-        title: 'TanStack Start Starter',
-      },
+      { title: 'Webcase' },
+      { name: 'description', content: DESCRIPTION },
+      { name: 'theme-color', content: THEME_COLOR },
+      { name: 'color-scheme', content: 'light' },
     ],
-    links: [
-      {
-        rel: 'stylesheet',
-        href: styles,
-      },
-    ],
+    links: [{ rel: 'stylesheet', href: styles }],
   }),
   beforeLoad: async ({ context }) => {
-    if (typeof window === 'undefined') {
-      const { token } = await getAuthToken()
+    const token = await getAuthToken()
 
-      if (token && context.convexQueryClient.serverHttpClient) {
-        context.convexQueryClient.serverHttpClient.setAuth(token)
-      }
-    }
+    // Only set during SSR: authenticates the server's Convex queries.
+    if (token) context.convexQueryClient.serverHttpClient?.setAuth(token)
 
-    return {}
+    return { isAuthenticated: token !== null, token }
   },
   shellComponent: RootComponent,
 })
 
 function RootComponent() {
-  const { convexQueryClient } = Route.useRouteContext()
+  const { convexQueryClient, queryClient, token } = Route.useRouteContext()
 
   return (
     <RootDocument>
-      <ClerkProvider>
-        <ConvexProviderWithClerk
+      <QueryClientProvider client={queryClient}>
+        <ConvexBetterAuthProvider
           client={convexQueryClient.convexClient}
-          useAuth={useAuth}
+          authClient={authClient}
+          initialToken={token}
         >
           <Outlet />
-        </ConvexProviderWithClerk>
-      </ClerkProvider>
+        </ConvexBetterAuthProvider>
+      </QueryClientProvider>
     </RootDocument>
   )
 }
@@ -76,20 +70,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
 
-      <body className="h-screen">
+      <body className="min-h-dvh bg-background text-foreground antialiased">
         {children}
-
-        <TanStackDevtools
-          config={{
-            position: 'bottom-right',
-          }}
-          plugins={[
-            {
-              name: 'Tanstack Router',
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
 
         <Scripts />
       </body>

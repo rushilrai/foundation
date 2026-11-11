@@ -16,6 +16,10 @@ const config = defineConfig({
     ...(process.env.VITEST ? [] : [nitro()]),
     viteReact(),
   ],
+  // Bundled during SSR, as the Convex Better Auth guide requires.
+  ssr: {
+    noExternal: ['@convex-dev/better-auth'],
+  },
   // See https://github.com/TanStack/router/issues/5738
   resolve: {
     alias: [

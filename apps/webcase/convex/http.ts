@@ -1,13 +1,9 @@
 import { httpRouter } from 'convex/server'
 
-import { handleClerkUserWebhook } from './modules/user/http'
+import { authComponent, createAuth } from './auth'
 
 const http = httpRouter()
 
-http.route({
-  path: '/clerk-user-webhook',
-  method: 'POST',
-  handler: handleClerkUserWebhook,
-})
+authComponent.registerRoutes(http, createAuth)
 
 export default http
