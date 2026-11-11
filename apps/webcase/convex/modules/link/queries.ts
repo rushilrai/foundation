@@ -2,6 +2,7 @@ import { v } from 'convex/values'
 
 import type { Doc, Id } from '../../_generated/dataModel'
 import { internalQuery, query } from '../../_generated/server'
+import type { TagCount } from '../../../shared/tags'
 import { getUserId } from '../auth/helpers'
 import { getByUrl, getUserLinks } from './helpers'
 
@@ -26,15 +27,19 @@ export const getInternal = internalQuery({
     await ctx.db.get(args.linkId),
 })
 
-export const isSavedInternal = internalQuery({
+export type ExistingLink = { linkId: Id<'links'>; tags: Array<string> }
+
+// The user's link at this (normalised) URL, if they saved it already.
+export const getExistingInternal = internalQuery({
   args: { userId: v.string(), url: v.string() },
-  handler: async (ctx, args): Promise<boolean> =>
-    (await getByUrl(ctx, args.userId, args.url)) !== null,
+  handler: async (ctx, args): Promise<ExistingLink | null> => {
+    const link = await getByUrl(ctx, args.userId, args.url)
+
+    return link ? { linkId: link._id, tags: link.tags } : null
+  },
 })
 
-export type TagStat = {
-  tag: string
-  count: number
+export type TagStat = TagCount & {
   // A few titles of links that carry the tag, newest first
   examples: Array<string>
 }
