@@ -1,3 +1,4 @@
+import { InlineError } from '@/components/EmptyState'
 import { Button } from '@/components/ui/button'
 import { Wordmark } from '@/components/Wordmark'
 import { useSignOutMutation } from '@/modules/auth/mutations'
@@ -30,11 +31,7 @@ export const HomeScreen = () => {
         </p>
       )}
 
-      {signOut.error && (
-        <p role="alert" className="mt-4 text-sm text-destructive">
-          {signOut.error.message}
-        </p>
-      )}
+      <InlineError className="mt-4">{signOut.error?.message}</InlineError>
 
       <p className="py-24 text-center font-serif text-xl text-muted-foreground italic">
         No links yet.

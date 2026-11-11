@@ -12,8 +12,7 @@ const config = defineConfig({
     }),
     tailwindcss(),
     tanstackStart(),
-    // nitro's plugin breaks module resolution under vitest, and tests don't need the server build
-    ...(process.env.VITEST ? [] : [nitro()]),
+    nitro(),
     viteReact(),
   ],
   // Bundled during SSR, as the Convex Better Auth guide requires.

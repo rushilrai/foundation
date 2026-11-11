@@ -1,12 +1,13 @@
 import { useForm } from '@tanstack/react-form'
 import { Link } from '@tanstack/react-router'
 
+import { InlineError } from '@/components/EmptyState'
 import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
 import { Wordmark } from '@/components/Wordmark'
 import { AuthTextField } from '@/modules/auth/components/AuthTextField'
 import { useSignUpMutation } from '@/modules/auth/mutations'
-import { signUpSchema } from '@/modules/auth/schema'
+import { MIN_PASSWORD_LENGTH, signUpSchema } from '@/modules/auth/schema'
 
 type SignUpScreenProps = {
   redirect: string | undefined
@@ -96,7 +97,7 @@ export const SignUpScreen = ({ redirect }: SignUpScreenProps) => {
               children={(field) => (
                 <AuthTextField
                   name={field.name}
-                  label="Password (at least 8 characters)"
+                  label={`Password (at least ${MIN_PASSWORD_LENGTH} characters)`}
                   type="password"
                   autoComplete="new-password"
                   value={field.state.value}
@@ -111,11 +112,7 @@ export const SignUpScreen = ({ redirect }: SignUpScreenProps) => {
               )}
             />
 
-            {signUp.error && (
-              <p role="alert" className="text-sm text-destructive">
-                {signUp.error.message}
-              </p>
-            )}
+            <InlineError>{signUp.error?.message}</InlineError>
 
             <Button type="submit" size="lg" className="h-11" disabled={isBusy}>
               {isBusy ? 'Creating account…' : 'Create account'}

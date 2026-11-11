@@ -1,6 +1,7 @@
 import { useForm } from '@tanstack/react-form'
 import { Link } from '@tanstack/react-router'
 
+import { InlineError } from '@/components/EmptyState'
 import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
 import { Wordmark } from '@/components/Wordmark'
@@ -89,11 +90,7 @@ export const SignInScreen = ({ redirect }: SignInScreenProps) => {
               )}
             />
 
-            {signIn.error && (
-              <p role="alert" className="text-sm text-destructive">
-                {signIn.error.message}
-              </p>
-            )}
+            <InlineError>{signIn.error?.message}</InlineError>
 
             <Button type="submit" size="lg" className="h-11" disabled={isBusy}>
               {isBusy ? 'Signing in…' : 'Sign in'}

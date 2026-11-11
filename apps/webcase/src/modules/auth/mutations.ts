@@ -1,8 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 
-import { performLogout } from './logout'
 import type { SignInInput, SignUpInput } from './schema'
-import { signInWithEmail, signUpWithEmail } from './service'
+import { signInWithEmail, signOut, signUpWithEmail } from './service'
 import { resolveRedirect } from './utils'
 
 // A full page load after signing in, so the next page renders on the server
@@ -25,6 +24,13 @@ export function useSignUpMutation(redirect: string | undefined) {
   })
 }
 
+// A full reload drops the Convex client's auth and every cached query, as the
+// Convex Better Auth guide recommends; Home then redirects to sign-in.
 export function useSignOutMutation() {
-  return useMutation({ mutationFn: performLogout })
+  return useMutation({
+    mutationFn: async () => {
+      await signOut()
+      window.location.reload()
+    },
+  })
 }

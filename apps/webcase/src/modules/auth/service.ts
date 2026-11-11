@@ -2,12 +2,9 @@ import { authClient } from './client'
 import type { SignInInput, SignUpInput } from './schema'
 
 export class AuthError extends Error {
-  code: string | undefined
-
-  constructor(message: string, code?: string) {
+  constructor(message: string) {
     super(message)
     this.name = 'AuthError'
-    this.code = code
   }
 }
 
@@ -33,7 +30,6 @@ export async function signInWithEmail(input: SignInInput) {
     const code = response.error.code
     throw new AuthError(
       (code && SIGN_IN_MESSAGES[code]) ?? "Couldn't sign in. Try again.",
-      code,
     )
   }
 }
@@ -50,7 +46,6 @@ export async function signUpWithEmail(input: SignUpInput) {
     throw new AuthError(
       (code && SIGN_UP_MESSAGES[code]) ??
         "Couldn't create the account. Try again.",
-      code,
     )
   }
 }
