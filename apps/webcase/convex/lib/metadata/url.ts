@@ -65,17 +65,25 @@ const parseIPv4 = (value: string): Array<number> | null => {
   return octets
 }
 
-const isPrivateIPv4 = ([a, b]: Array<number>): boolean =>
-  a === 0 || // "this" network
-  a === 10 ||
-  a === 127 || // loopback
-  (a === 100 && b >= 64 && b <= 127) || // carrier-grade NAT
-  (a === 169 && b === 254) || // link-local, cloud metadata
-  (a === 172 && b >= 16 && b <= 31) ||
-  (a === 192 && b === 168) ||
-  (a === 192 && b === 0) || // IETF protocol assignments
-  (a === 198 && (b === 18 || b === 19)) || // benchmarking
-  a >= 224 // multicast, reserved, broadcast
+// The IANA IPv4 special-purpose registry's ranges that are not globally
+// reachable, plus multicast. Its globally reachable entries (192.31.196.0/24
+// and 192.175.48.0/24 for AS112, 192.52.193.0/24 for AMT) stay fetchable, as
+// does the rest of 192.0.0.0/16: WordPress.com serves from 192.0.78.x.
+const isPrivateIPv4 = ([a, b, c]: Array<number>): boolean =>
+  a === 0 || // "this" network, 0.0.0.0/8
+  a === 10 || // private, 10.0.0.0/8
+  a === 127 || // loopback, 127.0.0.0/8
+  (a === 100 && b >= 64 && b <= 127) || // shared (carrier-grade NAT), 100.64.0.0/10
+  (a === 169 && b === 254) || // link-local and cloud metadata, 169.254.0.0/16
+  (a === 172 && b >= 16 && b <= 31) || // private, 172.16.0.0/12
+  (a === 192 && b === 0 && c === 0) || // IETF protocol assignments, 192.0.0.0/24
+  (a === 192 && b === 0 && c === 2) || // documentation, 192.0.2.0/24
+  (a === 192 && b === 88 && c === 99) || // retired 6to4 relay anycast, 192.88.99.0/24
+  (a === 192 && b === 168) || // private, 192.168.0.0/16
+  (a === 198 && (b === 18 || b === 19)) || // benchmarking, 198.18.0.0/15
+  (a === 198 && b === 51 && c === 100) || // documentation, 198.51.100.0/24
+  (a === 203 && b === 0 && c === 113) || // documentation, 203.0.113.0/24
+  a >= 224 // multicast 224.0.0.0/4, reserved 240.0.0.0/4, broadcast
 
 // Expands an IPv6 address to eight 16-bit groups, or null if it isn't one.
 const parseIPv6 = (value: string): Array<number> | null => {
