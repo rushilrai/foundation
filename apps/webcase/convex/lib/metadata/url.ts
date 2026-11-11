@@ -1,10 +1,17 @@
 // Pure URL helpers: parsing user-supplied links, deciding which hosts are
 // safe to fetch, and deriving display values. No I/O here.
 
-export const MAX_URL_LENGTH = 2048
+import {
+  MAX_IMAGE_URL_LENGTH,
+  MAX_TITLE_LENGTH,
+  MAX_URL_LENGTH,
+} from '../../../shared/limits'
 
 // Parses an http(s) URL. Returns null for anything else, including
 // credentials in the URL, which are never needed to read a public page.
+// `href` is the normalised form links are stored and matched by: lowercase
+// host, no default port, `/` for an empty path, percent-encoding applied.
+// Query strings and fragments are kept as given.
 export const parseHttpUrl = (raw: string): URL | null => {
   const value = raw.trim()
   if (!value || value.length > MAX_URL_LENGTH) {
@@ -24,8 +31,33 @@ export const parseHttpUrl = (raw: string): URL | null => {
   if (!url.hostname || url.username || url.password) {
     return null
   }
+  if (url.href.length > MAX_URL_LENGTH) {
+    return null
+  }
 
   return url
+}
+
+// An image URL as stored: absolute http(s) (resolved against `base` when
+// given), within the length limit, else undefined.
+export const cleanImageUrl = (
+  raw: string | undefined,
+  base?: URL,
+): string | undefined => {
+  const value = raw?.trim()
+  if (!value) {
+    return undefined
+  }
+
+  try {
+    const url = new URL(value, base)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return undefined
+    }
+    return url.href.length > MAX_IMAGE_URL_LENGTH ? undefined : url.href
+  } catch {
+    return undefined
+  }
 }
 
 // Host shown next to a link: lowercase, without a leading "www.".
@@ -43,7 +75,7 @@ export const fallbackTitle = (url: URL): string => {
   }
   path = path.replace(/\/+$/, '')
 
-  return `${domainOf(url)}${path}`.slice(0, 300)
+  return `${domainOf(url)}${path}`.slice(0, MAX_TITLE_LENGTH)
 }
 
 // True when a stored title is only a stand-in for the URL (empty, the URL
@@ -180,21 +212,37 @@ const isPrivateIPv6 = (groups: Array<number>): boolean => {
     return true // loopback ::1
   }
 
-  // IPv4-mapped (::ffff:a.b.c.d), IPv4-compatible (::a.b.c.d) and NAT64
-  // (64:ff9b::a.b.c.d) addresses: judge the embedded IPv4 address.
-  const embedsIPv4 =
+  const embedded = (high: number, low: number): Array<number> => [
+    high >> 8,
+    high & 0xff,
+    low >> 8,
+    low & 0xff,
+  ]
+
+  // IPv4-mapped (::ffff:a.b.c.d), IPv4-compatible (::a.b.c.d) and
+  // well-known NAT64 (64:ff9b::a.b.c.d) addresses: judge the embedded IPv4
+  // address.
+  if (
     (groups.slice(0, 5).every((group) => group === 0) &&
       (groups[5] === 0xffff || groups[5] === 0)) ||
     (first === 0x64 &&
       groups[1] === 0xff9b &&
       groups.slice(2, 6).every((group) => group === 0))
-  if (embedsIPv4) {
-    return isPrivateIPv4([
-      groups[6] >> 8,
-      groups[6] & 0xff,
-      groups[7] >> 8,
-      groups[7] & 0xff,
-    ])
+  ) {
+    return isPrivateIPv4(embedded(groups[6], groups[7]))
+  }
+  // 6to4 (2002:aabb:ccdd::/48) carries the IPv4 address in groups 1-2.
+  if (first === 0x2002) {
+    return isPrivateIPv4(embedded(groups[1], groups[2]))
+  }
+  // Local-use NAT64 (64:ff9b:1::/48) may embed IPv4 at any of several
+  // offsets and is never a public destination, so the whole range is out.
+  // So is Teredo (2001:0::/32), whose embedded address is obfuscated.
+  if (
+    (first === 0x64 && groups[1] === 0xff9b && groups[2] === 1) ||
+    (first === 0x2001 && groups[1] === 0)
+  ) {
+    return true
   }
 
   return (

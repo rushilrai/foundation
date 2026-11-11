@@ -1,6 +1,12 @@
 'use node'
 
+import type { LookupAddress } from 'node:dns'
 import { lookup } from 'node:dns/promises'
+import http, { type IncomingMessage } from 'node:http'
+import https from 'node:https'
+import type { LookupFunction } from 'node:net'
+import type { Readable } from 'node:stream'
+import zlib from 'node:zlib'
 
 import { parseMetadata, type PageMetadata } from './parse'
 import { domainOf, isFetchableUrl, isIpLiteral, isPrivateAddress } from './url'
@@ -12,6 +18,7 @@ const USER_AGENT =
 
 const TIMEOUT_MS = 8_000
 const MAX_REDIRECTS = 5
+// Applies to the decoded body, so a small compressed bomb can't expand past it.
 const MAX_BYTES = 512 * 1024
 
 export type FetchedPage = {
@@ -24,55 +31,136 @@ export type FetchedPage = {
 export type FetchFailure =
   'BLOCKED' | 'TOO_MANY_REDIRECTS' | 'HTTP_ERROR' | 'NOT_HTML' | 'NETWORK'
 
-// Rejects hostnames that resolve to loopback, private or link-local
-// addresses, so a public-looking name can't point the fetch inward.
-const resolvesPublicly = async (hostname: string): Promise<boolean> => {
-  if (isIpLiteral(hostname)) {
-    return !isPrivateAddress(hostname)
+type PinnedAddress = { address: string; family: 4 | 6 }
+
+// The one address the request will connect to, or null when the host is
+// (or resolves to anything) loopback, private or link-local. Every answer
+// must be public, then the first one is pinned: the connection uses this
+// address instead of resolving the name again, so a short-TTL name can't
+// answer public for the check and private for the connection.
+const resolvePublicAddress = async (
+  hostname: string,
+): Promise<PinnedAddress | null> => {
+  const host = hostname.replace(/^\[|\]$/g, '')
+  if (isIpLiteral(host)) {
+    return isPrivateAddress(host)
+      ? null
+      : { address: host, family: host.includes(':') ? 6 : 4 }
   }
 
+  let addresses: Array<LookupAddress>
   try {
-    const addresses = await lookup(hostname, { all: true, verbatim: true })
-    return (
-      addresses.length > 0 &&
-      addresses.every(({ address }) => !isPrivateAddress(address))
-    )
+    addresses = await lookup(host, { all: true, verbatim: true })
   } catch {
-    return false
+    return null
+  }
+  if (
+    addresses.length === 0 ||
+    addresses.some(({ address }) => isPrivateAddress(address))
+  ) {
+    return null
+  }
+
+  const [first] = addresses
+  return { address: first.address, family: first.family === 6 ? 6 : 4 }
+}
+
+// A `lookup` for http(s).request that answers only with the pinned address.
+// Node asks for `all` when it races IPv4 and IPv6 (autoSelectFamily).
+const pinnedLookup =
+  (pinned: PinnedAddress): LookupFunction =>
+  (_hostname, options, callback) => {
+    if (options.all) {
+      ;(
+        callback as unknown as (
+          error: null,
+          addresses: Array<LookupAddress>,
+        ) => void
+      )(null, [pinned])
+    } else {
+      callback(null, pinned.address, pinned.family)
+    }
+  }
+
+// One GET to the pinned address. TLS SNI and the Host header still carry
+// the hostname, because the URL does. No connection pooling: each hop gets
+// its own socket to the address it was validated against.
+const requestOnce = (
+  url: URL,
+  pinned: PinnedAddress,
+  signal: AbortSignal,
+): Promise<IncomingMessage> =>
+  new Promise((resolve, reject) => {
+    const request = (url.protocol === 'https:' ? https : http).request(url, {
+      method: 'GET',
+      agent: false,
+      lookup: pinnedLookup(pinned),
+      signal,
+      headers: {
+        'user-agent': USER_AGENT,
+        accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5',
+        'accept-language': 'en;q=0.9,*;q=0.5',
+        'accept-encoding': 'gzip, deflate, br',
+        connection: 'close',
+      },
+    })
+    request.once('response', resolve)
+    request.once('error', reject)
+    request.end()
+  })
+
+// The response body with its Content-Encoding undone, or null for an
+// encoding we didn't ask for.
+const decodedBody = (response: IncomingMessage): Readable | null => {
+  const encoding = (response.headers['content-encoding'] ?? 'identity')
+    .trim()
+    .toLowerCase()
+
+  switch (encoding) {
+    case 'identity':
+    case '':
+      return response
+    case 'gzip':
+    case 'x-gzip':
+      return response.pipe(zlib.createGunzip())
+    case 'deflate':
+      return response.pipe(zlib.createInflate())
+    case 'br':
+      return response.pipe(zlib.createBrotliDecompress())
+    default:
+      return null
   }
 }
 
-const readCapped = async (response: Response): Promise<Uint8Array> => {
-  if (!response.body) {
-    return new Uint8Array()
-  }
-
-  const reader = response.body.getReader()
-  const chunks: Array<Uint8Array> = []
+// Reads at most MAX_BYTES, then drops the connection. A body cut short
+// (a truncated gzip stream, the timeout) still yields what arrived, since
+// the metadata sits at the top.
+const readCapped = async (
+  response: IncomingMessage,
+  body: Readable,
+): Promise<Uint8Array> => {
+  const chunks: Array<Buffer> = []
   let size = 0
 
-  while (size < MAX_BYTES) {
-    const { done, value } = await reader.read()
-    if (done) {
-      break
+  try {
+    for await (const chunk of body) {
+      const buffer = chunk as Buffer
+      chunks.push(buffer)
+      size += buffer.byteLength
+      if (size >= MAX_BYTES) {
+        break
+      }
     }
-    chunks.push(value)
-    size += value.byteLength
-  }
-  await reader.cancel().catch(() => undefined)
-
-  const bytes = new Uint8Array(Math.min(size, MAX_BYTES))
-  let offset = 0
-  for (const chunk of chunks) {
-    const slice = chunk.subarray(0, bytes.length - offset)
-    bytes.set(slice, offset)
-    offset += slice.byteLength
-    if (offset >= bytes.length) {
-      break
+  } catch (error) {
+    if (size === 0) {
+      throw error
     }
+  } finally {
+    body.destroy()
+    response.destroy()
   }
 
-  return bytes
+  return new Uint8Array(Buffer.concat(chunks).subarray(0, MAX_BYTES))
 }
 
 // Charset from the Content-Type header, else a <meta charset> near the top.
@@ -90,9 +178,14 @@ const decodeHtml = (bytes: Uint8Array, contentType: string): string => {
   }
 }
 
+const header = (response: IncomingMessage, name: string): string => {
+  const value = response.headers[name]
+  return (Array.isArray(value) ? value[0] : value) ?? ''
+}
+
 // Fetches a public web page and reads its metadata. Follows redirects by
-// hand so every hop is re-validated. `domain` is the final page's host.
-// Never throws.
+// hand so every hop is re-validated and pinned. `domain` is the final
+// page's host. Never throws.
 export const fetchPage = async (
   rawUrl: string,
 ): Promise<
@@ -110,23 +203,19 @@ export const fetchPage = async (
 
   try {
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-      if (!isFetchableUrl(url) || !(await resolvesPublicly(url.hostname))) {
+      const pinned = isFetchableUrl(url)
+        ? await resolvePublicAddress(url.hostname)
+        : null
+      if (!pinned) {
         return { error: 'BLOCKED', domain: domainOf(url) }
       }
 
-      const response = await fetch(url, {
-        redirect: 'manual',
-        signal: controller.signal,
-        headers: {
-          'user-agent': USER_AGENT,
-          accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5',
-          'accept-language': 'en;q=0.9,*;q=0.5',
-        },
-      })
+      const response = await requestOnce(url, pinned, controller.signal)
+      const status = response.statusCode ?? 0
 
-      if (response.status >= 300 && response.status < 400) {
-        const location = response.headers.get('location')
-        await response.body?.cancel().catch(() => undefined)
+      if (status >= 300 && status < 400) {
+        const location = header(response, 'location')
+        response.destroy()
         if (!location) {
           return { error: 'HTTP_ERROR', domain: domainOf(url) }
         }
@@ -135,26 +224,32 @@ export const fetchPage = async (
       }
 
       const domain = domainOf(url)
-      if (!response.ok) {
-        await response.body?.cancel().catch(() => undefined)
+      if (status < 200 || status >= 300) {
+        response.destroy()
         return { error: 'HTTP_ERROR', domain }
       }
 
-      const contentType = response.headers.get('content-type') ?? ''
+      const contentType = header(response, 'content-type')
       const mediaType = contentType.split(';')[0].trim().toLowerCase()
       if (mediaType.startsWith('image/')) {
         // A direct image link is its own preview image.
-        await response.body?.cancel().catch(() => undefined)
+        response.destroy()
         return {
           page: { finalUrl: url.href, domain, metadata: { image: url.href } },
         }
       }
       if (mediaType !== 'text/html' && mediaType !== 'application/xhtml+xml') {
-        await response.body?.cancel().catch(() => undefined)
+        response.destroy()
         return { error: 'NOT_HTML', domain }
       }
 
-      const html = decodeHtml(await readCapped(response), contentType)
+      const body = decodedBody(response)
+      if (!body) {
+        response.destroy()
+        return { error: 'NOT_HTML', domain }
+      }
+
+      const html = decodeHtml(await readCapped(response, body), contentType)
 
       return {
         page: {
