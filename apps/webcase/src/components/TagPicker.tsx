@@ -1,4 +1,4 @@
-import { MAX_TAGS, normalizeTag } from '@shared/tags'
+import { MAX_TAGS, normalizeTag, normalizeTags } from '@shared/tags'
 import { IconPlus, IconSparkles, IconX } from '@tabler/icons-react'
 import { useId, useImperativeHandle, useMemo, useRef, useState } from 'react'
 
@@ -38,6 +38,11 @@ const uniqueNormalized = (tags: readonly string[]) => [
 
 type Option = { tag: string; isNew: boolean }
 
+// For the option, suggestion and remove buttons: a tap on one keeps focus
+// in the field, so the phone keyboard stays up between taps.
+const keepFieldFocus = (event: React.PointerEvent | React.MouseEvent) =>
+  event.preventDefault()
+
 export type TagPickerActions = {
   /**
    * Adds the tag still being typed, if any, and returns the tags with it,
@@ -71,7 +76,6 @@ export const TagPicker = ({
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [query, setQuery] = useState('')
   const [highlighted, setHighlighted] = useState(0)
-  const [focused, setFocused] = useState(false)
 
   const full = value.length >= MAX_TAGS
   const normalizedQuery = full ? '' : normalizeTag(query)
@@ -84,11 +88,7 @@ export const TagPicker = ({
   }
 
   const add = (raw: readonly string[]): string[] => {
-    const next = [...value]
-    for (const tag of raw.map(normalizeTag)) {
-      if (next.length >= MAX_TAGS) break
-      if (tag && !next.includes(tag)) next.push(tag)
-    }
+    const next = normalizeTags([...value, ...raw])
     if (next.length !== value.length) onChange(next)
     return next
   }
@@ -112,7 +112,10 @@ export const TagPicker = ({
     return known ? matches : [{ tag: normalizedQuery, isNew: true }, ...matches]
   }, [knownTags, normalizedQuery, value])
 
-  const listOpen = focused && !disabled && options.length > 0
+  // Open while there is text, focused or not: typed text stays when the
+  // field is left, and closing the list on blur would move everything
+  // around it mid-tap (in a bottom sheet, the Close button above it).
+  const listOpen = !disabled && options.length > 0
   const activeIndex = Math.min(highlighted, options.length - 1)
   const pendingSuggestions = full
     ? []
@@ -125,8 +128,9 @@ export const TagPicker = ({
     return next
   }
 
-  // A typed tag counts even if the field is left without Enter: tapping
-  // Save, or closing the sheet, keeps it. Escape is the way to drop it.
+  // Leaving the field (a tap elsewhere, switching apps) keeps the text as
+  // text. The form adds it when it is done: Save, or closing the sheet,
+  // calls this. Escape clears it.
   const commitPending = () =>
     normalizedQuery && !disabled ? commit(normalizedQuery) : [...value]
 
@@ -150,10 +154,15 @@ export const TagPicker = ({
               <button
                 type="button"
                 disabled={disabled}
-                onClick={() => {
+                onPointerDown={keepFieldFocus}
+                onMouseDown={keepFieldFocus}
+                onClick={(event) => {
+                  // Reached by keyboard: the button is about to go, so focus
+                  // moves to the field rather than the page.
+                  const hadFocus =
+                    event.currentTarget === document.activeElement
                   remove(tag)
-                  // The chip and its button are gone; keep the keyboard on the field.
-                  inputRef.current?.focus()
+                  if (hadFocus) inputRef.current?.focus()
                 }}
                 className="relative flex size-7 items-center justify-center rounded-full text-muted-foreground outline-hidden transition-colors after:absolute after:-inset-2 hover:bg-foreground/5 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-solid disabled:pointer-events-none disabled:opacity-50"
               >
@@ -186,13 +195,6 @@ export const TagPicker = ({
           aria-describedby={error ? errorId : undefined}
           placeholder={full ? `${MAX_TAGS} tags at most` : placeholder}
           value={full ? '' : query}
-          onFocus={() => setFocused(true)}
-          onBlur={() => {
-            setFocused(false)
-            // Option clicks keep focus here (their mousedown is prevented),
-            // so a blur means the field was left.
-            commitPending()
-          }}
           onChange={(event) => {
             // Mobile keyboards often send the comma only as input, not as a key.
             const parts = event.target.value.split(',')
@@ -213,7 +215,7 @@ export const TagPicker = ({
               else if (normalizedQuery) commit(normalizedQuery)
             } else if (event.key === 'Escape' && (query || listOpen)) {
               // Clears the field and stops there: the sheet or page around
-              // it stays open, and nothing is added on the blur that follows.
+              // it stays open.
               event.preventDefault()
               event.stopPropagation()
               setQuery('')
@@ -254,8 +256,8 @@ export const TagPicker = ({
               id={`${listId}-${index}`}
               role="option"
               aria-selected={index === activeIndex}
-              // Keep focus in the field so the keyboard stays up.
-              onMouseDown={(event) => event.preventDefault()}
+              onPointerDown={keepFieldFocus}
+              onMouseDown={keepFieldFocus}
               onClick={() => commit(option.tag)}
               onMouseEnter={() => setHighlighted(index)}
               className={cn(
@@ -316,7 +318,10 @@ export const TagPicker = ({
                   <button
                     type="button"
                     disabled={disabled}
-                    onClick={() => add([tag])}
+                    onPointerDown={keepFieldFocus}
+                    onMouseDown={keepFieldFocus}
+                    // The suggestion replaces whatever was half typed.
+                    onClick={() => commit(tag)}
                     className="inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-foreground/25 pr-3.5 pl-2.5 text-sm text-muted-foreground outline-hidden transition-colors hover:border-primary/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:outline-solid active:bg-muted disabled:pointer-events-none disabled:opacity-50"
                   >
                     <IconPlus className="size-3.5" aria-hidden />
