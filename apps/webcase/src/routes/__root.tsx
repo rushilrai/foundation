@@ -31,8 +31,19 @@ export const Route = createRootRouteWithContext<{
       { name: 'description', content: DESCRIPTION },
       { name: 'theme-color', content: THEME_COLOR },
       { name: 'color-scheme', content: 'light' },
+      // Installed app: standalone on Android and iOS, titled "Webcase" on the home screen.
+      { name: 'mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-title', content: 'Webcase' },
+      { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
     ],
-    links: [{ rel: 'stylesheet', href: styles }],
+    links: [
+      { rel: 'stylesheet', href: styles },
+      { rel: 'manifest', href: '/manifest.json' },
+      { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
+      { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon.png' },
+    ],
   }),
   beforeLoad: async ({ context }) => {
     const token = await getAuthToken()
