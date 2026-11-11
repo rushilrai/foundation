@@ -11,11 +11,20 @@ import authConfig from './auth.config'
 // user id, the token subject (see modules/auth/helpers.ts).
 export const authComponent = createClient<DataModel>(components.betterAuth)
 
+// Extra origins allowed to call auth, comma separated: a second local dev
+// port, or a preview URL. Unset in production, where SITE_URL is the only one.
+const trustedOrigins = () =>
+  (process.env.AUTH_TRUSTED_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+
 export const createAuth = (ctx: GenericCtx<DataModel>) =>
   betterAuth({
     // The app's own origin: the browser reaches auth through its /api/auth proxy.
     baseURL: process.env.SITE_URL,
     secret: process.env.BETTER_AUTH_SECRET,
+    trustedOrigins: trustedOrigins(),
     database: authComponent.adapter(ctx),
     emailAndPassword: {
       enabled: true,
