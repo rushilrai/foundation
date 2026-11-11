@@ -1,7 +1,7 @@
 import { defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-export const linkFields = {
+const linkFields = {
   // Better Auth user id (token subject)
   userId: v.string(),
   // Normalised href (see parseHttpUrl): duplicates are matched on it.
@@ -30,3 +30,13 @@ export const linkTable = defineTable(linkFields)
   .index('by_user_savedAt', ['userId', 'savedAt'])
   .index('by_user_url', ['userId', 'url'])
   .index('by_user_status_due', ['userId', 'summaryStatus', 'summaryDueAt'])
+
+// How many links each user has, so `create` and `importMany` can hold a
+// library to MAX_LINKS_PER_USER without reading it. Changed only by
+// changeLinkCount (helpers.ts), in the same mutation as every insert into
+// and delete from `links`. A user with no row yet is counted from `links`.
+export const linkCountTable = defineTable({
+  // Better Auth user id (token subject)
+  userId: v.string(),
+  count: v.number(),
+}).index('by_user', ['userId'])

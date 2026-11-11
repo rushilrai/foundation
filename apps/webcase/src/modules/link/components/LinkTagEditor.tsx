@@ -1,10 +1,9 @@
-import type { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
 import { IconCheck } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { TagPicker, type TagPickerActions } from '@/components/TagPicker'
-import { messageFor, MESSAGES, type ErrorMessages } from '../errors'
+import { messageFor, MESSAGES, UPDATE_TAGS_MESSAGES } from '../errors'
 import { useUpdateLinkTags } from '../mutations'
 
 type TagSave =
@@ -12,12 +11,6 @@ type TagSave =
   | { status: 'saving' }
   | { status: 'saved' }
   | { status: 'failed'; message: string }
-
-const TAG_ERRORS: ErrorMessages<typeof api.modules.link.mutations.updateTags> =
-  {
-    UNAUTHORIZED: MESSAGES.UNAUTHORIZED,
-    NOT_FOUND: MESSAGES.NOT_FOUND,
-  }
 
 const sameTags = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && a.every((tag, index) => tag === b[index])
@@ -52,7 +45,7 @@ export const LinkTagEditor = ({
       if ('error' in result) {
         setSave({
           status: 'failed',
-          message: messageFor(TAG_ERRORS, result.error),
+          message: messageFor(UPDATE_TAGS_MESSAGES, result.error),
         })
       } else {
         // The live query already carries the new tags.
@@ -64,7 +57,7 @@ export const LinkTagEditor = ({
       console.error('Error saving tags', error)
       setSave({
         status: 'failed',
-        message: 'Couldn’t save the tags. Check your connection.',
+        message: MESSAGES.NETWORK,
       })
     }
   }

@@ -23,6 +23,7 @@ import { useSignOutMutation } from '@/modules/auth/mutations'
 import { useCurrentUser } from '@/modules/auth/queries'
 import { LinkDetailSheet } from '@/modules/link/components/LinkDetailSheet'
 import { LinkList, LinkListSkeleton } from '@/modules/link/components/LinkList'
+import { MESSAGES } from '@/modules/link/errors'
 import { FROM_LIBRARY } from '@/modules/link/hooks'
 import { useAsk } from '@/modules/link/mutations'
 import { useLibrary } from '@/modules/link/queries'
@@ -210,7 +211,7 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
         <EmptyState
           tone="error"
           title="Couldn’t load your links."
-          description="Check your connection and try again."
+          description={MESSAGES.NETWORK}
           action={
             <Button
               variant="outline"

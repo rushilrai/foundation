@@ -12,6 +12,7 @@ import {
   MAX_DESCRIPTION_LENGTH,
   MAX_DOMAIN_LENGTH,
   MAX_IMPORT_BATCH,
+  MAX_LINKS_PER_USER,
   MAX_TITLE_LENGTH,
   SUMMARY_STUCK_AFTER_MS,
 } from '../../../shared/limits'
@@ -26,7 +27,13 @@ import { rateLimiter } from '../../configs/rateLimiter'
 import { cleanImageUrl } from '../../lib/metadata/url'
 import { capText } from '../../lib/text'
 import { getUserId } from '../auth/helpers'
-import { getByUrl, getOwned, mergeTags } from './helpers'
+import {
+  changeLinkCount,
+  countLinks,
+  getByUrl,
+  getOwned,
+  mergeTags,
+} from './helpers'
 
 // Pending summaries due longer ago than this no longer hold up new imports:
 // they are stuck, not queued.
@@ -69,7 +76,9 @@ export const create = mutation({
     args,
   ): Promise<
     | { linkId: Id<'links'>; duplicate: boolean }
-    | { error: 'UNAUTHORIZED' | 'INVALID_URL' | 'RATE_LIMITED' }
+    | {
+        error: 'UNAUTHORIZED' | 'INVALID_URL' | 'RATE_LIMITED' | 'LIBRARY_FULL'
+      }
   > => {
     const userId = await getUserId(ctx)
     if (!userId) {
@@ -92,6 +101,10 @@ export const create = mutation({
       return { linkId: existing._id, duplicate: true }
     }
 
+    if ((await countLinks(ctx, userId)) >= MAX_LINKS_PER_USER) {
+      return { error: 'LIBRARY_FULL' }
+    }
+
     const { ok } = await rateLimiter.limit(ctx, 'createLink', { key: userId })
     if (!ok) {
       return { error: 'RATE_LIMITED' }
@@ -112,6 +125,7 @@ export const create = mutation({
       summaryDueAt: now,
       savedAt: now,
     })
+    await changeLinkCount(ctx, userId, 1)
 
     // Also fills the title, description and image when the link was saved
     // before its preview arrived.
@@ -162,6 +176,7 @@ export const remove = mutation({
     }
 
     await ctx.db.delete(link._id)
+    await changeLinkCount(ctx, userId, -1)
 
     return { success: true }
   },
@@ -216,7 +231,8 @@ export const retrySummary = mutation({
   },
 })
 
-// One batch of a Pocket export, parsed by the client.
+// One batch of a Pocket export, parsed by the client. New rows go in until
+// the library holds MAX_LINKS_PER_USER; `full` counts the ones left out.
 export const importMany = mutation({
   args: {
     items: v.array(
@@ -234,8 +250,11 @@ export const importMany = mutation({
     ctx,
     args,
   ): Promise<
-    | { imported: number; skipped: number; invalid: number }
-    | { error: 'UNAUTHORIZED' | 'TOO_MANY_ITEMS' | 'RATE_LIMITED' }
+    | { imported: number; skipped: number; invalid: number; full: number }
+    | {
+        error:
+          'UNAUTHORIZED' | 'TOO_MANY_ITEMS' | 'RATE_LIMITED' | 'LIBRARY_FULL'
+      }
   > => {
     const userId = await getUserId(ctx)
     if (!userId) {
@@ -292,14 +311,21 @@ export const importMany = mutation({
     }
 
     if (rows.length === 0) {
-      return { imported: 0, skipped, invalid }
+      return { imported: 0, skipped, invalid, full: 0 }
     }
+
+    const room = MAX_LINKS_PER_USER - (await countLinks(ctx, userId))
+    if (room <= 0) {
+      return { error: 'LIBRARY_FULL' }
+    }
+    const inserted = rows.slice(0, room)
+    const full = rows.length - inserted.length
 
     // Charged only for the rows that will be inserted, so re-running a
     // partly finished import costs nothing for the links already in.
     const { ok } = await rateLimiter.limit(ctx, 'importLinks', {
       key: userId,
-      count: rows.length,
+      count: inserted.length,
     })
     if (!ok) {
       return { error: 'RATE_LIMITED' }
@@ -307,7 +333,7 @@ export const importMany = mutation({
 
     let dueAt = await nextImportSlot(ctx, userId, now)
 
-    for (const row of rows) {
+    for (const row of inserted) {
       const linkId = await ctx.db.insert('links', {
         userId,
         ...row,
@@ -321,8 +347,9 @@ export const importMany = mutation({
       )
       dueAt += IMPORT_SPACING_MS
     }
+    await changeLinkCount(ctx, userId, inserted.length)
 
-    return { imported: rows.length, skipped, invalid }
+    return { imported: inserted.length, skipped, invalid, full }
   },
 })
 
@@ -350,6 +377,26 @@ export const applyMetadataInternal = internalMutation({
         : {}),
       ...(!link.image && args.image ? { image: args.image } : {}),
     })
+  },
+})
+
+// Puts a summary back in the queue for `dueAt`, when the global summary
+// budget is spent. The link stays `pending`; retrySummary treats it as
+// queued until it is overdue.
+export const deferSummaryInternal = internalMutation({
+  args: { linkId: v.id('links'), dueAt: v.number(), attempt: v.number() },
+  handler: async (ctx, args): Promise<void> => {
+    const link = await ctx.db.get(args.linkId)
+    if (!link) {
+      return
+    }
+
+    await ctx.db.patch(link._id, { summaryDueAt: args.dueAt })
+    await ctx.scheduler.runAt(
+      args.dueAt,
+      internal.modules.link.nodeActions.enrich,
+      { linkId: link._id, attempt: args.attempt },
+    )
   },
 })
 

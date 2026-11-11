@@ -94,7 +94,7 @@ export const SaveForm = ({
   const saveError = save.error
     ? save.error instanceof SaveError
       ? save.error.message
-      : 'Couldn’t save. Check your connection and try again.'
+      : MESSAGES.NETWORK
     : null
 
   return (

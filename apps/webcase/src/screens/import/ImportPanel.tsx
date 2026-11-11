@@ -1,4 +1,4 @@
-import { DAILY_IMPORT_LIMIT } from '@shared/limits'
+import { DAILY_IMPORT_LIMIT, MAX_LINKS_PER_USER } from '@shared/limits'
 import { Link, useBlocker } from '@tanstack/react-router'
 
 import { InlineError } from '@/components/EmptyState'
@@ -60,6 +60,7 @@ export const ImportPanel = ({
     return (
       <ImportDone
         totals={run.totals}
+        libraryFull={run.libraryFull}
         unusable={data.unusable}
         onChooseAnother={onChooseAnother}
       />
@@ -82,9 +83,11 @@ export const ImportPanel = ({
         </p>
       )}
       {total > DAILY_IMPORT_LIMIT && (
-        <p className="mt-3 text-sm text-foreground">
+        <p className="mt-3 text-sm text-pretty text-foreground">
           Webcase imports up to {DAILY_IMPORT_LIMIT.toLocaleString('en')} links
-          a day. The import stops there; come back tomorrow to resume it.
+          a day, so this file takes more than one day. When the import stops,
+          import this file again the next day: the links already in are skipped
+          and the rest come in.
         </p>
       )}
 
@@ -165,10 +168,12 @@ export const ImportPanel = ({
 
 const ImportDone = ({
   totals,
+  libraryFull,
   unusable,
   onChooseAnother,
 }: {
   totals: ImportTotals
+  libraryFull: boolean
   unusable: number
   onChooseAnother: () => void
 }) => {
@@ -195,6 +200,15 @@ const ImportDone = ({
           </li>
         )}
       </ul>
+      {libraryFull && (
+        <p className="mt-6 text-sm text-pretty text-foreground">
+          Your library is full: it holds up to{' '}
+          {MAX_LINKS_PER_USER.toLocaleString('en')} links, so{' '}
+          {totals.imported > 0 ? 'the rest of the file' : 'this file'} wasn’t
+          imported. Delete links you no longer need, then import the file again
+          to bring in more.
+        </p>
+      )}
       {totals.imported > 0 && (
         <p className="mt-6 text-sm text-pretty text-foreground">
           Titles, previews and summaries fill in{' '}

@@ -7,13 +7,14 @@ import { DAILY_IMPORT_LIMIT } from '../../shared/limits'
 // bound spend: every bucket that costs money or fetches pages has a global
 // (unkeyed) twin. The ceilings are generous for a handful of real users.
 
-// Summaries (with the page fetch before each) across all users, per day.
-// The owner's whole Pocket export is ~250 links.
+// Summaries (model calls) across all users, per day. The owner's whole
+// Pocket export is ~250 links; one account can import DAILY_IMPORT_LIMIT
+// a day, so no single account empties it.
 const GLOBAL_SUMMARIES_PER_DAY = 3000
 // Library questions across all users, per day. Each sends a whole library.
 const GLOBAL_ASKS_PER_DAY = 500
-// Save-sheet previews (a page fetch and a decision call) across all users,
-// per hour.
+// Save-page previews (a page fetch and a tag-suggestion call) across all
+// users, per hour.
 const GLOBAL_PREVIEWS_PER_HOUR = 1000
 
 export const rateLimiter = new RateLimiter(components.rateLimiter, {
@@ -35,7 +36,7 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
     capacity: 15,
   },
   // Counted per imported link, not per call: each schedules a page fetch
-  // and a summary. Capacity covers a one-off import of a few thousand.
+  // and a summary. A larger export imports over several days.
   importLinks: {
     kind: 'token bucket',
     rate: DAILY_IMPORT_LIMIT,
@@ -52,8 +53,9 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
 
   // Global (no key) ----------------------------------------------------------
 
-  // Taken by enrich when it runs; when empty the summary ends as
-  // `failed`, which retrySummary can redo later.
+  // Taken by enrich before the model call. When empty, the page's metadata
+  // still fills in and the summary is queued again for later (see
+  // nodeActions.deferSummary).
   summaryGlobal: {
     kind: 'token bucket',
     rate: GLOBAL_SUMMARIES_PER_DAY,

@@ -61,7 +61,7 @@ const pageBlock = (page: PageFacts, textLimit: number): string =>
 // article 0.73, "cafe" for a place with no category 0.79), and wrong ones
 // were below 0.5. 0.75 cuts the weakest loose fits while keeping a likely
 // "restaurants" (0.80) for an uncategorised place.
-export const TAG_SUGGESTION_THRESHOLD = 0.75
+const TAG_SUGGESTION_THRESHOLD = 0.75
 const MAX_SUGGESTIONS = 5
 // The Decisions API takes up to 400 questions per request; the long tail of
 // one-off tags is the least likely to matter, so ask about the most used.

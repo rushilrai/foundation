@@ -18,23 +18,28 @@ export type ImportRun =
   | { status: 'idle' }
   | { status: 'running'; sent: number; totals: ImportTotals }
   | { status: 'stopped'; sent: number; totals: ImportTotals; error: string }
-  | { status: 'finished'; totals: ImportTotals }
+  | {
+      status: 'finished'
+      totals: ImportTotals
+      /** The library filled up, so the rest of the file was not sent. */
+      libraryFull: boolean
+    }
 
 const NO_TOTALS: ImportTotals = { imported: 0, skipped: 0, invalid: 0 }
 
 const STOP_MESSAGES: ErrorMessages<
   typeof api.modules.link.mutations.importMany
 > = {
-  RATE_LIMITED: `Webcase imports up to ${DAILY_IMPORT_LIMIT.toLocaleString('en')} links a day. Resume tomorrow for the rest.`,
+  RATE_LIMITED: `That’s today’s limit of ${DAILY_IMPORT_LIMIT.toLocaleString('en')} links. Tomorrow, import this file again: the links already in are skipped and the rest come in.`,
   UNAUTHORIZED: MESSAGES.UNAUTHORIZED,
   TOO_MANY_ITEMS: 'The server refused a batch. Try again.',
+  LIBRARY_FULL: MESSAGES.LIBRARY_FULL,
 }
-const NETWORK_MESSAGE = 'Lost the connection. Resume when you’re back online.'
 
 /**
  * Sends a parsed export to `importMany`, one batch of MAX_IMPORT_BATCH at a
  * time. Stops at the first refused or failed batch; `start` then resumes
- * from that batch. Running it again is safe: links already in the library
+ * from that batch. Ends early once the library is full. Running it again is safe: links already in the library
  * are skipped and do not count against the daily allowance.
  *
  * Hand-rolled rather than TanStack's useMutation: one run is many calls
@@ -86,7 +91,14 @@ export function useImportRun(items: readonly PocketItem[]) {
           result = await importMany({ items: batch })
         } catch (error) {
           console.error('Error importing a batch', error)
-          return stop(NETWORK_MESSAGE)
+          return stop(MESSAGES.NETWORK)
+        }
+        if ('error' in result && result.error === 'LIBRARY_FULL') {
+          return setRun({
+            status: 'finished',
+            totals: { ...totals },
+            libraryFull: true,
+          })
         }
         if ('error' in result) {
           return stop(messageFor(STOP_MESSAGES, result.error))
@@ -96,10 +108,17 @@ export function useImportRun(items: readonly PocketItem[]) {
         totals.skipped += result.skipped
         totals.invalid += result.invalid
         sent += batch.length
+        if (result.full > 0) {
+          return setRun({
+            status: 'finished',
+            totals: { ...totals },
+            libraryFull: true,
+          })
+        }
         setRun({ status: 'running', sent, totals: { ...totals } })
       }
 
-      setRun({ status: 'finished', totals: { ...totals } })
+      setRun({ status: 'finished', totals: { ...totals }, libraryFull: false })
     } finally {
       active.current = false
     }

@@ -1,3 +1,5 @@
+import type { api } from '@convex/_generated/api'
+import { MAX_LINKS_PER_USER } from '@shared/limits'
 import type { FunctionReference, FunctionReturnType } from 'convex/server'
 
 // Turning the `{ error: 'CODE' }` results of the link functions into copy.
@@ -20,6 +22,7 @@ export const MESSAGES = {
   UNAUTHORIZED: 'You’ve been signed out. Sign in again.',
   INVALID_URL: 'That doesn’t look like a link.',
   NOT_FOUND: 'This link is no longer in your library.',
+  LIBRARY_FULL: `Your library is full: it holds up to ${MAX_LINKS_PER_USER.toLocaleString('en')} links. Delete some to make room.`,
   NETWORK: 'Couldn’t reach Webcase. Check your connection.',
   GENERIC: 'Something went wrong. Try again.',
 } as const
@@ -33,3 +36,11 @@ export const messageFor = <C extends string>(
   code: C,
 ): string =>
   (messages as Partial<Record<string, string>>)[code] ?? MESSAGES.GENERIC
+
+/** For `updateTags`, from the detail sheet and from Save. */
+export const UPDATE_TAGS_MESSAGES: ErrorMessages<
+  typeof api.modules.link.mutations.updateTags
+> = {
+  UNAUTHORIZED: MESSAGES.UNAUTHORIZED,
+  NOT_FOUND: MESSAGES.NOT_FOUND,
+}

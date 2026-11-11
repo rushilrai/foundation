@@ -41,7 +41,7 @@ export type LinkPreview = {
   existing: ExistingLink | null
 }
 
-// What the save sheet shows before saving. Always succeeds for a valid
+// What the save page shows before saving. Always succeeds for a valid
 // http(s) URL within the user's own limit: when the page can't be fetched
 // (or may not be, e.g. a private address) it falls back to the URL's host
 // and path, with `fetched: false` and no suggestions.
@@ -158,6 +158,12 @@ export const ask = action({
       return { error: 'INVALID_QUESTION' }
     }
 
+    // Before the library is read: reading it is the expensive part.
+    const { ok } = await rateLimiter.limit(ctx, 'ask', { key: userId })
+    if (!ok) {
+      return { error: 'RATE_LIMITED' }
+    }
+
     const entries = await ctx.runQuery(
       internal.modules.link.queries.askEntriesInternal,
       { userId },
@@ -166,10 +172,6 @@ export const ask = action({
       return { answer: "You haven't saved any links yet.", linkIds: [] }
     }
 
-    const { ok } = await rateLimiter.limit(ctx, 'ask', { key: userId })
-    if (!ok) {
-      return { error: 'RATE_LIMITED' }
-    }
     const global = await rateLimiter.limit(ctx, 'askGlobal')
     if (!global.ok) {
       console.warn('[ask] Global ask budget spent')
@@ -184,8 +186,15 @@ export const ask = action({
 
 // ---------------------------------------------------------------------------
 // Summaries. Every run ends with the link `ready` or `failed` (unless the
-// link was deleted meanwhile); a `failed` one can be redone with
+// link was deleted meanwhile), or, while the global summary budget is spent,
+// queued again for later; a `failed` one can be redone with
 // mutations.retrySummary.
+
+// Times a summary waits for the global budget before it is marked failed.
+const MAX_SUMMARY_DEFERRALS = 5
+// The shortest wait, doubled on each deferral: about 1, 2, 4, 8 and 16
+// minutes, so a spent budget is retried for half an hour or so.
+const MIN_SUMMARY_DEFERRAL_MS = 60_000
 
 const markFailed = async (
   ctx: ActionCtx,
@@ -202,12 +211,43 @@ const markFailed = async (
   }
 }
 
+// Queues the summary again for after the global budget refills, with
+// jitter so deferred links don't all come back at once. Gives up (failed)
+// after MAX_SUMMARY_DEFERRALS.
+const deferSummary = async (
+  ctx: ActionCtx,
+  linkId: Id<'links'>,
+  attempt: number,
+  retryAfter: number | undefined,
+): Promise<void> => {
+  if (attempt >= MAX_SUMMARY_DEFERRALS) {
+    console.warn('[summary] Global summary budget still spent; giving up')
+    await markFailed(ctx, linkId)
+    return
+  }
+
+  const wait = Math.max(retryAfter ?? 0, MIN_SUMMARY_DEFERRAL_MS * 2 ** attempt)
+  const dueAt = Date.now() + Math.round(wait * (1 + Math.random() / 2))
+  console.warn('[summary] Global summary budget spent; deferred', {
+    attempt: attempt + 1,
+    dueAt,
+  })
+  await ctx.runMutation(internal.modules.link.mutations.deferSummaryInternal, {
+    linkId,
+    dueAt,
+    attempt: attempt + 1,
+  })
+}
+
 // Fetches the page, fills what the link is still missing from it (a
 // placeholder title, the description, the image), then writes the summary.
-// A real title is never replaced.
+// A real title is never replaced. The model call is what the global summary
+// budget pays for, so only it waits when the budget is spent; the metadata
+// fills in regardless. `attempt` counts the waits so far.
 const runSummary = async (
   ctx: ActionCtx,
   linkId: Id<'links'>,
+  attempt: number,
 ): Promise<void> => {
   let link = await ctx.runQuery(internal.modules.link.queries.getInternal, {
     linkId,
@@ -216,13 +256,14 @@ const runSummary = async (
     return
   }
 
-  // Each run costs a page fetch and a model call, so it is counted against
-  // the global budget before either happens.
-  const global = await rateLimiter.limit(ctx, 'summaryGlobal')
-  if (!global.ok) {
-    console.warn('[summary] Global summary budget spent')
-    await markFailed(ctx, linkId)
-    return
+  // A deferred run already filled the metadata: while the budget is still
+  // spent there is nothing to fetch the page again for.
+  if (attempt > 0) {
+    const status = await rateLimiter.check(ctx, 'summaryGlobal')
+    if (!status.ok) {
+      await deferSummary(ctx, linkId, attempt, status.retryAfter)
+      return
+    }
   }
 
   const parsed = parseHttpUrl(link.url)
@@ -250,6 +291,12 @@ const runSummary = async (
         image: page?.metadata.image,
       },
     )
+  }
+
+  const global = await rateLimiter.limit(ctx, 'summaryGlobal')
+  if (!global.ok) {
+    await deferSummary(ctx, linkId, attempt, global.retryAfter)
+    return
   }
 
   link =
@@ -281,10 +328,11 @@ const runSummary = async (
 // before its preview loaded, or imported with only a URL, title and tags,
 // gets its title, description and image here; every link gets its summary.
 export const enrich = internalAction({
-  args: { linkId: v.id('links') },
+  // `attempt`: how many times the summary has waited for the global budget.
+  args: { linkId: v.id('links'), attempt: v.optional(v.number()) },
   handler: async (ctx, args): Promise<void> => {
     try {
-      await runSummary(ctx, args.linkId)
+      await runSummary(ctx, args.linkId, args.attempt ?? 0)
     } catch (error) {
       console.error('[enrich] Error', error)
       await markFailed(ctx, args.linkId)

@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   messageFor,
   MESSAGES,
+  UPDATE_TAGS_MESSAGES,
   type ErrorCode,
   type ErrorMessages,
 } from '@/modules/link/errors'
@@ -30,10 +31,10 @@ type SaveErrorCode =
 
 const SAVE_MESSAGES: ErrorMessages<typeof api.modules.link.mutations.create> &
   ErrorMessages<typeof api.modules.link.mutations.updateTags> = {
-  UNAUTHORIZED: MESSAGES.UNAUTHORIZED,
+  ...UPDATE_TAGS_MESSAGES,
   INVALID_URL: MESSAGES.INVALID_URL,
-  NOT_FOUND: MESSAGES.NOT_FOUND,
   RATE_LIMITED: 'You’ve saved a lot in a short time. Try again in a minute.',
+  LIBRARY_FULL: MESSAGES.LIBRARY_FULL,
 }
 
 const failWith = (code: SaveErrorCode): never => {
