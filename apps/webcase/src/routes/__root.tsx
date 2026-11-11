@@ -31,6 +31,8 @@ export const Route = createRootRouteWithContext<{
       { name: 'description', content: DESCRIPTION },
       { name: 'theme-color', content: THEME_COLOR },
       { name: 'color-scheme', content: 'light' },
+      // A private, signed-in library: nothing here is for search engines.
+      { name: 'robots', content: 'noindex, nofollow' },
       // Installed app: standalone on Android and iOS, titled "Webcase" on the home screen.
       { name: 'mobile-web-app-capable', content: 'yes' },
       { name: 'apple-mobile-web-app-capable', content: 'yes' },
