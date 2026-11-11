@@ -3,7 +3,10 @@ import { useId, useRef } from 'react'
 
 import { cn } from '@/components/lib/utils'
 
-type SearchFieldProps = {
+type SearchFieldProps = Omit<
+  React.ComponentProps<'input'>,
+  'value' | 'onChange' | 'onSubmit' | 'type' | 'className' | 'ref'
+> & {
   value: string
   onChange: (value: string) => void
   /** Enter or the keyboard's search key. */
@@ -13,14 +16,18 @@ type SearchFieldProps = {
   /** Shows a running underline and `busyLabel`, e.g. while an answer is on its way. */
   busy?: boolean
   busyLabel?: string
-  placeholder?: string
   /** Accessible name; the field has no visible label. */
   label?: string
-  autoFocus?: boolean
+  /** The input itself. */
+  ref?: React.Ref<HTMLInputElement>
+  /** On the surrounding form. */
   className?: string
 }
 
-/** The library's search: a full-width underline, no box. */
+/**
+ * The library's search: a full-width underline, no box. Other input props
+ * (`autoFocus`, `maxLength`, `name`, `onFocus`…) pass through to the input.
+ */
 export const SearchField = ({
   value,
   onChange,
@@ -30,11 +37,20 @@ export const SearchField = ({
   busyLabel = 'asking…',
   placeholder = 'Search or ask…',
   label = 'Search your links',
-  autoFocus,
+  disabled,
+  ref,
   className,
+  onKeyDown,
+  ...inputProps
 }: SearchFieldProps) => {
   const id = useId()
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  const setInputRef = (element: HTMLInputElement | null) => {
+    inputRef.current = element
+    if (typeof ref === 'function') ref(element)
+    else if (ref) ref.current = element
+  }
 
   const clear = () => {
     onChange('')
@@ -48,33 +64,36 @@ export const SearchField = ({
       className={cn('relative', className)}
       onSubmit={(event) => {
         event.preventDefault()
-        onSubmit?.(value)
+        if (!disabled) onSubmit?.(value)
       }}
     >
       <label htmlFor={id} className="sr-only">
         {label}
       </label>
       <input
-        ref={inputRef}
         id={id}
         type="search"
         enterKeyHint="search"
         autoComplete="off"
         autoCorrect="off"
         spellCheck={false}
-        autoFocus={autoFocus}
+        {...inputProps}
+        ref={setInputRef}
+        disabled={disabled}
         value={value}
         placeholder={placeholder}
         aria-busy={busy || undefined}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === 'Escape' && value) {
+          onKeyDown?.(event)
+          if (event.key === 'Escape' && value && !event.defaultPrevented) {
             event.preventDefault()
             clear()
           }
         }}
         className={cn(
-          'h-12 w-full min-w-0 appearance-none rounded-none border-0 border-b-[1.5px] border-foreground bg-transparent px-0 text-[1.0625rem] text-foreground outline-hidden transition-colors placeholder:font-serif placeholder:text-lg placeholder:text-faint-foreground placeholder:italic focus:border-primary [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none',
+          // Focus turns the underline cobalt and doubles it (an inset shadow, so nothing shifts).
+          'h-12 w-full min-w-0 appearance-none rounded-none border-0 border-b-[1.5px] border-foreground bg-transparent px-0 text-[1.0625rem] text-foreground outline-hidden transition-[border-color,box-shadow] placeholder:font-serif placeholder:text-lg placeholder:text-faint-foreground placeholder:italic focus:border-primary focus:shadow-[inset_0_-1.5px_0_0_var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none',
           value ? 'pr-11' : 'pr-0',
           busy && 'pr-28',
         )}
@@ -101,7 +120,7 @@ export const SearchField = ({
         </>
       )}
 
-      {value && (
+      {value && !disabled && (
         <button
           type="button"
           onClick={clear}

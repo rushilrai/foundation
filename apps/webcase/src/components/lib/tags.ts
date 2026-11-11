@@ -1,16 +1,7 @@
-// Tags are lowercase words; every screen colours a tag the same way from its name.
+import { normalizeTag } from '@shared/tags'
 
-const MAX_TAG_LENGTH = 40
-
-/** Trims, drops leading #s, lowercases and collapses spaces. Returns '' for nothing usable. */
-export const normalizeTag = (raw: string) =>
-  raw
-    .trim()
-    .replace(/^#+/, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .slice(0, MAX_TAG_LENGTH)
-    .trim()
+// Every screen colours a tag the same way from its name. The tag rules
+// themselves (what a tag is) live in shared/tags.ts.
 
 // Static class names so Tailwind sees them; they map to --tag-1 … --tag-8 in index.css.
 const TAG_DOT_CLASSES = [

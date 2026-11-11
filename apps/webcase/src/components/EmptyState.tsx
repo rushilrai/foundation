@@ -47,15 +47,21 @@ export const EmptyState = ({
 
 type InlineErrorProps = {
   children: React.ReactNode
+  /** For `aria-describedby` on the field it explains. */
+  id?: string
   className?: string
 }
 
 /** A short error under a field or action. Renders nothing without children. */
-export const InlineError = ({ children, className }: InlineErrorProps) => {
+export const InlineError = ({ children, id, className }: InlineErrorProps) => {
   if (!children) return null
 
   return (
-    <p role="alert" className={cn('text-sm text-destructive', className)}>
+    <p
+      id={id}
+      role="alert"
+      className={cn('text-sm text-destructive', className)}
+    >
       {children}
     </p>
   )

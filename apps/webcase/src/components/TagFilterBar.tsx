@@ -1,13 +1,10 @@
+import type { TagCount } from '@shared/tags'
 import { useEffect, useRef, useState } from 'react'
 
 import { cn } from '@/components/lib/utils'
 
-export type TagCount = {
-  name: string
-  count: number
-}
-
 type TagFilterBarProps = {
+  /** Most used first, e.g. from countTags in modules/link/utils.ts. */
   tags: readonly TagCount[]
   /** The selected tag, or null for all links. */
   active: string | null
@@ -84,13 +81,13 @@ export const TagFilterBar = ({
             onPress={() => onChange(null)}
           />
         </li>
-        {tags.map((tag) => (
-          <li key={tag.name} className="shrink-0">
+        {tags.map(({ tag, count }) => (
+          <li key={tag} className="shrink-0">
             <FilterItem
-              name={tag.name}
-              count={tag.count}
-              pressed={active === tag.name}
-              onPress={() => onChange(active === tag.name ? null : tag.name)}
+              name={tag}
+              count={count}
+              pressed={active === tag}
+              onPress={() => onChange(active === tag ? null : tag)}
             />
           </li>
         ))}

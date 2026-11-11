@@ -6,9 +6,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 type LinkPreviewCardProps = {
   title: string
   domain: string
-  description?: string | null
+  description?: string
   /** The page's preview image; dropped cleanly if it fails to load. */
-  image?: string | null
+  image?: string
   className?: string
 }
 
@@ -53,7 +53,7 @@ export const LinkPreviewCard = ({
         <span className="truncate font-mono text-[0.6875rem] text-muted-foreground">
           {domain}
         </span>
-        <p className="line-clamp-3 font-serif text-lg leading-snug font-semibold tracking-tight text-pretty text-foreground">
+        <p className="line-clamp-3 font-serif text-lg leading-snug font-semibold tracking-tight text-pretty wrap-anywhere text-foreground">
           {title}
         </p>
         {description && (

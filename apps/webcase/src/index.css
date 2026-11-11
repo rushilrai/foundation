@@ -6,9 +6,6 @@
 @import '@fontsource-variable/newsreader/wght-italic.css';
 @import '@fontsource-variable/jetbrains-mono';
 
-/* Light only for now: dark: variants apply under a .dark class, which nothing sets. */
-@custom-variant dark (&:is(.dark *));
-
 /* Direction "A · Index": white page, near-black ink, hairlines, one cobalt accent. */
 :root {
   --background: #ffffff;
@@ -23,13 +20,16 @@
   --secondary-foreground: #141414;
   --muted: #f5f5f5;
   --muted-foreground: #6b6b6b;
-  /* Quieter than muted: small metadata, placeholders. */
-  --faint-foreground: #8a8a8a;
+  /* Quieter than muted: small metadata, placeholders. 4.5:1 on white, the floor for 10-11px text. */
+  --faint-foreground: #767676;
   --accent: #f5f5f5;
   --accent-foreground: #141414;
   --destructive: #c0392b;
+  --destructive-foreground: #ffffff;
+  /* Hairlines between rows: decorative, so they may stay faint. */
   --border: #ececec;
-  --input: #e6e6e6;
+  /* Form-field underlines: 3:1 on white, so a field's edge is visible. */
+  --input: #949494;
   --ring: #1d3fd8;
   --chart-1: #1d3fd8;
   --chart-2: #4a66e0;
@@ -81,6 +81,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-faint-foreground: var(--faint-foreground);

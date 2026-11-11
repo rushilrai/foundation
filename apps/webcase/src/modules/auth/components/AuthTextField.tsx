@@ -26,6 +26,7 @@ export const AuthTextField = ({
   showErrors,
 }: AuthTextFieldProps) => {
   const isInvalid = showErrors && errors.length > 0
+  const errorId = `${name}-error`
 
   return (
     <Field data-invalid={isInvalid} className="gap-1">
@@ -44,9 +45,10 @@ export const AuthTextField = ({
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
         aria-invalid={isInvalid}
+        aria-describedby={isInvalid ? errorId : undefined}
       />
 
-      {isInvalid && <FieldError errors={errors} />}
+      {isInvalid && <FieldError id={errorId} errors={errors} />}
     </Field>
   )
 }

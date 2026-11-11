@@ -1,7 +1,8 @@
+import { MAX_TAGS, normalizeTag } from '@shared/tags'
 import { IconPlus, IconSparkles, IconX } from '@tabler/icons-react'
-import { useId, useMemo, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
 
-import { normalizeTag } from '@/components/lib/tags'
+import { InlineError } from '@/components/EmptyState'
 import { cn } from '@/components/lib/utils'
 import { TagDot } from '@/components/Tag'
 import { Input } from '@/components/ui/input'
@@ -9,18 +10,28 @@ import { Input } from '@/components/ui/input'
 const MAX_MATCHES = 6
 
 type TagPickerProps = {
-  /** The chosen tags, already normalised. */
+  /** The chosen tags, already normalised (shared/tags.ts). */
   value: readonly string[]
   onChange: (tags: string[]) => void
-  /** Tags proposed for this link (tap to add). */
+  /** Tags proposed for this link (tap to add). Compared after normalising. */
   suggestions?: readonly string[]
-  /** Every tag the user already has, for autocomplete. */
+  /** Every tag the user already has, for autocomplete. Compared after normalising. */
   allTags?: readonly string[]
   suggestionsLoading?: boolean
+  /** Turns off adding and removing, e.g. while the link saves. */
+  disabled?: boolean
+  /** Shown under the field, which is then marked invalid. */
+  error?: React.ReactNode
+  /** The text input, e.g. to focus it when the sheet opens. */
+  ref?: React.Ref<HTMLInputElement>
   label?: string
   placeholder?: string
   className?: string
 }
+
+const uniqueNormalized = (tags: readonly string[]) => [
+  ...new Set(tags.map(normalizeTag).filter(Boolean)),
+]
 
 type Option = { tag: string; isNew: boolean }
 
@@ -34,6 +45,9 @@ export const TagPicker = ({
   suggestions = [],
   allTags = [],
   suggestionsLoading = false,
+  disabled = false,
+  error,
+  ref,
   label = 'Tags',
   placeholder = 'Add a tag…',
   className,
@@ -41,15 +55,26 @@ export const TagPicker = ({
   const id = useId()
   const inputId = `${id}-input`
   const listId = `${id}-options`
+  const errorId = `${id}-error`
+  const inputRef = useRef<HTMLInputElement | null>(null)
   const [query, setQuery] = useState('')
   const [highlighted, setHighlighted] = useState(0)
   const [focused, setFocused] = useState(false)
 
-  const normalizedQuery = normalizeTag(query)
+  const full = value.length >= MAX_TAGS
+  const normalizedQuery = full ? '' : normalizeTag(query)
+  const knownTags = useMemo(() => uniqueNormalized(allTags), [allTags])
+
+  const setInputRef = (element: HTMLInputElement | null) => {
+    inputRef.current = element
+    if (typeof ref === 'function') ref(element)
+    else if (ref) ref.current = element
+  }
 
   const add = (raw: readonly string[]) => {
     const next = [...value]
     for (const tag of raw.map(normalizeTag)) {
+      if (next.length >= MAX_TAGS) break
       if (tag && !next.includes(tag)) next.push(tag)
     }
     if (next.length !== value.length) onChange(next)
@@ -60,7 +85,7 @@ export const TagPicker = ({
   // Existing tags that start with the query come first, then ones that contain it.
   const options = useMemo<Option[]>(() => {
     if (!normalizedQuery) return []
-    const available = allTags.filter((tag) => !value.includes(tag))
+    const available = knownTags.filter((tag) => !value.includes(tag))
     const starts = available.filter((tag) => tag.startsWith(normalizedQuery))
     const contains = available.filter(
       (tag) =>
@@ -70,13 +95,15 @@ export const TagPicker = ({
       .slice(0, MAX_MATCHES)
       .map((tag) => ({ tag, isNew: false }))
     const known =
-      allTags.includes(normalizedQuery) || value.includes(normalizedQuery)
+      knownTags.includes(normalizedQuery) || value.includes(normalizedQuery)
     return known ? matches : [{ tag: normalizedQuery, isNew: true }, ...matches]
-  }, [allTags, normalizedQuery, value])
+  }, [knownTags, normalizedQuery, value])
 
-  const listOpen = focused && options.length > 0
+  const listOpen = focused && !disabled && options.length > 0
   const activeIndex = Math.min(highlighted, options.length - 1)
-  const pendingSuggestions = suggestions.filter((tag) => !value.includes(tag))
+  const pendingSuggestions = full
+    ? []
+    : uniqueNormalized(suggestions).filter((tag) => !value.includes(tag))
 
   const commit = (tag: string) => {
     add([tag])
@@ -104,8 +131,13 @@ export const TagPicker = ({
               {tag}
               <button
                 type="button"
-                onClick={() => remove(tag)}
-                className="relative flex size-7 items-center justify-center rounded-full text-muted-foreground outline-hidden transition-colors after:absolute after:-inset-2 hover:bg-foreground/5 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-solid"
+                disabled={disabled}
+                onClick={() => {
+                  remove(tag)
+                  // The chip and its button are gone; keep the keyboard on the field.
+                  inputRef.current?.focus()
+                }}
+                className="relative flex size-7 items-center justify-center rounded-full text-muted-foreground outline-hidden transition-colors after:absolute after:-inset-2 hover:bg-foreground/5 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-solid disabled:pointer-events-none disabled:opacity-50"
               >
                 <IconX className="size-3.5" aria-hidden />
                 <span className="sr-only">Remove {tag}</span>
@@ -117,6 +149,7 @@ export const TagPicker = ({
 
       <div>
         <Input
+          ref={setInputRef}
           id={inputId}
           role="combobox"
           aria-expanded={listOpen}
@@ -130,8 +163,11 @@ export const TagPicker = ({
           autoCorrect="off"
           spellCheck={false}
           enterKeyHint="done"
-          placeholder={placeholder}
-          value={query}
+          disabled={disabled}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          placeholder={full ? `${MAX_TAGS} tags at most` : placeholder}
+          value={full ? '' : query}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           onChange={(event) => {
@@ -155,7 +191,13 @@ export const TagPicker = ({
             } else if (event.key === ',') {
               event.preventDefault()
               if (normalizedQuery) commit(normalizedQuery)
-            } else if (event.key === 'Backspace' && !query && value.length) {
+            } else if (
+              event.key === 'Backspace' &&
+              // Holding Backspace to clear the text must not go on to eat the chips.
+              !event.repeat &&
+              !query &&
+              value.length
+            ) {
               remove(value[value.length - 1])
             } else if (event.key === 'ArrowDown' && listOpen) {
               event.preventDefault()
@@ -211,6 +253,10 @@ export const TagPicker = ({
             </li>
           ))}
         </ul>
+
+        <InlineError id={errorId} className="mt-1.5">
+          {error}
+        </InlineError>
       </div>
 
       {(suggestionsLoading || pendingSuggestions.length > 0) && (
@@ -239,8 +285,9 @@ export const TagPicker = ({
                 <li key={tag}>
                   <button
                     type="button"
+                    disabled={disabled}
                     onClick={() => add([tag])}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-foreground/25 pr-3.5 pl-2.5 text-sm text-muted-foreground outline-hidden transition-colors hover:border-primary/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:outline-solid active:bg-muted"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-foreground/25 pr-3.5 pl-2.5 text-sm text-muted-foreground outline-hidden transition-colors hover:border-primary/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:outline-solid active:bg-muted disabled:pointer-events-none disabled:opacity-50"
                   >
                     <IconPlus className="size-3.5" aria-hidden />
                     <TagDot name={tag} />

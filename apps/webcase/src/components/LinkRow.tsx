@@ -1,20 +1,26 @@
+import type { Doc } from '@convex/_generated/dataModel'
+
 import { formatSavedDate } from '@/components/lib/dates'
 import { cn } from '@/components/lib/utils'
 import { Tag } from '@/components/Tag'
 import { Skeleton } from '@/components/ui/skeleton'
 
-type LinkRowProps = {
-  title: string
-  url: string
-  /** Shown in mono under the summary, e.g. `maps.google.com`. */
-  domain: string
-  summary?: string | null
-  /** The summary is still being written: shows a shimmer line instead. */
-  summaryPending?: boolean
-  tags: readonly string[]
-  savedAt: Date | number
-  /** Pass the zone the server rendered with, so the date hydrates identically. */
-  timeZone?: string
+const MAX_VISIBLE_TAGS = 6
+
+/** The `links` fields a row shows; spread a `links` document straight in. */
+type LinkRowFields = Pick<
+  Doc<'links'>,
+  'title' | 'url' | 'domain' | 'summary' | 'summaryStatus' | 'tags' | 'savedAt'
+>
+
+type LinkRowProps = LinkRowFields & {
+  /**
+   * The current time (ms) and IANA zone the date is shown in. Both are
+   * required so the server and the browser render the same day and year:
+   * pass values both sides agree on, or render the list on the client only.
+   */
+  now: number
+  timeZone: string
   /** Pressing the row (anywhere but a link or tag): opens the detail sheet. */
   onSelect?: () => void
   /** When set, the title is a real link to `url` that opens in a new tab. */
@@ -30,15 +36,17 @@ type LinkRowProps = {
  * One saved link in the library: serif title, grey summary, then a mono domain and
  * the tags. Hairline-separated, no card. The whole row presses `onSelect`;
  * links and tag buttons inside it stay independently clickable.
+ * A `pending` summary shows a shimmer; a `failed` one shows nothing.
  */
 export const LinkRow = ({
   title,
   url,
   domain,
   summary,
-  summaryPending = false,
+  summaryStatus,
   tags,
   savedAt,
+  now,
   timeZone,
   onSelect,
   titleOpensLink = false,
@@ -47,6 +55,8 @@ export const LinkRow = ({
   className,
 }: LinkRowProps) => {
   const date = new Date(savedAt)
+  const visibleTags = tags.slice(0, MAX_VISIBLE_TAGS)
+  const hiddenTags = tags.length - visibleTags.length
 
   return (
     <article className={cn('relative border-b py-4', className)}>
@@ -54,13 +64,13 @@ export const LinkRow = ({
         <button
           type="button"
           onClick={onSelect}
-          aria-label={title}
+          aria-label={`Details for ${title}`}
           className="absolute inset-y-0 -right-4 -left-4 outline-hidden transition-colors hover:bg-foreground/[0.025] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring focus-visible:outline-solid active:bg-foreground/5 sm:-right-3 sm:-left-3 sm:rounded-lg"
         />
       )}
 
       <div className="flex items-start gap-3">
-        <h3 className="line-clamp-2 min-w-0 flex-1 font-serif text-base leading-tight font-semibold tracking-[-0.005em] text-pretty text-foreground">
+        <h3 className="line-clamp-2 min-w-0 flex-1 font-serif text-base leading-tight font-semibold tracking-[-0.005em] text-pretty wrap-anywhere text-foreground">
           {titleOpensLink ? (
             <a
               href={url}
@@ -69,6 +79,7 @@ export const LinkRow = ({
               className="relative z-10 rounded-sm underline-offset-[3px] outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-solid"
             >
               {title}
+              <span className="sr-only"> (opens in a new tab)</span>
             </a>
           ) : (
             title
@@ -79,7 +90,7 @@ export const LinkRow = ({
         )}
       </div>
 
-      {summaryPending ? (
+      {summaryStatus === 'pending' ? (
         <div className="mt-2 flex flex-col gap-1.5">
           <span className="sr-only">Summary on its way</span>
           <Skeleton className="h-2.5 w-11/12 rounded-full" />
@@ -87,7 +98,7 @@ export const LinkRow = ({
         </div>
       ) : (
         summary && (
-          <p className="mt-1 line-clamp-2 text-[0.8rem] leading-normal text-muted-foreground">
+          <p className="mt-1 line-clamp-2 text-[0.8rem] leading-normal wrap-anywhere text-muted-foreground">
             {summary}
           </p>
         )
@@ -97,13 +108,15 @@ export const LinkRow = ({
         <span className="max-w-full truncate font-mono text-[0.6875rem] text-muted-foreground">
           {domain}
         </span>
-        {tags.map((tag) =>
+        {visibleTags.map((tag) =>
           onTagSelect ? (
             <button
               key={tag}
               type="button"
               onClick={() => onTagSelect(tag)}
-              className="relative z-10 -my-2 inline-flex h-8 items-center rounded-sm outline-hidden focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-solid hover:[&_span]:text-foreground"
+              // The visible tag stays small; the ::after box gives a touch
+              // target of at least 44×44 so a near miss doesn't open the row.
+              className="relative z-10 -my-2 inline-flex h-8 items-center rounded-sm outline-hidden after:absolute after:top-1/2 after:left-1/2 after:h-11 after:w-[calc(100%+0.75rem)] after:min-w-11 after:-translate-x-1/2 after:-translate-y-1/2 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-solid hover:[&_span]:text-foreground"
             >
               <span className="sr-only">Filter by </span>
               <Tag name={tag} />
@@ -112,11 +125,17 @@ export const LinkRow = ({
             <Tag key={tag} name={tag} />
           ),
         )}
+        {hiddenTags > 0 && (
+          <span className="font-mono text-[0.6875rem] text-muted-foreground">
+            +{hiddenTags}
+            <span className="sr-only"> more tags</span>
+          </span>
+        )}
         <time
           dateTime={date.toISOString()}
           className="ml-auto shrink-0 pl-2 font-mono text-[0.6875rem] text-faint-foreground"
         >
-          {formatSavedDate(date, { timeZone })}
+          {formatSavedDate(date, { now, timeZone })}
         </time>
       </div>
     </article>

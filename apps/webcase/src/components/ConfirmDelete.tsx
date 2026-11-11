@@ -15,10 +15,31 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 
+const DEFAULT_ERROR = 'Couldn’t delete the link. Try again.'
+
+// Convex handlers resolve with `{ error }` instead of throwing, so only an
+// explicit success counts: `true` or `{ success: true }`.
+const isSuccess = (result: unknown): boolean =>
+  result === true ||
+  (typeof result === 'object' &&
+    result !== null &&
+    'success' in result &&
+    result.success === true)
+
 type ConfirmDeleteProps = {
-  /** Runs on confirm. If it returns a promise, the dialog stays open until it settles. */
+  /**
+   * Runs on confirm. Uncontrolled, the dialog closes only when this returns
+   * or resolves to `true` or `{ success: true }` (e.g. the `remove`
+   * mutation's result); anything else, or a throw, keeps it open with an
+   * error. Controlled, it never closes itself.
+   */
   onConfirm: () => unknown
-  /** Shown in the dialog, e.g. when the delete failed. */
+  /** Controlled open state. Pass with `onOpenChange`; the parent closes it on success. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  /** Controlled busy state; otherwise busy while `onConfirm`'s promise is pending. */
+  pending?: boolean
+  /** Shown in the dialog. Uncontrolled, a failed confirm shows a default message. */
   error?: React.ReactNode
   label?: string
   title?: string
@@ -33,6 +54,9 @@ type ConfirmDeleteProps = {
  */
 export const ConfirmDelete = ({
   onConfirm,
+  open: openProp,
+  onOpenChange,
+  pending: pendingProp,
   error,
   label = 'Delete link',
   title = 'Delete this link?',
@@ -40,20 +64,36 @@ export const ConfirmDelete = ({
   confirmLabel = 'Delete',
   className,
 }: ConfirmDeleteProps) => {
-  const [open, setOpen] = useState(false)
-  const [pending, setPending] = useState(false)
+  const controlled = openProp !== undefined
+  const [openState, setOpenState] = useState(false)
+  const [running, setRunning] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  const open = controlled ? openProp : openState
+  const pending = pendingProp ?? running
+
+  const setOpen = (next: boolean) => {
+    if (next) setFailed(false)
+    if (!controlled) setOpenState(next)
+    onOpenChange?.(next)
+  }
 
   const confirm = async () => {
-    setPending(true)
+    setRunning(true)
+    setFailed(false)
     try {
-      await onConfirm()
-      setOpen(false)
+      const result = await onConfirm()
+      if (controlled) return
+      if (isSuccess(result)) setOpenState(false)
+      else setFailed(true)
     } catch {
-      // The caller shows what went wrong through `error`; keep the dialog open.
+      setFailed(true)
     } finally {
-      setPending(false)
+      setRunning(false)
     }
   }
+
+  const shownError = error ?? (failed && !controlled ? DEFAULT_ERROR : null)
 
   return (
     <AlertDialog
@@ -82,11 +122,11 @@ export const ConfirmDelete = ({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
-        <InlineError>{error}</InlineError>
+        <InlineError>{shownError}</InlineError>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <Button
-            className="h-11 bg-destructive text-primary-foreground hover:bg-destructive/90 focus-visible:border-destructive focus-visible:ring-destructive/30"
+            className="h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:border-destructive focus-visible:ring-destructive/30"
             disabled={pending}
             onClick={confirm}
           >
