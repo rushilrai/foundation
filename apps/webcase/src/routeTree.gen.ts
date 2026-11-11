@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as KitRouteImport } from './routes/kit'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -17,6 +18,11 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KitRoute = KitRouteImport.update({
+  id: '/kit',
+  path: '/kit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -37,12 +43,14 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/kit': typeof KitRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/kit': typeof KitRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -50,20 +58,22 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/kit': typeof KitRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in' | '/sign-up' | '/api/auth/$'
+  fullPaths: '/' | '/kit' | '/sign-in' | '/sign-up' | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sign-in' | '/sign-up' | '/api/auth/$'
-  id: '__root__' | '/' | '/sign-in' | '/sign-up' | '/api/auth/$'
+  to: '/' | '/kit' | '/sign-in' | '/sign-up' | '/api/auth/$'
+  id: '__root__' | '/' | '/kit' | '/sign-in' | '/sign-up' | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  KitRoute: typeof KitRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -76,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kit': {
+      id: '/kit'
+      path: '/kit'
+      fullPath: '/kit'
+      preLoaderRoute: typeof KitRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -104,6 +121,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  KitRoute: KitRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
