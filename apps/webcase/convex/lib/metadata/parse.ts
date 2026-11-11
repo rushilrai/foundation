@@ -80,7 +80,7 @@ const NAMED_ENTITIES: Record<string, string> = {
   uacute: 'ú',
 }
 
-export const decodeEntities = (value: string): string =>
+const decodeEntities = (value: string): string =>
   value.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (match, body) => {
     const entity = String(body)
     if (entity[0] === '#') {
@@ -241,7 +241,7 @@ const SKIPPED_ELEMENTS = new Set([
 // and tags. One forward pass over at most MAX_BODY_SCAN characters of the
 // body, stopping once enough text is collected. An unclosed comment or
 // skipped element swallows the rest, as it would in a browser.
-export const extractText = (html: string): string | undefined => {
+const extractText = (html: string): string | undefined => {
   const bodyStart = findTag(html.toLowerCase(), 'body', 0)
   const body = html.slice(
     bodyStart === -1 ? 0 : bodyStart,

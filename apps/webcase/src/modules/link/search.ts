@@ -4,7 +4,7 @@ import type { Doc } from '@convex/_generated/dataModel'
 // filters them as the user types.
 
 // Lowercase, without accents: "Café" and "cafe" match each other.
-export const foldText = (text: string) =>
+const foldText = (text: string) =>
   text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 
 // Punctuation around a word ("bakery?", "“mumbai”") is not part of it.

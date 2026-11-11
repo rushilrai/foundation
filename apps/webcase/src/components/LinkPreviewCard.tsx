@@ -57,7 +57,7 @@ export const LinkPreviewCard = ({
           {title}
         </p>
         {description && (
-          <p className="mt-0.5 line-clamp-3 text-[0.8125rem] leading-normal text-muted-foreground">
+          <p className="mt-0.5 line-clamp-3 text-snippet leading-normal text-muted-foreground">
             {description}
           </p>
         )}

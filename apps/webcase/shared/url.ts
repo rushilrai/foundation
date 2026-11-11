@@ -8,7 +8,7 @@ import { MAX_TITLE_LENGTH, MAX_URL_LENGTH } from './limits'
 // when a URL is normalised, so the same page shared twice (Pocket added
 // `g_st` to every Maps link it saved) is one link. Only parameters that
 // never change which page is served belong here: never `v`, `q`, `id`, `t`.
-export const TRACKING_PARAMS: ReadonlySet<string> = new Set([
+const TRACKING_PARAMS: ReadonlySet<string> = new Set([
   'fbclid',
   'gclid',
   'dclid',

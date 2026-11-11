@@ -35,7 +35,7 @@ const trimTrailing = (raw: string): string => {
 
 // The normalised href for something a person typed or pasted: a full
 // http(s) URL, or a bare domain, which is taken as https. Null otherwise.
-export const toHttpUrl = (raw: string): string | null => {
+const toHttpUrl = (raw: string): string | null => {
   const value = trimTrailing(raw.trim())
   if (!value) return null
 

@@ -107,7 +107,7 @@ export const LinkRow = ({
         </div>
       ) : (
         summary && (
-          <p className="mt-1 line-clamp-2 text-[0.8rem] leading-normal wrap-anywhere text-muted-foreground">
+          <p className="mt-1 line-clamp-2 text-snippet leading-normal wrap-anywhere text-muted-foreground">
             {summary}
           </p>
         )

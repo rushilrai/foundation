@@ -204,7 +204,7 @@ const FilterItem = ({
       {count !== undefined && (
         <sup
           className={cn(
-            'ml-px font-mono text-[0.625rem] font-normal tabular-nums',
+            'ml-px font-mono text-3xs font-normal tabular-nums',
             pressed ? 'text-primary' : 'text-faint-foreground',
           )}
         >

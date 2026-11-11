@@ -1,5 +1,4 @@
-import { IconExternalLink } from '@tabler/icons-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { AddLinkButton } from '@/components/AddLinkButton'
 import { AnswerCard } from '@/components/AnswerCard'
@@ -18,16 +17,6 @@ import { Tag } from '@/components/Tag'
 import { TagFilterBar } from '@/components/TagFilterBar'
 import { TagPicker } from '@/components/TagPicker'
 import { Button } from '@/components/ui/button'
-import {
-  Drawer,
-  DrawerBody,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { MESSAGES } from '@/modules/link/errors'
 import { countTags, groupByMonth } from '@/modules/link/utils'
@@ -254,7 +243,7 @@ export const KitScreen = () => {
           {TAG_NAMES.slice(0, 24).map((tag) => (
             <span key={tag} className="inline-flex items-center gap-1">
               <Tag name={tag} />
-              <span className="font-mono text-[0.625rem] text-faint-foreground">
+              <span className="font-mono text-3xs text-faint-foreground">
                 {tagColorIndex(tag) + 1}
               </span>
             </span>
@@ -378,10 +367,6 @@ export const KitScreen = () => {
         <Caption>Controlled: the parent owns open, pending and error</Caption>
         <ControlledDeleteDemo />
       </KitSection>
-
-      <KitSection title="Sheets">
-        <SheetDemos />
-      </KitSection>
     </main>
   )
 }
@@ -391,8 +376,6 @@ const HomePreview = () => {
   const [active, setActive] = useState<string | null>(null)
   const [asking, setAsking] = useState(false)
   const [answer, setAnswer] = useState<string | null>(null)
-  const [selected, setSelected] = useState<SampleLink | null>(null)
-  const [saveOpen, setSaveOpen] = useState(false)
 
   const visible = useMemo(
     () =>
@@ -461,7 +444,7 @@ const HomePreview = () => {
                 key={link.id}
                 {...link}
                 {...DATES}
-                onSelect={() => setSelected(link)}
+                onSelect={() => undefined}
                 onTagSelect={setActive}
               />
             ))}
@@ -469,10 +452,7 @@ const HomePreview = () => {
         ))
       )}
 
-      <AddLinkButton onClick={() => setSaveOpen(true)} />
-
-      <DetailSheet link={selected} onClose={() => setSelected(null)} />
-      <SaveSheet open={saveOpen} onOpenChange={setSaveOpen} />
+      <AddLinkButton onClick={() => undefined} />
     </section>
   )
 }
@@ -612,179 +592,6 @@ const ControlledDeleteDemo = () => {
         }
       }}
     />
-  )
-}
-
-const DetailSheet = ({
-  link,
-  onClose,
-}: {
-  link: SampleLink | null
-  onClose: () => void
-}) => {
-  // Keep the last link while the sheet animates closed.
-  const [shown, setShown] = useState(link)
-  const [tags, setTags] = useState<string[]>([])
-  useEffect(() => {
-    if (link) {
-      setShown(link)
-      setTags(link.tags)
-    }
-  }, [link])
-
-  return (
-    <Drawer
-      open={link !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
-    >
-      <DrawerContent>
-        {shown && (
-          <>
-            <DrawerHeader>
-              <DrawerTitle className="sr-only">{shown.title}</DrawerTitle>
-              <DrawerDescription className="font-mono text-2xs">
-                Saved{' '}
-                {new Date(shown.savedAt).toLocaleDateString('en-GB', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </DrawerDescription>
-            </DrawerHeader>
-            <DrawerBody>
-              <LinkPreviewCard
-                title={shown.title}
-                domain={shown.domain}
-                description={shown.summary ?? shown.description}
-                image={shown.image}
-              />
-              <Button
-                className="h-11"
-                nativeButton={false}
-                render={
-                  <a
-                    href={shown.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  />
-                }
-              >
-                Open link
-                <IconExternalLink data-icon="inline-end" aria-hidden />
-              </Button>
-              <TagPicker
-                value={tags}
-                onChange={setTags}
-                suggestions={SUGGESTIONS}
-                allTags={TAG_NAMES}
-              />
-              <div className="-mx-3 border-t pt-2">
-                <ConfirmDelete
-                  onConfirm={async () => {
-                    await wait(700)
-                    onClose()
-                    return { success: true }
-                  }}
-                />
-              </div>
-            </DrawerBody>
-          </>
-        )}
-      </DrawerContent>
-    </Drawer>
-  )
-}
-
-const SaveSheet = ({
-  open,
-  onOpenChange,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) => {
-  const [loading, setLoading] = useState(true)
-  const [tags, setTags] = useState<string[]>([])
-
-  useEffect(() => {
-    if (!open) return
-    setLoading(true)
-    setTags([])
-    const timer = setTimeout(() => setLoading(false), 1500)
-    return () => clearTimeout(timer)
-  }, [open])
-
-  return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>Save a link</DrawerTitle>
-          <DrawerDescription>
-            We’ll read the page and suggest tags.
-          </DrawerDescription>
-        </DrawerHeader>
-        <DrawerBody>
-          <Input
-            aria-label="Link"
-            type="url"
-            inputMode="url"
-            defaultValue="https://maps.google.com/?cid=1234567890"
-          />
-          {loading ? (
-            <LinkPreviewCardSkeleton />
-          ) : (
-            <LinkPreviewCard
-              title={LINKS[0].title}
-              domain={LINKS[0].domain}
-              description={LINKS[0].description}
-              image={LINKS[0].image}
-            />
-          )}
-          <TagPicker
-            value={tags}
-            onChange={setTags}
-            suggestions={SUGGESTIONS}
-            allTags={TAG_NAMES}
-            suggestionsLoading={loading}
-          />
-        </DrawerBody>
-        <DrawerFooter>
-          <DrawerClose render={<Button variant="ghost" className="h-11" />}>
-            Cancel
-          </DrawerClose>
-          <Button className="h-11 px-6" onClick={() => onOpenChange(false)}>
-            Save link
-          </Button>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
-  )
-}
-
-const SheetDemos = () => {
-  const [detail, setDetail] = useState<SampleLink | null>(null)
-  const [save, setSave] = useState(false)
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      <Button
-        variant="outline"
-        className="h-11 px-4"
-        onClick={() => setDetail(LINKS[0])}
-      >
-        Open link detail
-      </Button>
-      <Button
-        variant="outline"
-        className="h-11 px-4"
-        onClick={() => setSave(true)}
-      >
-        Open save sheet
-      </Button>
-      <DetailSheet link={detail} onClose={() => setDetail(null)} />
-      <SaveSheet open={save} onOpenChange={setSave} />
-    </div>
   )
 }
 

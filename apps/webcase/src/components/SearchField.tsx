@@ -93,7 +93,7 @@ export const SearchField = ({
         }}
         className={cn(
           // Focus turns the underline cobalt and doubles it (an inset shadow, so nothing shifts).
-          'h-12 w-full min-w-0 appearance-none rounded-none border-0 border-b-[1.5px] border-foreground bg-transparent px-0 text-[1.0625rem] text-foreground outline-hidden transition-[border-color,box-shadow] placeholder:font-serif placeholder:text-lg placeholder:text-faint-foreground placeholder:italic focus:border-primary focus:shadow-[inset_0_-1.5px_0_0_var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none',
+          'h-12 w-full min-w-0 appearance-none rounded-none border-0 border-b-[1.5px] border-foreground bg-transparent px-0 text-lede text-foreground outline-hidden transition-[border-color,box-shadow] placeholder:font-serif placeholder:text-lg placeholder:text-faint-foreground placeholder:italic focus:border-primary focus:shadow-[inset_0_-1.5px_0_0_var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none',
           value ? 'pr-11' : 'pr-0',
           busy && 'pr-28',
         )}

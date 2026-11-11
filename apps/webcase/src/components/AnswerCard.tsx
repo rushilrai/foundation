@@ -55,7 +55,7 @@ export const AnswerCard = ({
         ) : error ? (
           <p className="mt-1.5 text-sm text-pretty text-destructive">{error}</p>
         ) : (
-          <div className="mt-1.5 font-serif text-[1.0625rem] leading-snug text-pretty wrap-anywhere text-foreground">
+          <div className="mt-1.5 font-serif text-lede leading-snug text-pretty wrap-anywhere text-foreground">
             {answer}
           </div>
         )}

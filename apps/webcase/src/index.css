@@ -115,9 +115,13 @@
 }
 
 @theme {
-  /* Text sizes between Tailwind's steps: 11px metadata and caps labels, 15px big buttons and summaries. */
+  /* Text sizes between Tailwind's steps: 10px tag counts, 11px metadata and caps labels,
+     13px descriptions under a title, 15px big buttons and summaries, 17px the search field and answers. */
+  --text-3xs: 0.625rem;
   --text-2xs: 0.6875rem;
+  --text-snippet: 0.8125rem;
   --text-md: 0.9375rem;
+  --text-lede: 1.0625rem;
 
   /* A sliver that runs along an underline while something is working (search "asking…"). */
   --animate-indeterminate: indeterminate 1.4s cubic-bezier(0.4, 0, 0.2, 1)

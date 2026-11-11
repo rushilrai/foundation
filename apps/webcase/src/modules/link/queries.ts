@@ -8,7 +8,7 @@ import { countTags } from './utils'
 
 // The one place the link queries and the preview action are wrapped.
 
-export const linksQuery = convexQuery(api.modules.link.queries.list, {})
+const linksQuery = convexQuery(api.modules.link.queries.list, {})
 
 export type LibraryStatus = 'loading' | 'error' | 'signedOut' | 'ready'
 
