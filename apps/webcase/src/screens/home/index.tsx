@@ -153,6 +153,16 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
     searchRef.current?.focus()
   }
 
+  // The save sheet opens over the library, which keeps its tag and scroll.
+  const addLink = (
+    <Link
+      to="/save"
+      search={{ tag: tagParam }}
+      state={FROM_LIBRARY}
+      resetScroll={false}
+    />
+  )
+
   const loading =
     library.status === 'loading' || (links !== undefined && !dates)
   const empty = links !== undefined && links.length === 0
@@ -248,7 +258,7 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
               <Button
                 className="h-11 px-5"
                 nativeButton={false}
-                render={<Link to="/save" state={FROM_LIBRARY} />}
+                render={addLink}
               >
                 Add your first link
               </Button>
@@ -310,10 +320,7 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
         </>
       )}
 
-      <AddLinkButton
-        nativeButton={false}
-        render={<Link to="/save" state={FROM_LIBRARY} />}
-      />
+      <AddLinkButton nativeButton={false} render={addLink} />
 
       {dates && (
         <LinkDetailSheet

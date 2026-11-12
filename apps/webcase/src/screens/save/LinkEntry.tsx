@@ -16,6 +16,10 @@ type LinkEntryProps = {
   sharedText: string | null
   /** Called with the normalised href. */
   onSubmit: (href: string) => void
+  /** The link field, so the sheet can focus it once it has opened. */
+  inputRef?: React.Ref<HTMLInputElement>
+  /** Focus the field on mount, e.g. after Change. */
+  autoFocus?: boolean
 }
 
 // No link yet: a field, and one tap to take the link from the clipboard,
@@ -24,13 +28,21 @@ export const LinkEntry = ({
   initial,
   sharedText,
   onSubmit,
+  inputRef: forwardedRef,
+  autoFocus = false,
 }: LinkEntryProps) => {
   const id = useId()
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
   const [value, setValue] = useState(initial)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [reading, setReading] = useState(false)
+
+  const setInputRef = (element: HTMLInputElement | null) => {
+    inputRef.current = element
+    if (typeof forwardedRef === 'function') forwardedRef(element)
+    else if (forwardedRef) forwardedRef.current = element
+  }
 
   const focusField = () => {
     inputRef.current?.focus()
@@ -76,7 +88,7 @@ export const LinkEntry = ({
   return (
     <form
       noValidate
-      className="mt-6 flex flex-col gap-5"
+      className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault()
         submit()
@@ -87,7 +99,7 @@ export const LinkEntry = ({
           Link
         </FieldLabel>
         <Input
-          ref={inputRef}
+          ref={setInputRef}
           id={id}
           name="url"
           type="url"
@@ -97,8 +109,8 @@ export const LinkEntry = ({
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          // The page is opened to enter a link; nothing else competes for focus.
-          autoFocus
+          // The sheet focuses it when it opens (on a phone once it is up).
+          autoFocus={autoFocus}
           maxLength={MAX_URL_LENGTH}
           placeholder="https://"
           value={value}
