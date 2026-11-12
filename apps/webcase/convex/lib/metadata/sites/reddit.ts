@@ -1,10 +1,17 @@
 // Reddit gives crawlers "From the <sub> community on Reddit: <post title>"
 // (or only the prefix) and a description that says nothing. The prefix and
 // that description are dropped from the page, and a post's clean title
-// comes from its oEmbed endpoint.
+// comes from its oEmbed endpoint. A share link (/r/<sub>/s/<code>, or
+// redd.it/<id>) is first followed to the post it redirects to (rewrite),
+// then read as that post; the share link stays the stored URL.
 
-import type { PageMetadata } from '../parse'
-import { asRecord, hostOf, stringField, type Site } from './types'
+import {
+  asRecord,
+  hostOf,
+  stringField,
+  type Site,
+  type SitePage,
+} from './types'
 
 const HOSTS = new Set([
   'reddit.com',
@@ -17,51 +24,60 @@ const HOSTS = new Set([
 // A post: /r/<sub>/comments/<id>/… or /user/<name>/comments/<id>/…
 const POST_PATH =
   /^\/(r|u|user)\/([\w-]{1,50})\/comments\/([a-z0-9]{1,12})(?:\/|$)/i
+// A share link from the app: /r/<sub>/s/<code>, which redirects to the post.
+const SHARE_PATH = /^\/r\/[\w-]{1,50}\/s\/[\w-]{1,20}\/?$/i
+// redd.it/<id>: to /comments/<id>, then to the post.
+const SHORT_PATH = /^\/[a-z0-9]{1,12}\/?$/i
 
 const TITLE_PREFIX = /^From the \S+ community on Reddit(?::\s*|$)/
 const GENERIC_DESCRIPTION =
   /^Explore this post and more from the \S+ community$/
 
-// A stored or read title without Reddit's prefix; empty when the prefix was
-// all there was.
-export const withoutRedditPrefix = (title: string): string =>
-  title.replace(TITLE_PREFIX, '').trim()
+const isPost = (url: URL): boolean =>
+  HOSTS.has(hostOf(url)) && POST_PATH.test(url.pathname)
 
-export const hasRedditPrefix = (title: string): boolean =>
-  TITLE_PREFIX.test(title.trim())
+// The prefix dropped; "Reddit" alone (a share link's page) names nothing.
+const cleanTitle = (title: string): string | undefined => {
+  const value = title.trim().replace(TITLE_PREFIX, '').trim()
+  return value && value !== 'Reddit' ? value : undefined
+}
 
-export const isGenericRedditDescription = (
-  description: string | undefined,
-): boolean => !!description && GENERIC_DESCRIPTION.test(description.trim())
+// "Explore this post and more…", or the prefixed title again (a share
+// link's page puts "From the <sub> community on Reddit: <title>" there).
+const isGenericDescription = (description: string): boolean =>
+  GENERIC_DESCRIPTION.test(description.trim()) ||
+  TITLE_PREFIX.test(description.trim())
 
-const cleanPage = (metadata: PageMetadata): PageMetadata => ({
-  ...metadata,
-  title: metadata.title
-    ? withoutRedditPrefix(metadata.title) || undefined
-    : undefined,
-  description: isGenericRedditDescription(metadata.description)
-    ? undefined
-    : metadata.description,
-})
+const page: SitePage = {
+  domain: 'reddit.com',
+  provides: { description: false, image: false },
+  cleanTitle,
+  isGenericDescription,
+}
 
 export const reddit: Site = {
   name: 'Reddit',
-  provides: { description: false, image: false },
   match: (url) => {
-    if (!HOSTS.has(hostOf(url))) {
+    const host = hostOf(url)
+    const share =
+      (HOSTS.has(host) && SHARE_PATH.test(url.pathname)) ||
+      (host === 'redd.it' && SHORT_PATH.test(url.pathname))
+    if (share) {
+      return { ...page, rewrite: (locate) => locate(isPost) }
+    }
+    if (!HOSTS.has(host)) {
       return null
     }
     const post = POST_PATH.exec(url.pathname)
     if (!post) {
-      // Share links (/r/<sub>/s/<code>) and other pages are read from the
-      // page alone, which still has the prefix to drop.
-      return { domain: 'reddit.com', cleanPage }
+      // Other pages are read from the page alone, which still has the
+      // prefix to drop.
+      return page
     }
     const [, kind, name, id] = post
 
     return {
-      domain: 'reddit.com',
-      cleanPage,
+      ...page,
       resolve: async (getJson) => {
         const canonical = `https://www.reddit.com/${kind.toLowerCase() === 'r' ? 'r' : 'user'}/${name}/comments/${id.toLowerCase()}/`
         const body = asRecord(

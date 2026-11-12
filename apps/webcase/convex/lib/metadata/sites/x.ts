@@ -55,7 +55,6 @@ const opening = (text: string): string => {
 
 export const x: Site = {
   name: 'X',
-  provides: { description: true, image: false },
   match: (url) => {
     if (!HOSTS.has(hostOf(url))) {
       return null
@@ -68,6 +67,7 @@ export const x: Site = {
 
     return {
       domain: 'x.com',
+      provides: { description: true, image: false },
       resolve: async (getJson) => {
         const canonical = `https://x.com/${handle}/status/${id}`
         const body = asRecord(

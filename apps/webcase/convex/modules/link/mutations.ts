@@ -360,10 +360,11 @@ export const importMany = mutation({
 const MAX_REENRICH_BATCH = 500
 
 // Operator tool, not public: refreshes the metadata of links saved before
-// the site resolvers (lib/metadata/sites) existed. Selects the user's links
-// on those sites that still lack what their site provides, and any link
-// whose title is a stand-in or carries Reddit's prefix (see
-// reenrichReasons), optionally only on `domains`, and schedules `enrich`
+// their site rules (lib/metadata/sites, shared/sites) existed. Selects the
+// user's links that still lack what their site rule fills, and any link
+// whose title is a stand-in or carries its site's decoration, whose
+// description is its site's generic one, or that is a redirect wrapper
+// (see reenrichReasons), optionally only on `domains`, and schedules `enrich`
 // for each with `refresh`, spaced like an import. A refresh never replaces
 // a real title and writes a new summary only when the title or description
 // changed; summaries count against the global summary budget as always.
@@ -472,12 +473,15 @@ export const reenrichInternal = internalMutation({
 
 // Fills in what enrichment found. Only empty fields are filled, except the
 // title, which the caller decides on, and the description when
-// `replaceDescription` (Reddit's generic one is replaced, or cleared when
-// nothing better was read). `changed`: whether the title or description,
-// what a summary reads, changed.
+// `replaceDescription` (a site's generic one is replaced, or cleared when
+// nothing better was read). `url`: the normalised URL of a link stored in
+// an older form (a redirect wrapper's destination), taken unless another
+// of the user's links already has it. `changed`: whether the title or
+// description, what a summary reads, changed.
 export const applyMetadataInternal = internalMutation({
   args: {
     linkId: v.id('links'),
+    url: v.optional(v.string()),
     domain: v.optional(v.string()),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
@@ -493,7 +497,15 @@ export const applyMetadataInternal = internalMutation({
     const description = args.replaceDescription
       ? args.description
       : (link.description ?? args.description)
+    const url =
+      args.url &&
+      args.url !== link.url &&
+      parseHttpUrl(args.url)?.href === args.url &&
+      !(await getByUrl(ctx, link.userId, args.url))
+        ? args.url
+        : undefined
     const patch = {
+      ...(url ? { url } : {}),
       ...(args.domain ? { domain: args.domain } : {}),
       ...(args.title ? { title: args.title } : {}),
       ...(description !== link.description ? { description } : {}),

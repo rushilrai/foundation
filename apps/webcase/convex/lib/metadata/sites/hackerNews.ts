@@ -18,7 +18,6 @@ const linkedHost = (raw: string | undefined): string | undefined => {
 
 export const hackerNews: Site = {
   name: 'Hacker News',
-  provides: { description: true, image: false },
   match: (url) => {
     if (hostOf(url) !== 'news.ycombinator.com' || url.pathname !== '/item') {
       return null
@@ -30,6 +29,7 @@ export const hackerNews: Site = {
 
     return {
       domain: 'news.ycombinator.com',
+      provides: { description: true, image: false },
       resolve: async (getJson) => {
         const item = asRecord(
           await getJson(
