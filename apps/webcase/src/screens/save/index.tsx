@@ -7,6 +7,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer'
+import { isTouchScreen } from '@/lib/touch'
 import { useReturnToLibrary } from '@/modules/link/hooks'
 import type { SharedPayload } from '@/modules/save/schema'
 import { SaveSteps } from './SaveSteps'
@@ -15,8 +16,6 @@ type SaveSheetProps = {
   /** /save's search params while the location is /save; null closes it. */
   search: SharedPayload | null
 }
-
-const isTouch = () => matchMedia('(pointer: coarse)').matches
 
 // How every link gets in: the share target, Home's Add link button, a
 // pasted link, or any tool that opens /save?url=…. It has its own URL,
@@ -77,19 +76,16 @@ export const SaveSheet = ({ search }: SaveSheetProps) => {
         }
         close()
       }}
-      onOpenChangeComplete={(opened) => {
-        // On a phone the link field takes focus only once the sheet is up,
-        // so the keyboard does not rise into the opening animation.
-        if (opened && isTouch()) urlInputRef.current?.focus()
-      }}
     >
       <DrawerContent
         // With a link, the sheet takes its full height, so a preview
         // arriving or a tag added or removed never moves its top edge (and
         // Close) under the finger.
         className="has-[[data-slot=save-form]]:h-[calc(100dvh-2.5rem)] sm:has-[[data-slot=save-form]]:h-[min(85dvh,48rem)]"
+        // The first field with a mouse and keyboard; on a touch screen the
+        // title, so the keyboard rises only when a field is tapped.
         initialFocus={() =>
-          isTouch()
+          isTouchScreen()
             ? titleRef.current
             : (urlInputRef.current ?? tagInputRef.current)
         }
@@ -97,8 +93,9 @@ export const SaveSheet = ({ search }: SaveSheetProps) => {
         <DrawerHeader>
           <DrawerTitle
             ref={titleRef}
-            // Focusable from script only, so focus has somewhere to go when
-            // the part of the sheet that held it is replaced.
+            // Focusable from script only: where focus starts on a touch
+            // screen, and where it goes when the part of the sheet that held
+            // it is replaced.
             tabIndex={-1}
             className="outline-hidden"
           >
