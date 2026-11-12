@@ -32,7 +32,9 @@ import {
   countLinks,
   getByUrl,
   getOwned,
+  getUserLinks,
   mergeTags,
+  reenrichReasons,
 } from './helpers'
 
 // Pending summaries due longer ago than this no longer hold up new imports:
@@ -353,8 +355,126 @@ export const importMany = mutation({
   },
 })
 
+// Most links one reenrichInternal call schedules; run it again for the
+// rest (links already queued are skipped).
+const MAX_REENRICH_BATCH = 500
+
+// Operator tool, not public: refreshes the metadata of links saved before
+// the site resolvers (lib/metadata/sites) existed. Selects the user's links
+// on those sites that still lack what their site provides, and any link
+// whose title is a stand-in or carries Reddit's prefix (see
+// reenrichReasons), optionally only on `domains`, and schedules `enrich`
+// for each with `refresh`, spaced like an import. A refresh never replaces
+// a real title and writes a new summary only when the title or description
+// changed; summaries count against the global summary budget as always.
+// `dryRun` lists what would be touched and changes nothing. Run with
+// `bunx convex run modules/link/mutations:reenrichInternal`, see AGENTS.md.
+export const reenrichInternal = internalMutation({
+  args: {
+    userId: v.string(),
+    domains: v.optional(v.array(v.string())),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<
+    | {
+        dryRun: true
+        selected: number
+        links: Array<{
+          linkId: Id<'links'>
+          url: string
+          title: string
+          reasons: Array<string>
+        }>
+      }
+    | { dryRun: false; scheduled: number; remaining: number }
+  > => {
+    const now = Date.now()
+    const domains = (args.domains ?? [])
+      .map((domain) =>
+        domain
+          .trim()
+          .toLowerCase()
+          .replace(/^www\./, ''),
+      )
+      .filter(Boolean)
+    const onDomains = (hosts: Array<string>): boolean =>
+      domains.length === 0 ||
+      hosts.some((host) =>
+        domains.some(
+          (domain) => host === domain || host.endsWith(`.${domain}`),
+        ),
+      )
+
+    const selected = []
+    // The latest queued run, so this batch starts after an earlier one.
+    let latestDue = 0
+    for (const link of await getUserLinks(ctx, args.userId)) {
+      // A queued summary (an import, or an earlier refresh) reads the link
+      // anyway.
+      const queued =
+        link.summaryDueAt !== undefined &&
+        link.summaryDueAt > now - SUMMARY_STUCK_AFTER_MS
+      if (queued) {
+        latestDue = Math.max(latestDue, link.summaryDueAt ?? 0)
+      }
+      const parsed = parseHttpUrl(link.url)
+      if (queued || !parsed || !onDomains([domainOf(parsed), link.domain])) {
+        continue
+      }
+
+      const reasons = reenrichReasons(link, parsed)
+      if (reasons.length > 0) {
+        selected.push({ link, reasons })
+      }
+    }
+
+    if (args.dryRun) {
+      return {
+        dryRun: true,
+        selected: selected.length,
+        links: selected.map(({ link, reasons }) => ({
+          linkId: link._id,
+          url: link.url,
+          title: link.title,
+          reasons,
+        })),
+      }
+    }
+
+    const batch = selected.slice(0, MAX_REENRICH_BATCH)
+    let dueAt = Math.max(
+      await nextImportSlot(ctx, args.userId, now),
+      latestDue + IMPORT_SPACING_MS,
+    )
+    for (const { link } of batch) {
+      // The due time marks the link as queued, so a second call doesn't
+      // schedule it twice; setSummaryInternal clears it. A `ready` link
+      // stays ready and keeps showing its summary meanwhile.
+      await ctx.db.patch(link._id, { summaryDueAt: dueAt })
+      await ctx.scheduler.runAt(
+        dueAt,
+        internal.modules.link.nodeActions.enrich,
+        { linkId: link._id, refresh: true },
+      )
+      dueAt += IMPORT_SPACING_MS
+    }
+
+    return {
+      dryRun: false,
+      scheduled: batch.length,
+      remaining: selected.length - batch.length,
+    }
+  },
+})
+
 // Fills in what enrichment found. Only empty fields are filled, except the
-// title, which the caller decides on.
+// title, which the caller decides on, and the description when
+// `replaceDescription` (Reddit's generic one is replaced, or cleared when
+// nothing better was read). `changed`: whether the title or description,
+// what a summary reads, changed.
 export const applyMetadataInternal = internalMutation({
   args: {
     linkId: v.id('links'),
@@ -362,21 +482,30 @@ export const applyMetadataInternal = internalMutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     image: v.optional(v.string()),
+    replaceDescription: v.optional(v.boolean()),
   },
-  handler: async (ctx, args): Promise<void> => {
+  handler: async (ctx, args): Promise<{ changed: boolean }> => {
     const link = await ctx.db.get(args.linkId)
     if (!link) {
-      return
+      return { changed: false }
     }
 
-    await ctx.db.patch(link._id, {
+    const description = args.replaceDescription
+      ? args.description
+      : (link.description ?? args.description)
+    const patch = {
       ...(args.domain ? { domain: args.domain } : {}),
       ...(args.title ? { title: args.title } : {}),
-      ...(!link.description && args.description
-        ? { description: args.description }
-        : {}),
+      ...(description !== link.description ? { description } : {}),
       ...(!link.image && args.image ? { image: args.image } : {}),
-    })
+    }
+    await ctx.db.patch(link._id, patch)
+
+    return {
+      changed:
+        (patch.title !== undefined && patch.title !== link.title) ||
+        'description' in patch,
+    }
   },
 })
 

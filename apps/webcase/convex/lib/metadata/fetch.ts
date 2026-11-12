@@ -17,7 +17,9 @@ import { isFetchableUrl, isIpLiteral, isPrivateAddress } from './url'
 const USER_AGENT =
   'Mozilla/5.0 (compatible; Webcase/1.0; link preview) facebookexternalhit/1.1'
 
-const TIMEOUT_MS = 8_000
+// The whole budget for reading a link: every request made for one link
+// (the page and a site endpoint, see read.ts) shares one deadline.
+export const FETCH_TIMEOUT_MS = 8_000
 const MAX_REDIRECTS = 5
 // Applies to the decoded body, so a small compressed bomb can't expand past it.
 const MAX_BYTES = 512 * 1024
@@ -101,12 +103,20 @@ const pinnedLookup =
     }
   }
 
+const ACCEPT = {
+  html: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5',
+  json: 'application/json',
+} as const
+
+type BodyKind = keyof typeof ACCEPT
+
 // One GET to the pinned address. TLS SNI and the Host header still carry
 // the hostname, because the URL does. No connection pooling: each hop gets
 // its own socket to the address it was validated against.
 const requestOnce = (
   url: URL,
   pinned: PinnedAddress,
+  accept: BodyKind,
   signal: AbortSignal,
 ): Promise<IncomingMessage> =>
   new Promise((resolve, reject) => {
@@ -117,7 +127,7 @@ const requestOnce = (
       signal,
       headers: {
         'user-agent': USER_AGENT,
-        accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5',
+        accept: ACCEPT[accept],
         'accept-language': 'en;q=0.9,*;q=0.5',
         'accept-encoding': 'gzip, deflate, br',
         connection: 'close',
@@ -202,96 +212,170 @@ const header = (response: IncomingMessage, name: string): string => {
   return (Array.isArray(value) ? value[0] : value) ?? ''
 }
 
-// Fetches a public web page and reads its metadata. Follows redirects by
-// hand so every hop is re-validated and pinned. `domain` is the final
+// The GET that answered with something other than a redirect, and where
+// it was. Follows redirects by hand so every hop is re-validated and
+// pinned. The caller reads or destroys the response.
+const openGuarded = async (
+  start: URL,
+  accept: BodyKind,
+  signal: AbortSignal,
+): Promise<
+  { response: IncomingMessage; url: URL } | { error: FetchFailure }
+> => {
+  let url = start
+
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const pinned = isFetchableUrl(url)
+      ? await resolvePublicAddress(url.hostname)
+      : null
+    if (!pinned) {
+      return { error: 'BLOCKED' }
+    }
+
+    const response = await requestOnce(url, pinned, accept, signal)
+    const status = response.statusCode ?? 0
+
+    if (status >= 300 && status < 400) {
+      const location = header(response, 'location')
+      response.destroy()
+      if (!location) {
+        return { error: 'HTTP_ERROR' }
+      }
+      url = new URL(location, url)
+      continue
+    }
+
+    if (status < 200 || status >= 300) {
+      response.destroy()
+      return { error: 'HTTP_ERROR' }
+    }
+    if (hop > 0 && isInterstitial(url)) {
+      response.destroy()
+      return { error: 'INTERSTITIAL' }
+    }
+
+    return { response, url }
+  }
+
+  return { error: 'TOO_MANY_REDIRECTS' }
+}
+
+const mediaTypeOf = (response: IncomingMessage): string =>
+  header(response, 'content-type').split(';')[0].trim().toLowerCase()
+
+// Fetches a public web page and reads its metadata. `domain` is the final
 // page's host. A failure carries no host: where a failed fetch ended up
 // (a bot check, a consent page) says nothing about the link, so callers
-// use the saved URL's own. Never throws.
+// use the saved URL's own. `signal` is the deadline, shared with any other
+// request made for the same link; without one the page gets
+// FETCH_TIMEOUT_MS of its own. Never throws.
 export const fetchPage = async (
   rawUrl: string,
+  signal: AbortSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS),
 ): Promise<{ page: FetchedPage } | { error: FetchFailure }> => {
-  let url: URL
+  let start: URL
   try {
-    url = new URL(rawUrl)
+    start = new URL(rawUrl)
   } catch {
     return { error: 'BLOCKED' }
   }
 
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
-
   try {
-    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-      const pinned = isFetchableUrl(url)
-        ? await resolvePublicAddress(url.hostname)
-        : null
-      if (!pinned) {
-        return { error: 'BLOCKED' }
-      }
+    const opened = await openGuarded(start, 'html', signal)
+    if ('error' in opened) {
+      return opened
+    }
+    const { response, url } = opened
+    const domain = domainOf(url)
 
-      const response = await requestOnce(url, pinned, controller.signal)
-      const status = response.statusCode ?? 0
-
-      if (status >= 300 && status < 400) {
-        const location = header(response, 'location')
-        response.destroy()
-        if (!location) {
-          return { error: 'HTTP_ERROR' }
-        }
-        url = new URL(location, url)
-        continue
-      }
-
-      if (status < 200 || status >= 300) {
-        response.destroy()
-        return { error: 'HTTP_ERROR' }
-      }
-      if (hop > 0 && isInterstitial(url)) {
-        response.destroy()
-        return { error: 'INTERSTITIAL' }
-      }
-
-      const domain = domainOf(url)
-
-      const contentType = header(response, 'content-type')
-      const mediaType = contentType.split(';')[0].trim().toLowerCase()
-      if (mediaType.startsWith('image/')) {
-        // A direct image link is its own preview image.
-        response.destroy()
-        return {
-          page: { finalUrl: url.href, domain, metadata: { image: url.href } },
-        }
-      }
-      if (mediaType !== 'text/html' && mediaType !== 'application/xhtml+xml') {
-        response.destroy()
-        return { error: 'NOT_HTML' }
-      }
-
-      const body = decodedBody(response)
-      if (!body) {
-        response.destroy()
-        return { error: 'NOT_HTML' }
-      }
-
-      const html = decodeHtml(await readCapped(response, body), contentType)
-
+    const mediaType = mediaTypeOf(response)
+    if (mediaType.startsWith('image/')) {
+      // A direct image link is its own preview image.
+      response.destroy()
       return {
-        page: {
-          finalUrl: url.href,
-          domain,
-          metadata: parseMetadata(html, url),
-        },
+        page: { finalUrl: url.href, domain, metadata: { image: url.href } },
       }
     }
+    if (mediaType !== 'text/html' && mediaType !== 'application/xhtml+xml') {
+      response.destroy()
+      return { error: 'NOT_HTML' }
+    }
 
-    return { error: 'TOO_MANY_REDIRECTS' }
+    const body = decodedBody(response)
+    if (!body) {
+      response.destroy()
+      return { error: 'NOT_HTML' }
+    }
+
+    const html = decodeHtml(
+      await readCapped(response, body),
+      header(response, 'content-type'),
+    )
+
+    return {
+      page: {
+        finalUrl: url.href,
+        domain,
+        metadata: parseMetadata(html, url),
+      },
+    }
   } catch (error) {
     console.warn('[fetchPage] Failed', {
-      host: url.hostname,
+      host: start.hostname,
       error: error instanceof Error ? error.message : String(error),
     })
     return { error: 'NETWORK' }
-  } finally {
-    clearTimeout(timer)
+  }
+}
+
+// Fetches a JSON document from a public API through the same guarded,
+// pinned, size-capped path as pages. The parsed body, unvalidated (callers
+// check its shape), or null for any failure: blocked, an HTTP error, not
+// JSON, cut off at the size cap, or the deadline. Never throws.
+export const fetchJson = async (
+  rawUrl: string,
+  signal: AbortSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS),
+): Promise<unknown> => {
+  let start: URL
+  try {
+    start = new URL(rawUrl)
+  } catch {
+    return null
+  }
+
+  try {
+    const opened = await openGuarded(start, 'json', signal)
+    if ('error' in opened) {
+      console.log('[fetchJson] Not read', {
+        host: start.hostname,
+        error: opened.error,
+      })
+      return null
+    }
+    const { response } = opened
+
+    const mediaType = mediaTypeOf(response)
+    const body =
+      mediaType === 'application/json' || mediaType.endsWith('+json')
+        ? decodedBody(response)
+        : null
+    if (!body) {
+      response.destroy()
+      return null
+    }
+
+    const bytes = await readCapped(response, body)
+    // A body at the cap was cut off, so it isn't the whole document.
+    if (bytes.byteLength >= MAX_BYTES) {
+      return null
+    }
+
+    return JSON.parse(new TextDecoder('utf-8').decode(bytes)) as unknown
+  } catch (error) {
+    console.warn('[fetchJson] Failed', {
+      host: start.hostname,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return null
   }
 }

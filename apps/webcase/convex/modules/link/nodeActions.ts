@@ -13,7 +13,12 @@ import {
   parseHttpUrl,
 } from '../../../shared/url'
 import { rateLimiter } from '../../configs/rateLimiter'
-import { fetchPage } from '../../lib/metadata/fetch'
+import { readLink } from '../../lib/metadata/read'
+import {
+  hasRedditPrefix,
+  isGenericRedditDescription,
+  withoutRedditPrefix,
+} from '../../lib/metadata/sites/reddit'
 import { getUserId } from '../auth/helpers'
 import { answerQuestion, suggestTags, summarizePage } from './ai'
 import type { ExistingLink } from './queries'
@@ -34,8 +39,9 @@ export type LinkPreview = {
   description?: string
   image?: string
   suggestedTags: Array<string>
-  // False when the page couldn't be read (blocked, failed, not HTML) or
-  // the global preview budget is spent: the fields come from the URL alone.
+  // False when neither the page nor the site's own endpoint (a site
+  // resolver, lib/metadata/sites) could be read, or the global preview
+  // budget is spent: the fields come from the URL alone.
   fetched: boolean
   // The user's saved link at this URL, or null when it is new.
   existing: ExistingLink | null
@@ -94,17 +100,17 @@ export const preview = action({
       return fallback()
     }
 
-    const [fetched, tagStats] = await Promise.all([
-      fetchPage(url),
+    const [read, tagStats] = await Promise.all([
+      readLink(parsed),
       ctx.runQuery(internal.modules.link.queries.tagStatsInternal, { userId }),
     ])
 
-    if (!('page' in fetched)) {
-      console.log('[preview] Page not read', { error: fetched.error })
+    if (!('link' in read)) {
+      console.log('[preview] Page not read', { error: read.error })
       return fallback()
     }
 
-    const { domain, metadata } = fetched.page
+    const { domain, metadata } = read.link
     const title = pageTitle(metadata.title) ?? fallbackTitle(parsed)
 
     // Only worth asking when the page told us something beyond its URL.
@@ -239,15 +245,25 @@ const deferSummary = async (
   })
 }
 
-// Fetches the page, fills what the link is still missing from it (a
-// placeholder title, the description, the image), then writes the summary.
-// A real title is never replaced. The model call is what the global summary
-// budget pays for, so only it waits when the budget is spent; the metadata
-// fills in regardless. `attempt` counts the waits so far.
+// A stored title enrichment may replace: a stand-in for the URL, or one
+// with Reddit's "From the … community on Reddit: " prefix. Any other title
+// is the user's (an imported Pocket title is a real one) and stays.
+const isReplaceableTitle = (title: string, url: string): boolean =>
+  isPlaceholderTitle(title, url) || hasRedditPrefix(title)
+
+// Reads the link (its page, and its site's endpoint when a site resolver
+// claims it), fills what the link is still missing (a replaceable title,
+// the description, the image, Reddit's empty description), then writes the
+// summary. A real title is never replaced. The model call is what the
+// global summary budget pays for, so only it waits when the budget is
+// spent; the metadata fills in regardless. `attempt` counts the waits so
+// far. A `refresh` (re-enrichment of a link that already has its summary)
+// writes a new summary only when the title or description changed.
 const runSummary = async (
   ctx: ActionCtx,
   linkId: Id<'links'>,
   attempt: number,
+  refresh: boolean,
 ): Promise<void> => {
   let link = await ctx.runQuery(internal.modules.link.queries.getInternal, {
     linkId,
@@ -267,30 +283,47 @@ const runSummary = async (
   }
 
   const parsed = parseHttpUrl(link.url)
-  const result = parsed ? await fetchPage(parsed.href) : null
-  const page = result && 'page' in result ? result.page : undefined
-  // A stand-in title takes the page's own, or at least host and path in
-  // place of a raw URL (Pocket often saved the URL as the title).
+  const result = parsed ? await readLink(parsed) : null
+  const read = result && 'link' in result ? result.link : undefined
+  // A stand-in title takes the page's own, else Reddit's with its prefix
+  // dropped, else at least the readable fallback in place of a raw URL
+  // (Pocket often saved the URL as the title).
   const fallback = parsed ? fallbackTitle(parsed) : undefined
-  const title = isPlaceholderTitle(link.title, link.url)
-    ? (pageTitle(page?.metadata.title) ??
+  const title = isReplaceableTitle(link.title, link.url)
+    ? (pageTitle(read?.metadata.title) ??
+      (hasRedditPrefix(link.title)
+        ? withoutRedditPrefix(link.title) || fallback
+        : undefined) ??
       (link.title !== fallback ? fallback : undefined))
     : undefined
+  const replaceDescription = isGenericRedditDescription(link.description)
 
-  // When the page was read, its final host is where the link lives (a Maps
-  // short link is Google's), and its metadata fills the gaps. When it was
-  // not, the saved URL's own host stays.
-  if (page || title) {
-    await ctx.runMutation(
-      internal.modules.link.mutations.applyMetadataInternal,
-      {
-        linkId,
-        domain: page?.domain,
-        title,
-        description: page?.metadata.description,
-        image: page?.metadata.image,
-      },
-    )
+  // When the link was read, its final host (or its site's own domain) is
+  // where the link lives (a Maps short link is Google's), and what was
+  // read fills the gaps. When it was not, the saved URL's own host stays.
+  const { changed } =
+    read || title || replaceDescription
+      ? await ctx.runMutation(
+          internal.modules.link.mutations.applyMetadataInternal,
+          {
+            linkId,
+            domain: read?.domain,
+            title,
+            description: read?.metadata.description,
+            image: read?.metadata.image,
+            replaceDescription,
+          },
+        )
+      : { changed: false }
+
+  if (refresh && !changed && link.summary) {
+    // Nothing the summary reads is new: keep it, and clear the queue mark.
+    await ctx.runMutation(internal.modules.link.mutations.setSummaryInternal, {
+      linkId,
+      summary: link.summary,
+      summaryStatus: link.summaryStatus === 'failed' ? 'failed' : 'ready',
+    })
+    return
   }
 
   const global = await rateLimiter.limit(ctx, 'summaryGlobal')
@@ -304,7 +337,7 @@ const runSummary = async (
       linkId,
     })) ?? link
 
-  const metadata = page?.metadata
+  const metadata = read?.metadata
   const summary = await summarizePage(
     {
       url: link.url,
@@ -317,10 +350,12 @@ const runSummary = async (
     link.userId,
   )
 
+  // A refresh whose model call failed keeps the summary the link had.
+  const kept = refresh && !summary ? link.summary : undefined
   await ctx.runMutation(internal.modules.link.mutations.setSummaryInternal, {
     linkId,
-    summary: summary ?? undefined,
-    summaryStatus: summary ? 'ready' : 'failed',
+    summary: summary ?? kept,
+    summaryStatus: summary || kept ? 'ready' : 'failed',
   })
 }
 
@@ -329,13 +364,21 @@ const runSummary = async (
 // gets its title, description and image here; every link gets its summary.
 export const enrich = internalAction({
   // `attempt`: how many times the summary has waited for the global budget.
-  args: { linkId: v.id('links'), attempt: v.optional(v.number()) },
+  // `refresh`: re-enrichment of a link saved earlier (mutations.reenrichInternal).
+  args: {
+    linkId: v.id('links'),
+    attempt: v.optional(v.number()),
+    refresh: v.optional(v.boolean()),
+  },
   handler: async (ctx, args): Promise<void> => {
     try {
-      await runSummary(ctx, args.linkId, args.attempt ?? 0)
+      await runSummary(ctx, args.linkId, args.attempt ?? 0, !!args.refresh)
     } catch (error) {
       console.error('[enrich] Error', error)
-      await markFailed(ctx, args.linkId)
+      // A refresh never costs a link the summary it already had.
+      if (!args.refresh) {
+        await markFailed(ctx, args.linkId)
+      }
     }
   },
 })

@@ -1,6 +1,12 @@
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { normalizeTags } from '../../../shared/tags'
+import { isPlaceholderTitle } from '../../../shared/url'
+import { matchSite } from '../../lib/metadata/sites'
+import {
+  hasRedditPrefix,
+  isGenericRedditDescription,
+} from '../../lib/metadata/sites/reddit'
 
 export const mergeTags = (
   existing: Array<string>,
@@ -79,4 +85,36 @@ export const changeLinkCount = async (
     userId,
     count: (await getUserLinks(ctx, userId)).length,
   })
+}
+
+// Why re-enrichment would refresh a link, empty when it is already as good
+// as its site gives: a stand-in title or Reddit's prefixed one, Reddit's
+// generic description, or a field its site resolver provides that the
+// link still lacks.
+export const reenrichReasons = (
+  link: Doc<'links'>,
+  url: URL,
+): Array<string> => {
+  const reasons: Array<string> = []
+  if (isPlaceholderTitle(link.title, link.url)) {
+    reasons.push('placeholder title')
+  }
+  if (hasRedditPrefix(link.title)) {
+    reasons.push('reddit title prefix')
+  }
+  if (isGenericRedditDescription(link.description)) {
+    reasons.push('generic reddit description')
+  }
+
+  const site = matchSite(url)
+  if (site?.resolve) {
+    if (site.provides.description && !link.description) {
+      reasons.push(`no description (${site.site})`)
+    }
+    if (site.provides.image && !link.image) {
+      reasons.push(`no image (${site.site})`)
+    }
+  }
+
+  return reasons
 }
