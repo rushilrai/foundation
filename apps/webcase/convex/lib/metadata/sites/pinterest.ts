@@ -9,7 +9,6 @@ const PIN_PATH = /^\/pin\/([\w-]{1,40})\/?$/
 
 export const pinterest: Site = {
   name: 'Pinterest',
-  provides: { description: true, image: true },
   match: (url) => {
     const host = hostOf(url)
     const id = PIN_PATH.exec(url.pathname)?.[1]
@@ -19,6 +18,7 @@ export const pinterest: Site = {
 
     return {
       domain: host.replace(/^www\./, ''),
+      provides: { description: true, image: true },
       resolve: async (getJson) => {
         const pin = `https://www.pinterest.com/pin/${id}/`
         const body = asRecord(

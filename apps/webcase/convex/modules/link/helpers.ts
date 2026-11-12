@@ -1,12 +1,12 @@
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { normalizeTags } from '../../../shared/tags'
-import { isPlaceholderTitle } from '../../../shared/url'
-import { matchSite } from '../../lib/metadata/sites'
 import {
-  hasRedditPrefix,
-  isGenericRedditDescription,
-} from '../../lib/metadata/sites/reddit'
+  isPlaceholderTitle,
+  isRewrittenUrl,
+  urlTitle,
+} from '../../../shared/url'
+import { matchSite } from '../../lib/metadata/sites'
 
 export const mergeTags = (
   existing: Array<string>,
@@ -87,33 +87,73 @@ export const changeLinkCount = async (
   })
 }
 
+// A stored title without its site rule's decoration (cleanTitle: Reddit's
+// "From the … community on Reddit: ", " : Google Search"), empty when
+// nothing was left, or null when the title has none. `url` is the link's
+// parsed URL.
+export const undecoratedTitle = (title: string, url: URL): string | null => {
+  const cleanTitle = matchSite(url)?.cleanTitle
+  if (!cleanTitle) {
+    return null
+  }
+  const cleaned = cleanTitle(title)?.trim() ?? ''
+  return cleaned === title.trim() ? null : cleaned
+}
+
+// A stored title enrichment may replace: a stand-in for the URL, or one
+// carrying its site's decoration. Any other title is the user's (an
+// imported Pocket title is a real one) and stays. `rawUrl` is the stored
+// URL, `url` its parsed form.
+export const isReplaceableTitle = (
+  title: string,
+  rawUrl: string,
+  url: URL,
+): boolean =>
+  isPlaceholderTitle(title, rawUrl) || undecoratedTitle(title, url) !== null
+
+// True when the stored description is one the link's site gives every
+// page (Reddit's "Explore this post and more…"), which enrichment replaces.
+export const hasGenericDescription = (
+  description: string | undefined,
+  url: URL,
+): boolean => {
+  const isGeneric = matchSite(url)?.isGenericDescription
+  return !!description && !!isGeneric?.(description)
+}
+
 // Why re-enrichment would refresh a link, empty when it is already as good
-// as its site gives: a stand-in title or Reddit's prefixed one, Reddit's
-// generic description, or a field its site resolver provides that the
-// link still lacks.
+// as its site rule gives: a stand-in or decorated title, the site's generic
+// description, a redirect wrapper stored before wrappers were unwrapped, or
+// a field its site rule fills (resolve or fromUrl) that the link still
+// lacks. `url` is parseHttpUrl(link.url).
 export const reenrichReasons = (
   link: Doc<'links'>,
   url: URL,
 ): Array<string> => {
+  const site = matchSite(url)
   const reasons: Array<string> = []
-  if (isPlaceholderTitle(link.title, link.url)) {
+  // A title the site rule took from the URL is already the best it has
+  // when nothing better was read ("@fatlulus on Instagram").
+  if (
+    isPlaceholderTitle(link.title, link.url) &&
+    link.title.trim() !== urlTitle(url)
+  ) {
     reasons.push('placeholder title')
   }
-  if (hasRedditPrefix(link.title)) {
-    reasons.push('reddit title prefix')
+  if (undecoratedTitle(link.title, url) !== null) {
+    reasons.push(`decorated title (${site?.site})`)
   }
-  if (isGenericRedditDescription(link.description)) {
-    reasons.push('generic reddit description')
+  if (hasGenericDescription(link.description, url)) {
+    reasons.push(`generic description (${site?.site})`)
   }
-
-  const site = matchSite(url)
-  if (site?.resolve) {
-    if (site.provides.description && !link.description) {
-      reasons.push(`no description (${site.site})`)
-    }
-    if (site.provides.image && !link.image) {
-      reasons.push(`no image (${site.site})`)
-    }
+  if (isRewrittenUrl(link.url)) {
+    reasons.push('redirect wrapper')
+  }
+  if (site?.provides.description && !link.description) {
+    reasons.push(`no description (${site.site})`)
+  }
+  if (site?.provides.image && !link.image) {
+    reasons.push(`no image (${site.site})`)
   }
 
   return reasons

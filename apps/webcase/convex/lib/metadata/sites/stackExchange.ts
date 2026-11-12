@@ -36,7 +36,6 @@ const siteOf = (host: string): { site: string; name: string } | null => {
 
 export const stackExchange: Site = {
   name: 'Stack Exchange',
-  provides: { description: true, image: false },
   match: (url) => {
     const host = hostOf(url)
     const site = siteOf(host)
@@ -48,6 +47,7 @@ export const stackExchange: Site = {
 
     return {
       domain: host.replace(/^www\./, ''),
+      provides: { description: true, image: false },
       resolve: async (getJson) => {
         const body = asRecord(
           await getJson(

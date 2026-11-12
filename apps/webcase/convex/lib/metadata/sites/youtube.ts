@@ -1,23 +1,18 @@
 // YouTube serves crawlers from cloud addresses a bot check, so a video's
 // title, channel and thumbnail come from its oEmbed endpoint instead.
 
+import { YOUTU_BE_HOST, YOUTUBE_HOSTS } from '../../../../shared/sites/youtube'
 import { asRecord, hostOf, stringField, type Site } from './types'
 
-const HOSTS = new Set([
-  'youtube.com',
-  'www.youtube.com',
-  'm.youtube.com',
-  'music.youtube.com',
-])
 const VIDEO_ID = /^[\w-]{11}$/
 
 const videoId = (url: URL): string | null => {
   const host = hostOf(url)
-  if (host === 'youtu.be') {
+  if (host === YOUTU_BE_HOST) {
     const id = url.pathname.split('/')[1] ?? ''
     return VIDEO_ID.test(id) ? id : null
   }
-  if (!HOSTS.has(host)) {
+  if (!YOUTUBE_HOSTS.has(host)) {
     return null
   }
 
@@ -31,7 +26,6 @@ const videoId = (url: URL): string | null => {
 
 export const youtube: Site = {
   name: 'YouTube',
-  provides: { description: true, image: true },
   match: (url) => {
     const id = videoId(url)
     if (!id) {
@@ -40,6 +34,7 @@ export const youtube: Site = {
 
     return {
       domain: 'youtube.com',
+      provides: { description: true, image: true },
       resolve: async (getJson) => {
         // The canonical watch URL, rebuilt from the id alone, so a time or
         // playlist parameter can't make the lookup fail.

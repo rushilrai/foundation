@@ -10,7 +10,6 @@ const PACKAGE_PATH =
 
 export const npm: Site = {
   name: 'npm',
-  provides: { description: true, image: false },
   match: (url) => {
     if (!HOSTS.has(hostOf(url))) {
       return null
@@ -28,6 +27,7 @@ export const npm: Site = {
 
     return {
       domain: 'npmjs.com',
+      provides: { description: true, image: false },
       resolve: async (getJson) => {
         const body = asRecord(
           await getJson(

@@ -9,18 +9,18 @@ import { MAX_QUESTION_LENGTH } from '../../../shared/limits'
 import {
   domainOf,
   fallbackTitle,
-  isPlaceholderTitle,
+  isRewrittenUrl,
   parseHttpUrl,
 } from '../../../shared/url'
 import { rateLimiter } from '../../configs/rateLimiter'
 import { readLink } from '../../lib/metadata/read'
-import {
-  hasRedditPrefix,
-  isGenericRedditDescription,
-  withoutRedditPrefix,
-} from '../../lib/metadata/sites/reddit'
 import { getUserId } from '../auth/helpers'
 import { answerQuestion, suggestTags, summarizePage } from './ai'
+import {
+  hasGenericDescription,
+  isReplaceableTitle,
+  undecoratedTitle,
+} from './helpers'
 import type { ExistingLink } from './queries'
 
 // Every action in this module runs in the Node runtime: page fetches pin
@@ -39,8 +39,8 @@ export type LinkPreview = {
   description?: string
   image?: string
   suggestedTags: Array<string>
-  // False when neither the page nor the site's own endpoint (a site
-  // resolver, lib/metadata/sites) could be read, or the global preview
+  // False when neither the page nor its site rule (lib/metadata/sites)
+  // could read anything, or the global preview
   // budget is spent: the fields come from the URL alone.
   fetched: boolean
   // The user's saved link at this URL, or null when it is new.
@@ -245,15 +245,10 @@ const deferSummary = async (
   })
 }
 
-// A stored title enrichment may replace: a stand-in for the URL, or one
-// with Reddit's "From the … community on Reddit: " prefix. Any other title
-// is the user's (an imported Pocket title is a real one) and stays.
-const isReplaceableTitle = (title: string, url: string): boolean =>
-  isPlaceholderTitle(title, url) || hasRedditPrefix(title)
-
-// Reads the link (its page, and its site's endpoint when a site resolver
-// claims it), fills what the link is still missing (a replaceable title,
-// the description, the image, Reddit's empty description), then writes the
+// Reads the link (readLink: its site rule, then the page), fills what the
+// link is still missing (a replaceable title, the description, the image,
+// its site's generic description), stores a redirect wrapper saved before
+// wrappers were unwrapped under its destination, then writes the
 // summary. A real title is never replaced. The model call is what the
 // global summary budget pays for, so only it waits when the budget is
 // spent; the metadata fills in regardless. `attempt` counts the waits so
@@ -285,28 +280,31 @@ const runSummary = async (
   const parsed = parseHttpUrl(link.url)
   const result = parsed ? await readLink(parsed) : null
   const read = result && 'link' in result ? result.link : undefined
-  // A stand-in title takes the page's own, else Reddit's with its prefix
-  // dropped, else at least the readable fallback in place of a raw URL
-  // (Pocket often saved the URL as the title).
+  // A decorated title keeps its own words without the decoration (it is
+  // the user's title); a stand-in takes the page's own, else at least the
+  // fallback title in place of a raw URL (Pocket often saved the URL as
+  // the title).
   const fallback = parsed ? fallbackTitle(parsed) : undefined
-  const title = isReplaceableTitle(link.title, link.url)
-    ? (pageTitle(read?.metadata.title) ??
-      (hasRedditPrefix(link.title)
-        ? withoutRedditPrefix(link.title) || fallback
-        : undefined) ??
-      (link.title !== fallback ? fallback : undefined))
-    : undefined
-  const replaceDescription = isGenericRedditDescription(link.description)
+  const title =
+    parsed && isReplaceableTitle(link.title, link.url, parsed)
+      ? undecoratedTitle(link.title, parsed) ||
+        pageTitle(read?.metadata.title) ||
+        (link.title !== fallback ? fallback : undefined)
+      : undefined
+  const replaceDescription =
+    !!parsed && hasGenericDescription(link.description, parsed)
+  const url = parsed && isRewrittenUrl(link.url) ? parsed.href : undefined
 
   // When the link was read, its final host (or its site's own domain) is
   // where the link lives (a Maps short link is Google's), and what was
   // read fills the gaps. When it was not, the saved URL's own host stays.
   const { changed } =
-    read || title || replaceDescription
+    read || title || replaceDescription || url
       ? await ctx.runMutation(
           internal.modules.link.mutations.applyMetadataInternal,
           {
             linkId,
+            url,
             domain: read?.domain,
             title,
             description: read?.metadata.description,
