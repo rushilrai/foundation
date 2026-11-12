@@ -150,11 +150,17 @@ const isIdToken = (token: string): boolean =>
     (/\d/.test(token) && /^[a-z0-9]{4,}$/i.test(token))) &&
   !/^\d{4}$/.test(token)
 
+// A locale segment ("en-US", "pt_BR") looks like a two-word slug and names
+// nothing about the page.
+const LOCALE_SEGMENT = /^[a-z]{2,3}[-_][a-z]{2,4}$/i
+
 // Words in a slug segment ("what-flutter-apps-3a896f9f"), or null when it
-// isn't a slug of at least two real words (two letters or more each).
+// isn't a slug of at least three real words (two letters or more each): two
+// words are too often a section or a locale, and "En US" is a worse title
+// than the host and path.
 const slugWords = (segment: string): Array<string> | null => {
   const value = decodePath(segment).replace(PAGE_EXTENSION, '')
-  if (!/[-_]/.test(value)) {
+  if (!/[-_]/.test(value) || LOCALE_SEGMENT.test(value)) {
     return null
   }
 
@@ -164,14 +170,14 @@ const slugWords = (segment: string): Array<string> | null => {
   }
   const words = tokens.filter((token) => /^\p{L}{2,}(?:'\p{L}+)?$/u.test(token))
 
-  return words.length >= 2 ? tokens : null
+  return words.length >= 3 ? tokens : null
 }
 
 // A readable title from the URL's last meaningful path segment, for pages
 // that can't be read: "medium.com/@x/what-flutter-apps-are-missing-to-look-
 // feel-native-on-android-3a896f9f4c09" → "What flutter apps are missing to
 // look feel native on android". Null when no segment is a slug of at least
-// two words ("amazon.in/dp/B08N5WRWNW").
+// three words ("amazon.in/dp/B08N5WRWNW").
 export const slugTitle = (url: URL): string | null => {
   const segments = url.pathname.split('/').filter(Boolean)
 
