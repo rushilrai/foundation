@@ -9,17 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as LibraryRouteImport } from './routes/_library'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as KitRouteImport } from './routes/kit'
-import { Route as SaveRouteImport } from './routes/save'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as LibraryIndexRouteImport } from './routes/_library/index'
+import { Route as LibrarySaveRouteImport } from './routes/_library/save'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/_library',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ImportRoute = ImportRouteImport.update({
@@ -32,11 +32,6 @@ const KitRoute = KitRouteImport.update({
   path: '/kit',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SaveRoute = SaveRouteImport.update({
-  id: '/save',
-  path: '/save',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
@@ -47,6 +42,16 @@ const SignUpRoute = SignUpRouteImport.update({
   path: '/sign-up',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LibraryIndexRoute = LibraryIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => LibraryRoute,
+} as any)
+const LibrarySaveRoute = LibrarySaveRouteImport.update({
+  id: '/save',
+  path: '/save',
+  getParentRoute: () => LibraryRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -54,56 +59,57 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof LibraryIndexRoute
   '/import': typeof ImportRoute
   '/kit': typeof KitRoute
-  '/save': typeof SaveRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/save': typeof LibrarySaveRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/import': typeof ImportRoute
   '/kit': typeof KitRoute
-  '/save': typeof SaveRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/save': typeof LibrarySaveRoute
+  '/': typeof LibraryIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_library': typeof LibraryRouteWithChildren
   '/import': typeof ImportRoute
   '/kit': typeof KitRoute
-  '/save': typeof SaveRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/_library/save': typeof LibrarySaveRoute
+  '/_library/': typeof LibraryIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/import' | '/kit' | '/save' | '/sign-in' | '/sign-up' | '/api/auth/$'
+    '/' | '/import' | '/kit' | '/sign-in' | '/sign-up' | '/save' | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/import' | '/kit' | '/save' | '/sign-in' | '/sign-up' | '/api/auth/$'
+    '/import' | '/kit' | '/sign-in' | '/sign-up' | '/save' | '/' | '/api/auth/$'
   id:
     | '__root__'
-    | '/'
+    | '/_library'
     | '/import'
     | '/kit'
-    | '/save'
     | '/sign-in'
     | '/sign-up'
+    | '/_library/save'
+    | '/_library/'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  LibraryRoute: typeof LibraryRouteWithChildren
   ImportRoute: typeof ImportRoute
   KitRoute: typeof KitRoute
-  SaveRoute: typeof SaveRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -111,11 +117,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
+    '/_library': {
+      id: '/_library'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/import': {
@@ -132,13 +138,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KitRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/save': {
-      id: '/save'
-      path: '/save'
-      fullPath: '/save'
-      preLoaderRoute: typeof SaveRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/sign-in': {
       id: '/sign-in'
       path: '/sign-in'
@@ -153,6 +152,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignUpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_library/': {
+      id: '/_library/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof LibraryIndexRouteImport
+      parentRoute: typeof LibraryRoute
+    }
+    '/_library/save': {
+      id: '/_library/save'
+      path: '/save'
+      fullPath: '/save'
+      preLoaderRoute: typeof LibrarySaveRouteImport
+      parentRoute: typeof LibraryRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -163,11 +176,23 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface LibraryRouteChildren {
+  LibrarySaveRoute: typeof LibrarySaveRoute
+  LibraryIndexRoute: typeof LibraryIndexRoute
+}
+
+const LibraryRouteChildren: LibraryRouteChildren = {
+  LibrarySaveRoute: LibrarySaveRoute,
+  LibraryIndexRoute: LibraryIndexRoute,
+}
+
+const LibraryRouteWithChildren =
+  LibraryRoute._addFileChildren(LibraryRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  LibraryRoute: LibraryRouteWithChildren,
   ImportRoute: ImportRoute,
   KitRoute: KitRoute,
-  SaveRoute: SaveRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

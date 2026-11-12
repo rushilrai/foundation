@@ -7,8 +7,6 @@ type PageHeaderProps = {
   /** The back link, e.g. `<Link to="/" />`; it gets the button's look. */
   back: React.ReactElement
   backLabel?: string
-  /** The page heading, e.g. to move focus to it. */
-  headingRef?: React.Ref<HTMLHeadingElement>
 }
 
 /** A page away from the library: `‹ Library` on top, then the serif title. */
@@ -16,7 +14,6 @@ export const PageHeader = ({
   title,
   back,
   backLabel = 'Library',
-  headingRef,
 }: PageHeaderProps) => {
   return (
     <>
@@ -32,15 +29,7 @@ export const PageHeader = ({
         </Button>
       </header>
 
-      <h1
-        ref={headingRef}
-        // Focusable from script only, so focus has somewhere to go when the
-        // part of the page that held it is replaced.
-        tabIndex={-1}
-        className="mt-2 font-serif text-2xl font-medium outline-hidden"
-      >
-        {title}
-      </h1>
+      <h1 className="mt-2 font-serif text-2xl font-medium">{title}</h1>
     </>
   )
 }
