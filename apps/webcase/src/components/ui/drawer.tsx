@@ -8,8 +8,15 @@ import { cn } from '@/components/lib/utils'
 import { Button } from '@/components/ui/button'
 
 // The app's sheet. On phones it rises from the bottom and swipes down to close;
-// from `sm` up it sits as a centred panel. It keeps fields clear of the software
-// keyboard (VirtualKeyboardProvider), so it suits the save and edit forms.
+// from `sm` up it sits as a centred panel. It suits the save and edit forms:
+// Base UI's VirtualKeyboardProvider is the one thing that handles the on-screen
+// keyboard. While a field in the sheet is focused with the keyboard up, it pins
+// the page (iOS scrolls it to reveal the field), measures how far the keyboard
+// covers the sheet into `--drawer-keyboard-inset`, then scrolls the body so the
+// field is in view. The popup pads its bottom by that inset, so the body and a
+// pinned footer end above the keyboard. Nothing else may measure the keyboard:
+// a second measurement (a spacer from `visualViewport`) lands a render after
+// Base UI has measured without it, and both lifts apply.
 
 function Drawer({
   children,
@@ -86,7 +93,7 @@ function DrawerContent({
           data-slot="drawer-content"
           className={cn(
             // Phone: a bottom sheet that follows the finger and slides away.
-            'relative flex max-h-[calc(100dvh-2.5rem)] w-full flex-col rounded-t-2xl bg-popover pb-[env(safe-area-inset-bottom)] text-popover-foreground shadow-2xl shadow-foreground/20 outline-none',
+            'relative flex max-h-[calc(100dvh-2.5rem)] w-full flex-col rounded-t-2xl bg-popover pb-[max(env(safe-area-inset-bottom),var(--drawer-keyboard-inset,0px))] text-popover-foreground shadow-2xl shadow-foreground/20 outline-none',
             'translate-y-[var(--drawer-swipe-movement-y,0px)] transition-[translate,opacity] duration-400 ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:translate-y-full data-ending-style:duration-[calc(var(--drawer-swipe-strength,1)*400ms)] data-starting-style:translate-y-full data-swiping:duration-0 data-swiping:select-none',
             // Desktop: a centred panel that fades in.
             'sm:max-h-[min(85dvh,48rem)] sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:ring-1 sm:ring-foreground/10 sm:data-ending-style:translate-y-3 sm:data-ending-style:opacity-0 sm:data-starting-style:translate-y-3 sm:data-starting-style:opacity-0',

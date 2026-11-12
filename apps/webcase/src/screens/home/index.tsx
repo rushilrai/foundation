@@ -19,6 +19,7 @@ import { SearchField } from '@/components/SearchField'
 import { TagFilterBar } from '@/components/TagFilterBar'
 import { Button } from '@/components/ui/button'
 import { useClientDates } from '@/hooks/useClientDates'
+import { isTouchScreen } from '@/lib/touch'
 import { useSignOutMutation } from '@/modules/auth/mutations'
 import { useCurrentUser } from '@/modules/auth/queries'
 import { LinkDetailSheet } from '@/modules/link/components/LinkDetailSheet'
@@ -117,7 +118,7 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
   const sheetFinalFocus = useCallback(() => {
     const previous = returnFocusRef.current
     if (previous?.isConnected && previous !== document.body) return previous
-    if (matchMedia('(pointer: coarse)').matches) return false
+    if (isTouchScreen()) return false
     return searchRef.current
   }, [])
 
@@ -201,7 +202,7 @@ export const HomeScreen = ({ tag: tagParam, onTagChange }: HomeScreenProps) => {
             onSubmit={(value) => {
               if (isQuestion(value)) {
                 submitQuestion(value)
-              } else if (matchMedia('(pointer: coarse)').matches) {
+              } else if (isTouchScreen()) {
                 // A plain filter: put the phone keyboard away to show the results.
                 searchRef.current?.blur()
               }

@@ -6,6 +6,7 @@ import { InlineError } from '@/components/EmptyState'
 import { Button } from '@/components/ui/button'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { isTouchScreen } from '@/lib/touch'
 import { MESSAGES } from '@/modules/link/errors'
 import { findUrl } from '@/modules/save/utils'
 
@@ -16,10 +17,8 @@ type LinkEntryProps = {
   sharedText: string | null
   /** Called with the normalised href. */
   onSubmit: (href: string) => void
-  /** The link field, so the sheet can focus it once it has opened. */
+  /** The link field, so the sheet can focus it. */
   inputRef?: React.Ref<HTMLInputElement>
-  /** Focus the field on mount, e.g. after Change. */
-  autoFocus?: boolean
 }
 
 // No link yet: a field, and one tap to take the link from the clipboard,
@@ -29,7 +28,6 @@ export const LinkEntry = ({
   sharedText,
   onSubmit,
   inputRef: forwardedRef,
-  autoFocus = false,
 }: LinkEntryProps) => {
   const id = useId()
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -44,7 +42,11 @@ export const LinkEntry = ({
     else if (forwardedRef) forwardedRef.current = element
   }
 
+  // Back to the field after a link that didn't work, with a keyboard and
+  // mouse. On a touch screen focus stays put, and the message says what to
+  // do: the keyboard rises only when the field is tapped.
   const focusField = () => {
+    if (isTouchScreen()) return
     inputRef.current?.focus()
     inputRef.current?.select()
   }
@@ -109,8 +111,6 @@ export const LinkEntry = ({
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          // The sheet focuses it when it opens (on a phone once it is up).
-          autoFocus={autoFocus}
           maxLength={MAX_URL_LENGTH}
           placeholder="https://"
           value={value}
@@ -150,8 +150,11 @@ export const LinkEntry = ({
         <Button
           type="button"
           size="lg"
-          className="h-12 flex-1 text-md"
+          className="h-12 flex-1 text-md data-disabled:opacity-50"
           disabled={reading}
+          // Keeps focus while the clipboard is read; a plain disabled button
+          // drops it to the page, out of the sheet.
+          focusableWhenDisabled
           onClick={() => void paste()}
         >
           <IconClipboard data-icon="inline-start" aria-hidden />
