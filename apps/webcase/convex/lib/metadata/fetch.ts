@@ -31,6 +31,11 @@ export type FetchedPage = {
   metadata: PageMetadata
 }
 
+// Every URL the fetch requested, in order: the link first, then each
+// redirect's target (the last is the page, or where it failed). Site
+// rules read it, e.g. the address in a Maps short link's redirect.
+export type Redirects = Array<URL>
+
 export type FetchFailure =
   | 'BLOCKED'
   | 'TOO_MANY_REDIRECTS'
@@ -51,6 +56,22 @@ const INTERSTITIAL_PATH =
 const isInterstitial = (url: URL): boolean =>
   INTERSTITIAL_HOST.test(url.hostname.toLowerCase()) ||
   INTERSTITIAL_PATH.test(url.pathname)
+
+// Exact titles of the well-known bot-check, block and sign-in pages that
+// are served in place of the page itself, with or without a redirect
+// (Cloudflare's challenge, Akamai's block). Exact only: a real title that
+// merely contains these words is the page's.
+const INTERSTITIAL_TITLES: ReadonlySet<string> = new Set([
+  'just a moment...',
+  'just a moment…',
+  'attention required! | cloudflare',
+  'access denied',
+  'sign in',
+  'log in',
+])
+
+const isInterstitialTitle = (title: string | undefined): boolean =>
+  !!title && INTERSTITIAL_TITLES.has(title.trim().toLowerCase())
 
 type PinnedAddress = { address: string; family: 4 | 6 }
 
@@ -212,19 +233,28 @@ const header = (response: IncomingMessage, name: string): string => {
   return (Array.isArray(value) ? value[0] : value) ?? ''
 }
 
+type Opened =
+  | { response: IncomingMessage; url: URL }
+  // A redirect to a URL `stopAt` accepted, not requested.
+  | { stopped: URL }
+  | { error: FetchFailure }
+
 // The GET that answered with something other than a redirect, and where
 // it was. Follows redirects by hand so every hop is re-validated and
-// pinned. The caller reads or destroys the response.
+// pinned, and records each URL requested in `redirects`. With `stopAt`, a
+// redirect whose target it accepts ends there without requesting it. The
+// caller reads or destroys the response.
 const openGuarded = async (
   start: URL,
   accept: BodyKind,
   signal: AbortSignal,
-): Promise<
-  { response: IncomingMessage; url: URL } | { error: FetchFailure }
-> => {
+  redirects: Redirects = [],
+  stopAt?: (url: URL) => boolean,
+): Promise<Opened> => {
   let url = start
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    redirects.push(url)
     const pinned = isFetchableUrl(url)
       ? await resolvePublicAddress(url.hostname)
       : null
@@ -242,6 +272,9 @@ const openGuarded = async (
         return { error: 'HTTP_ERROR' }
       }
       url = new URL(location, url)
+      if (stopAt?.(url)) {
+        return { stopped: url }
+      }
       continue
     }
 
@@ -266,24 +299,33 @@ const mediaTypeOf = (response: IncomingMessage): string =>
 // Fetches a public web page and reads its metadata. `domain` is the final
 // page's host. A failure carries no host: where a failed fetch ended up
 // (a bot check, a consent page) says nothing about the link, so callers
-// use the saved URL's own. `signal` is the deadline, shared with any other
-// request made for the same link; without one the page gets
-// FETCH_TIMEOUT_MS of its own. Never throws.
+// use the saved URL's own. Both carry the `redirects` followed, for site
+// rules. A page titled like a bot check or sign-in page
+// (INTERSTITIAL_TITLES) is a failure too. `signal` is the deadline, shared
+// with any other request made for the same link; without one the page
+// gets FETCH_TIMEOUT_MS of its own. Never throws.
 export const fetchPage = async (
   rawUrl: string,
   signal: AbortSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS),
-): Promise<{ page: FetchedPage } | { error: FetchFailure }> => {
+): Promise<
+  | { page: FetchedPage; redirects: Redirects }
+  | { error: FetchFailure; redirects: Redirects }
+> => {
+  const redirects: Redirects = []
   let start: URL
   try {
     start = new URL(rawUrl)
   } catch {
-    return { error: 'BLOCKED' }
+    return { error: 'BLOCKED', redirects }
   }
 
   try {
-    const opened = await openGuarded(start, 'html', signal)
+    const opened = await openGuarded(start, 'html', signal, redirects)
     if ('error' in opened) {
-      return opened
+      return { error: opened.error, redirects }
+    }
+    if ('stopped' in opened) {
+      return { error: 'NETWORK', redirects }
     }
     const { response, url } = opened
     const domain = domainOf(url)
@@ -294,37 +336,60 @@ export const fetchPage = async (
       response.destroy()
       return {
         page: { finalUrl: url.href, domain, metadata: { image: url.href } },
+        redirects,
       }
     }
     if (mediaType !== 'text/html' && mediaType !== 'application/xhtml+xml') {
       response.destroy()
-      return { error: 'NOT_HTML' }
+      return { error: 'NOT_HTML', redirects }
     }
 
     const body = decodedBody(response)
     if (!body) {
       response.destroy()
-      return { error: 'NOT_HTML' }
+      return { error: 'NOT_HTML', redirects }
     }
 
     const html = decodeHtml(
       await readCapped(response, body),
       header(response, 'content-type'),
     )
-
-    return {
-      page: {
-        finalUrl: url.href,
-        domain,
-        metadata: parseMetadata(html, url),
-      },
+    const metadata = parseMetadata(html, url)
+    if (isInterstitialTitle(metadata.title)) {
+      return { error: 'INTERSTITIAL', redirects }
     }
+
+    return { page: { finalUrl: url.href, domain, metadata }, redirects }
   } catch (error) {
     console.warn('[fetchPage] Failed', {
       host: start.hostname,
       error: error instanceof Error ? error.message : String(error),
     })
-    return { error: 'NETWORK' }
+    return { error: 'NETWORK', redirects }
+  }
+}
+
+// Follows a link's redirects through the same guarded, pinned path until
+// one points at a URL `until` accepts, and returns that URL without
+// requesting it: where a share link really goes. Null when the redirects
+// end anywhere else, fail, or run out of time. Never throws.
+export const locateRedirect = async (
+  start: URL,
+  until: (url: URL) => boolean,
+  signal: AbortSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS),
+): Promise<URL | null> => {
+  try {
+    const opened = await openGuarded(start, 'html', signal, [], until)
+    if ('response' in opened) {
+      opened.response.destroy()
+    }
+    return 'stopped' in opened ? opened.stopped : null
+  } catch (error) {
+    console.warn('[locateRedirect] Failed', {
+      host: start.hostname,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return null
   }
 }
 
@@ -345,10 +410,10 @@ export const fetchJson = async (
 
   try {
     const opened = await openGuarded(start, 'json', signal)
-    if ('error' in opened) {
+    if (!('response' in opened)) {
       console.log('[fetchJson] Not read', {
         host: start.hostname,
-        error: opened.error,
+        error: 'error' in opened ? opened.error : 'NETWORK',
       })
       return null
     }
