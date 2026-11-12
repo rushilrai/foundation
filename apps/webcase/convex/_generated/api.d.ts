@@ -8,12 +8,21 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
+import type * as configs_ai from "../configs/ai.js";
+import type * as configs_rateLimiter from "../configs/rateLimiter.js";
 import type * as http from "../http.js";
-import type * as modules_user_helpers from "../modules/user/helpers.js";
-import type * as modules_user_http from "../modules/user/http.js";
-import type * as modules_user_mutations from "../modules/user/mutations.js";
-import type * as modules_user_queries from "../modules/user/queries.js";
-import type * as modules_user_utils from "../modules/user/utils.js";
+import type * as lib_metadata_fetch from "../lib/metadata/fetch.js";
+import type * as lib_metadata_parse from "../lib/metadata/parse.js";
+import type * as lib_metadata_url from "../lib/metadata/url.js";
+import type * as lib_text from "../lib/text.js";
+import type * as modules_auth_helpers from "../modules/auth/helpers.js";
+import type * as modules_auth_queries from "../modules/auth/queries.js";
+import type * as modules_link_ai from "../modules/link/ai.js";
+import type * as modules_link_helpers from "../modules/link/helpers.js";
+import type * as modules_link_mutations from "../modules/link/mutations.js";
+import type * as modules_link_nodeActions from "../modules/link/nodeActions.js";
+import type * as modules_link_queries from "../modules/link/queries.js";
 
 import type {
   ApiFromModules,
@@ -22,12 +31,21 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
+  "configs/ai": typeof configs_ai;
+  "configs/rateLimiter": typeof configs_rateLimiter;
   http: typeof http;
-  "modules/user/helpers": typeof modules_user_helpers;
-  "modules/user/http": typeof modules_user_http;
-  "modules/user/mutations": typeof modules_user_mutations;
-  "modules/user/queries": typeof modules_user_queries;
-  "modules/user/utils": typeof modules_user_utils;
+  "lib/metadata/fetch": typeof lib_metadata_fetch;
+  "lib/metadata/parse": typeof lib_metadata_parse;
+  "lib/metadata/url": typeof lib_metadata_url;
+  "lib/text": typeof lib_text;
+  "modules/auth/helpers": typeof modules_auth_helpers;
+  "modules/auth/queries": typeof modules_auth_queries;
+  "modules/link/ai": typeof modules_link_ai;
+  "modules/link/helpers": typeof modules_link_helpers;
+  "modules/link/mutations": typeof modules_link_mutations;
+  "modules/link/nodeActions": typeof modules_link_nodeActions;
+  "modules/link/queries": typeof modules_link_queries;
 }>;
 
 /**
@@ -56,4 +74,7 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
+  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+};

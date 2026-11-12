@@ -1,7 +1,8 @@
 import { defineSchema } from 'convex/server'
 
-import { userTable } from './modules/user/schema'
+import { linkCountTable, linkTable } from './modules/link/schema'
 
 export default defineSchema({
-  users: userTable,
+  links: linkTable,
+  linkCounts: linkCountTable,
 })

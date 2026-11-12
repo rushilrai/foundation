@@ -2,80 +2,68 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/outfit';
+@import '@fontsource-variable/newsreader';
+@import '@fontsource-variable/newsreader/wght-italic.css';
+@import '@fontsource-variable/jetbrains-mono';
 
-@custom-variant dark (&:is(.dark *));
-
+/* Direction "A · Index": white page, near-black ink, hairlines, one cobalt accent. */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.13 0.028 261.692);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.13 0.028 261.692);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.13 0.028 261.692);
-  --primary: oklch(0.3542 0.1095 264.64);
-  --primary-foreground: oklch(0.97 0.014 254.604);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.003 264.542);
-  --muted-foreground: oklch(0.551 0.027 264.364);
-  --accent: oklch(0.3542 0.1095 264.64);
-  --accent-foreground: oklch(0.97 0.014 254.604);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.928 0.006 264.531);
-  --input: oklch(0.928 0.006 264.531);
-  --ring: oklch(0.707 0.022 261.325);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.45rem;
-  --sidebar: oklch(0.985 0.002 247.839);
-  --sidebar-foreground: oklch(0.13 0.028 261.692);
-  --sidebar-primary: oklch(0.546 0.245 262.881);
-  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
-  --sidebar-accent: oklch(0.3542 0.1095 264.64);
-  --sidebar-accent-foreground: oklch(0.97 0.014 254.604);
-  --sidebar-border: oklch(0.928 0.006 264.531);
-  --sidebar-ring: oklch(0.707 0.022 261.325);
-}
-
-.dark {
-  --background: oklch(0.13 0.028 261.692);
-  --foreground: oklch(0.985 0.002 247.839);
-  --card: oklch(0.21 0.034 264.665);
-  --card-foreground: oklch(0.985 0.002 247.839);
-  --popover: oklch(0.21 0.034 264.665);
-  --popover-foreground: oklch(0.985 0.002 247.839);
-  --primary: oklch(0.3542 0.1095 264.64);
-  --primary-foreground: oklch(0.97 0.014 254.604);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.278 0.033 256.848);
-  --muted-foreground: oklch(0.707 0.022 261.325);
-  --accent: oklch(0.3542 0.1095 264.64);
-  --accent-foreground: oklch(0.97 0.014 254.604);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.21 0.034 264.665);
-  --sidebar-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-primary: oklch(0.623 0.214 259.815);
-  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
-  --sidebar-accent: oklch(0.3542 0.1095 264.64);
-  --sidebar-accent-foreground: oklch(0.97 0.014 254.604);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  --background: #ffffff;
+  --foreground: #141414;
+  --card: #ffffff;
+  --card-foreground: #141414;
+  --popover: #ffffff;
+  --popover-foreground: #141414;
+  --primary: #1d3fd8;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #141414;
+  --muted: #f5f5f5;
+  --muted-foreground: #6b6b6b;
+  /* Quieter than muted: small metadata, placeholders. 4.5:1 on white, the floor for 10-11px text. */
+  --faint-foreground: #767676;
+  --accent: #f5f5f5;
+  --accent-foreground: #141414;
+  --destructive: #c0392b;
+  --destructive-foreground: #ffffff;
+  /* Hairlines between rows: decorative, so they may stay faint. */
+  --border: #ececec;
+  /* Form-field underlines: 3:1 on white, so a field's edge is visible. */
+  --input: #949494;
+  --ring: #1d3fd8;
+  --chart-1: #1d3fd8;
+  --chart-2: #4a66e0;
+  --chart-3: #7a8fe8;
+  --chart-4: #6b6b6b;
+  --chart-5: #8a8a8a;
+  --radius: 0.5rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #141414;
+  --sidebar-primary: #1d3fd8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f5f5f5;
+  --sidebar-accent-foreground: #141414;
+  --sidebar-border: #ececec;
+  --sidebar-ring: #1d3fd8;
+  /*
+   * Tag dots: the only colours besides cobalt. Spread around the wheel, skipping
+   * blue (the accent) and red (destructive); each is at least 3:1 on white.
+   * A tag's colour comes from tagColorIndex() in components/lib/tags.ts.
+   */
+  --tag-1: #e8590c;
+  --tag-2: #b08300;
+  --tag-3: #8d5a2b;
+  --tag-4: #2b8a3e;
+  --tag-5: #0c8599;
+  --tag-6: #7048e8;
+  --tag-7: #ae3ec9;
+  --tag-8: #e64980;
 }
 
 @theme inline {
   --font-sans: 'Outfit Variable', sans-serif;
+  --font-serif: 'Newsreader Variable', Georgia, serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -93,8 +81,10 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
+  --color-faint-foreground: var(--faint-foreground);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -107,6 +97,14 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  --color-tag-1: var(--tag-1);
+  --color-tag-2: var(--tag-2);
+  --color-tag-3: var(--tag-3);
+  --color-tag-4: var(--tag-4);
+  --color-tag-5: var(--tag-5);
+  --color-tag-6: var(--tag-6);
+  --color-tag-7: var(--tag-7);
+  --color-tag-8: var(--tag-8);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -116,14 +114,125 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
+@theme {
+  /* Text sizes between Tailwind's steps: 10px tag counts, 11px metadata and caps labels,
+     13px descriptions under a title, 15px big buttons and summaries, 17px the search field and answers. */
+  --text-3xs: 0.625rem;
+  --text-2xs: 0.6875rem;
+  --text-snippet: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lede: 1.0625rem;
+
+  /* A sliver that runs along an underline while something is working (search "asking…"). */
+  --animate-indeterminate: indeterminate 1.4s cubic-bezier(0.4, 0, 0.2, 1)
+    infinite;
+
+  @keyframes indeterminate {
+    from {
+      translate: -100% 0;
+    }
+    to {
+      translate: 300% 0;
+    }
+  }
+}
+
+/* The content column: ~640px centred, 16px gutters, clear of the notch and home indicator. */
+@utility page-column {
+  margin-inline: auto;
+  width: 100%;
+  max-width: calc(40rem + 2rem);
+  padding-top: env(safe-area-inset-top);
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: max(1rem, env(safe-area-inset-left));
+}
+
+/* Space under a list so the floating Add link button never covers its last row. */
+@utility fab-clearance {
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+}
+
+/* The floating Add link button: above the home indicator, on the column's right edge. */
+@utility fab-position {
+  position: fixed;
+  z-index: 40;
+  bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  right: max(1rem, env(safe-area-inset-right), calc(50% - 20rem));
+}
+
+/* Horizontal scrollers (the tag filter) scroll without a visible bar. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Fades a horizontal scroller's trailing edge so it reads as "more this way". */
+@utility fade-x-end {
+  mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent);
+}
+
+/* A quiet loading sweep for lines that are on their way (summaries, previews). */
+@utility skeleton-sweep {
+  --sweep-base: color-mix(in oklab, var(--foreground) 7%, transparent);
+  --sweep-peak: color-mix(in oklab, var(--foreground) 13%, transparent);
+  background-image: linear-gradient(
+    90deg,
+    var(--sweep-base) 0%,
+    var(--sweep-peak) 50%,
+    var(--sweep-base) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-sweep 1.6s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes skeleton-sweep {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    @apply bg-background font-sans;
+    color-scheme: light;
+    /* Installed-app polish: no grey flash on tap, no font inflation on rotate. */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
   body {
     @apply bg-background font-sans text-foreground;
   }
-  html {
-    @apply font-sans;
+  /*
+   * iOS Safari zooms into any field under 16px. Browsers default form controls to
+   * ~13px, so they start at 1rem here; keep inputs at text-base or larger.
+   */
+  input,
+  textarea,
+  select {
+    font-size: 1rem;
+  }
+  /* No double-tap-to-zoom delay on controls. */
+  a,
+  button,
+  input,
+  label,
+  select,
+  textarea,
+  [role='button'] {
+    touch-action: manipulation;
   }
 }

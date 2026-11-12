@@ -1,3 +1,3 @@
-# https://www.robotstxt.org/robotstxt.html
+# A private, signed-in app: nothing here is for crawlers.
 User-agent: *
-Disallow:
+Disallow: /
