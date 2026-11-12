@@ -80,7 +80,7 @@ const NAMED_ENTITIES: Record<string, string> = {
   uacute: 'ú',
 }
 
-const decodeEntities = (value: string): string =>
+export const decodeEntities = (value: string): string =>
   value.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (match, body) => {
     const entity = String(body)
     if (entity[0] === '#') {
@@ -104,6 +104,25 @@ const decodeEntities = (value: string): string =>
 // Decodes entities, then collapses whitespace and caps the length.
 const clean = (value: string | undefined, max: number): string | undefined =>
   value ? capText(decodeEntities(value), max) : undefined
+
+// Longest HTML fragment (an oEmbed `html`, an API's text field) turned
+// into plain text; anything longer is cut first.
+const MAX_FRAGMENT_LENGTH = 20_000
+
+// Plain text of a small HTML fragment from an API: tags dropped (a <br> or
+// <p> becomes a space), entities decoded, whitespace collapsed, capped at
+// `max`. Undefined when nothing is left. Never returns markup.
+export const textOfHtml = (
+  fragment: string,
+  max: number,
+): string | undefined => {
+  const text = decodeEntities(
+    fragment.slice(0, MAX_FRAGMENT_LENGTH).replace(/<[^<>]*>?/g, ' '),
+  )
+
+  // An encoded bracket (&lt;) decodes to a real one: drop those too.
+  return capText(text.replace(/[<>]/g, ' '), max)
+}
 
 // Attributes of one tag, keys lowercased. Handles any attribute order and
 // double, single or unquoted values.

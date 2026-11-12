@@ -354,7 +354,10 @@ export const importMany = mutation({
 })
 
 // Fills in what enrichment found. Only empty fields are filled, except the
-// title, which the caller decides on.
+// title, which the caller decides on, and the description when
+// `replaceDescription` (Reddit's generic one is replaced, or cleared when
+// nothing better was read). `changed`: whether the title or description,
+// what a summary reads, changed.
 export const applyMetadataInternal = internalMutation({
   args: {
     linkId: v.id('links'),
@@ -362,21 +365,30 @@ export const applyMetadataInternal = internalMutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     image: v.optional(v.string()),
+    replaceDescription: v.optional(v.boolean()),
   },
-  handler: async (ctx, args): Promise<void> => {
+  handler: async (ctx, args): Promise<{ changed: boolean }> => {
     const link = await ctx.db.get(args.linkId)
     if (!link) {
-      return
+      return { changed: false }
     }
 
-    await ctx.db.patch(link._id, {
+    const description = args.replaceDescription
+      ? args.description
+      : (link.description ?? args.description)
+    const patch = {
       ...(args.domain ? { domain: args.domain } : {}),
       ...(args.title ? { title: args.title } : {}),
-      ...(!link.description && args.description
-        ? { description: args.description }
-        : {}),
+      ...(description !== link.description ? { description } : {}),
       ...(!link.image && args.image ? { image: args.image } : {}),
-    })
+    }
+    await ctx.db.patch(link._id, patch)
+
+    return {
+      changed:
+        (patch.title !== undefined && patch.title !== link.title) ||
+        'description' in patch,
+    }
   },
 })
 
