@@ -78,9 +78,9 @@ export const findSharedUrl = ({
 }: SharedPayload): string | null =>
   findUrl(url) ?? findUrl(text) ?? findUrl(title)
 
-// What a link is saved with when its preview is missing: the readable
-// fallback title (a Maps place name, a slug, else host and path), the same
-// one the server falls back to.
+// What a link is saved with when its preview is missing: the fallback
+// title (the title its site puts in the URL, e.g. a Maps place name, else
+// host and path), the same one the server falls back to.
 export const fallbackLink = (href: string) => {
   const parsed = parseHttpUrl(href)
   if (!parsed) return null

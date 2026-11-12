@@ -286,7 +286,7 @@ const runSummary = async (
   const result = parsed ? await readLink(parsed) : null
   const read = result && 'link' in result ? result.link : undefined
   // A stand-in title takes the page's own, else Reddit's with its prefix
-  // dropped, else at least the readable fallback in place of a raw URL
+  // dropped, else at least the fallback title in place of a raw URL
   // (Pocket often saved the URL as the title).
   const fallback = parsed ? fallbackTitle(parsed) : undefined
   const title = isReplaceableTitle(link.title, link.url)

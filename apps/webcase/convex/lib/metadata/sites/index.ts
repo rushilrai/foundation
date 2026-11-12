@@ -1,6 +1,8 @@
 // Site resolvers: sites the generic page fetch reads badly, each with its
 // own endpoint or fix-ups. Pure; read.ts runs them. To add one, write
-// sites/<site>.ts exporting a `Site` and list it here.
+// sites/<site>.ts exporting a `Site` and list it here. A title taken from
+// the URL when nothing else gave one is a separate opt-in, URL_TITLE_SITES
+// in shared/url.ts, because the browser needs it too.
 
 import { googleMaps } from './googleMaps'
 import { hackerNews } from './hackerNews'
