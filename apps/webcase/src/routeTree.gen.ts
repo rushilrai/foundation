@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LibraryRouteImport } from './routes/_library'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as KitRouteImport } from './routes/kit'
+import { Route as OpenRouteImport } from './routes/open'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as LibraryIndexRouteImport } from './routes/_library/index'
@@ -30,6 +31,11 @@ const ImportRoute = ImportRouteImport.update({
 const KitRoute = KitRouteImport.update({
   id: '/kit',
   path: '/kit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OpenRoute = OpenRouteImport.update({
+  id: '/open',
+  path: '/open',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -62,6 +68,7 @@ export interface FileRoutesByFullPath {
   '/': typeof LibraryIndexRoute
   '/import': typeof ImportRoute
   '/kit': typeof KitRoute
+  '/open': typeof OpenRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/save': typeof LibrarySaveRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/import': typeof ImportRoute
   '/kit': typeof KitRoute
+  '/open': typeof OpenRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/save': typeof LibrarySaveRoute
@@ -81,6 +89,7 @@ export interface FileRoutesById {
   '/_library': typeof LibraryRouteWithChildren
   '/import': typeof ImportRoute
   '/kit': typeof KitRoute
+  '/open': typeof OpenRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/_library/save': typeof LibrarySaveRoute
@@ -90,15 +99,30 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/import' | '/kit' | '/sign-in' | '/sign-up' | '/save' | '/api/auth/$'
+    | '/'
+    | '/import'
+    | '/kit'
+    | '/open'
+    | '/sign-in'
+    | '/sign-up'
+    | '/save'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/import' | '/kit' | '/sign-in' | '/sign-up' | '/save' | '/' | '/api/auth/$'
+    | '/import'
+    | '/kit'
+    | '/open'
+    | '/sign-in'
+    | '/sign-up'
+    | '/save'
+    | '/'
+    | '/api/auth/$'
   id:
     | '__root__'
     | '/_library'
     | '/import'
     | '/kit'
+    | '/open'
     | '/sign-in'
     | '/sign-up'
     | '/_library/save'
@@ -110,6 +134,7 @@ export interface RootRouteChildren {
   LibraryRoute: typeof LibraryRouteWithChildren
   ImportRoute: typeof ImportRoute
   KitRoute: typeof KitRoute
+  OpenRoute: typeof OpenRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -136,6 +161,13 @@ declare module '@tanstack/react-router' {
       path: '/kit'
       fullPath: '/kit'
       preLoaderRoute: typeof KitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/open': {
+      id: '/open'
+      path: '/open'
+      fullPath: '/open'
+      preLoaderRoute: typeof OpenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -193,6 +225,7 @@ const rootRouteChildren: RootRouteChildren = {
   LibraryRoute: LibraryRouteWithChildren,
   ImportRoute: ImportRoute,
   KitRoute: KitRoute,
+  OpenRoute: OpenRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
