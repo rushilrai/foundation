@@ -39,5 +39,11 @@
       "text": "text",
       "url": "url"
     }
-  }
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+webcase",
+      "url": "/open?link=%s"
+    }
+  ]
 }

@@ -12,3 +12,9 @@ export const saveSearchSchema = z.object({
 })
 
 export type SharedPayload = z.infer<typeof saveSearchSchema>
+
+// /open's search: `link` is the whole `web+webcase:` URL the operating
+// system handed the installed app (the manifest's `protocol_handlers`).
+export const openSearchSchema = z.object({
+  link: searchText,
+})
